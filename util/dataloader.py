@@ -16,7 +16,6 @@ def get_dataloader(config):
         data_files = data_files,
         split      = "train",
         streaming  = True,
-        encoding   = "utf-8",
     )
 
     img_transform_train = pth_transforms.Compose([
