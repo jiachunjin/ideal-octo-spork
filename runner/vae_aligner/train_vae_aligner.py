@@ -123,7 +123,7 @@ def main(args):
 
                 with torch.no_grad():
                     x_siglip = siglip(x).to(dtype)
-                    vae_latent = var.encode(x).latent_dist.sample()
+                    vae_latent = vae.encode(x).latent_dist.sample()
                 
                 rec_latent = vae_aligner(x_siglip).to(dtype)
                 loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
