@@ -21,9 +21,9 @@ def get_dataloader(config, accelerator=None):
     })
     
     # 为分布式训练设置不同的seed
-    seed = None
-    if accelerator is not None and accelerator.num_processes > 1:
-        seed = 42 + accelerator.process_index
+    # seed = None
+    # if accelerator is not None and accelerator.num_processes > 1:
+    #     seed = 42 + accelerator.process_index
     
     dataset = load_dataset(
         "webdataset",
@@ -34,8 +34,8 @@ def get_dataloader(config, accelerator=None):
     )
     
     # 为streaming数据集设置seed
-    if seed is not None:
-        dataset = dataset.shuffle(seed=seed, buffer_size=10000)
+    # if seed is not None:
+    #     dataset = dataset.shuffle(seed=seed, buffer_size=10000)
 
     img_transform_train = pth_transforms.Compose([
         pth_transforms.Resize(config.img_size, max_size=None),
