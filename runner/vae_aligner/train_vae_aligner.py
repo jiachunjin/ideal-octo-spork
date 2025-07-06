@@ -74,7 +74,7 @@ def main(args):
 
     vae_aligner, dataloader, optimizer = accelerator.prepare(vae_aligner, dataloader, optimizer)
     siglip = siglip.to(accelerator.device, dtype).eval()
-    # vae = vae.to(accelerator.device, dtype).eval()
+    vae = vae.to(accelerator.device, dtype).eval()
     vae_aligner = vae_aligner.to(dtype)
 
 
@@ -121,28 +121,28 @@ def main(args):
                 x = x * 2 - 1
 
 
-                # with torch.no_grad():
-                #     x_siglip = siglip(x).to(dtype)
-                #     vae_latent = var.encode(x).latent_dist.sample()
+                with torch.no_grad():
+                    x_siglip = siglip(x).to(dtype)
+                    vae_latent = var.encode(x).latent_dist.sample()
                 
-                # rec_latent = vae_aligner(x_siglip).to(dtype)
-                # loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
+                rec_latent = vae_aligner(x_siglip).to(dtype)
+                loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
 
-                # optimizer.zero_grad()
-                # accelerator.backward(loss_mse)
-                # if accelerator.sync_gradients:
-                #     accelerator.clip_grad_norm_(params_to_learn, 1.0)
-                # optimizer.step()
+                optimizer.zero_grad()
+                accelerator.backward(loss_mse)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                optimizer.step()
 
             if accelerator.sync_gradients:
                 global_step += 1
                 progress_bar.update(1)
 
-                # logs = dict(
-                #     loss_mse  = accelerator.gather(loss_mse.detach()).mean().item(),
-                # )
-                # accelerator.log(logs, step=global_step)
-                # progress_bar.set_postfix(**logs)
+                logs = dict(
+                    loss_mse  = accelerator.gather(loss_mse.detach()).mean().item(),
+                )
+                accelerator.log(logs, step=global_step)
+                progress_bar.set_postfix(**logs)
 
             if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
                 vae_aligner.eval()
