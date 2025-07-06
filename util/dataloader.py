@@ -14,16 +14,11 @@ def get_dataloader(config):
         data_files.extend(glob.glob(os.path.join(path, "*.tar")))
     print(f"Found {len(data_files)} tar files")
 
-    features = Features({
-        "jpg": DatasetsImage(decode=False),
-    })
-
     dataset = load_dataset(
         "webdataset",
         data_files = data_files,
         split      = "train",
         streaming  = True,
-        features   = features,
     )
 
     img_transform_train = pth_transforms.Compose([
@@ -35,8 +30,8 @@ def get_dataloader(config):
 
     def decode_image(img):
         try:
-            if not isinstance(img, Image.Image):
-                img = Image.open(BytesIO(img["bytes"]))  # 用字节流打开
+            # img 是 dict，img["bytes"] 是图片二进制
+            img = Image.open(BytesIO(img["bytes"]))
             img.info.pop("exif", None)
             img = img.convert("RGB")
         except (UnicodeDecodeError, UnidentifiedImageError, OSError) as e:

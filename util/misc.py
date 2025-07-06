@@ -6,7 +6,7 @@ def process_path_for_different_machine(config):
         if config.data.name == "imagenet_wds":
             config.data.train_path = "/data1/LargeData/timm/imagenet-1k-wds"
         elif config.data.name == "hybrid":
-            config.data.train_path = ["/data1/LargeData/BLIP3o/BLIP3o-Pretrain-Long-Caption"]
+            config.data.train_path = ["/data1/LargeData/timm/imagenet-1k-wds"]
 
     elif config.machine == "ks":
         config.train.root = "/data/phd/jinjiachun/experiment"
