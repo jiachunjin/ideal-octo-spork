@@ -8,7 +8,7 @@ from torchvision import transforms as pth_transforms
 from PIL import Image, UnidentifiedImageError
 
 
-def get_dataloader(config, accelerator=None):
+def get_dataloader(config):
     data_files = []
     for path in config.train_path:
         data_files.extend(glob.glob(os.path.join(path, "*.tar")))
