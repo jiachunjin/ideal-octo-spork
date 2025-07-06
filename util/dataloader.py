@@ -14,17 +14,11 @@ def get_dataloader(config):
         data_files.extend(glob.glob(os.path.join(path, "*.tar")))
     print(f"Found {len(data_files)} tar files")
 
-    from datasets import Features, Value
+    import webdataset as wds
     
-    dataset = load_dataset(
-        "webdataset",
-        data_files = data_files,
-        split      = "train",
-        streaming  = True,
-        features   = Features({
-            "jpg": Value("binary"),  # 指定为二进制类型，避免自动解码
-        }),
-    )
+    # 直接使用 webdataset，获取原始二进制数据
+    dataset = wds.WebDataset(data_files)
+    # 不进行任何解码，保持原始二进制格式
 
     img_transform_train = pth_transforms.Compose([
         pth_transforms.Resize(config.img_size, max_size=None),
