@@ -2,7 +2,7 @@ import os
 import io
 import glob
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, Features, Value
 from torch.utils.data import DataLoader
 from torchvision import transforms as pth_transforms
 from PIL import Image, UnidentifiedImageError
@@ -13,12 +13,20 @@ def get_dataloader(config):
     for path in config.train_path:
         data_files.extend(glob.glob(os.path.join(path, "*.tar")))
     print(f"Found {len(data_files)} tar files")
-
-    import webdataset as wds
     
-    # 直接使用 webdataset，获取原始二进制数据
-    dataset = wds.WebDataset(data_files)
-    # 不进行任何解码，保持原始二进制格式
+    # 定义数据集特性，将图片字段设置为二进制类型，防止自动解码
+    features = Features({
+        "jpg": Value("binary"),  # 图片作为二进制数据，不自动解码
+        "txt": Value("string"),  # 文本字段
+    })
+    
+    dataset = load_dataset(
+        "webdataset",
+        data_files = data_files,
+        split      = "train",
+        streaming  = True,
+        features   = features,  # 使用自定义特性
+    )
 
     img_transform_train = pth_transforms.Compose([
         pth_transforms.Resize(config.img_size, max_size=None),
