@@ -1,4 +1,4 @@
-machine: "g3" # [g3, ks]
+machine: "ks" # [g3, ks]
 
 vae_aligner:
   hidden_size: 1024

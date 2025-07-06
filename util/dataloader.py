@@ -16,6 +16,7 @@ def get_dataloader(config):
         data_files = data_files,
         split      = "train",
         streaming  = True,
+        encoding   = "utf-8",
     )
 
     img_transform_train = pth_transforms.Compose([
@@ -40,6 +41,10 @@ def get_dataloader(config):
             try:
                 pixel_value = decode_image(item["jpg"])
                 pixel_values.append(pixel_value)
+            except UnicodeDecodeError as e:
+                print(f"UnicodeDecodeError in collate_fn(): {e}")
+                print(f"Problematic item keys: {list(item.keys()) if hasattr(item, 'keys') else 'No keys'}")
+                continue
             except Exception as e:
                 if isinstance(e, ValueError) and "Image too small" in str(e):
                     pass
