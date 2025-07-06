@@ -98,11 +98,4 @@ def get_dataloader(config, accelerator=None):
         collate_fn  = collate_fn,
     )
 
-    # 在每个进程上打印前几个batch的数据统计
-    for i, batch in enumerate(dataloader):
-        if i < 3:  # 只检查前3个batch
-            accelerator.print(f"Process {accelerator.process_index}, Batch {i}: mean={batch['pixel_values'].mean():.4f}")
-        else:
-            break
-
     return dataloader

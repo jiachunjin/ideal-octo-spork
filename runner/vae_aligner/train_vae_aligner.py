@@ -107,10 +107,6 @@ def main(args):
 
     accelerator.print(f"vae_aligner dtype: {next(vae_aligner.parameters()).dtype}")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
-    
-    # 打印分布式训练信息
-    accelerator.print(f"Process {accelerator.process_index}/{accelerator.num_processes}")
-    accelerator.print(f"Device: {accelerator.device}")
 
     while not training_done:
         for batch in dataloader:
@@ -123,6 +119,9 @@ def main(args):
                 x = batch["pixel_values"]
                 x = x.to(device=accelerator.device, dtype=dtype)
                 x = x * 2 - 1
+
+                print(accelerator.process_index, x.mean())
+                break
 
                 # with torch.no_grad():
                 #     x_siglip = siglip(x).to(dtype)
