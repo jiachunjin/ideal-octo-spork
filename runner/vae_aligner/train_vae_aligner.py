@@ -40,10 +40,10 @@ def main(args):
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
     siglip = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True).vision_model
-    # vae = AutoencoderKL.from_pretrained(config.vae_path)
+    vae = AutoencoderKL.from_pretrained(config.vae_path)
 
     siglip.requires_grad_(False)
-    # vae.requires_grad_(False)
+    vae.requires_grad_(False)
 
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
