@@ -24,7 +24,6 @@ train:
   report_to: "wandb"
 
   lr: 1e-4
-  lr_disc: 2e-5
   num_iter: 500000
   save_every: 10000
 
