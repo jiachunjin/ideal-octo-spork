@@ -19,7 +19,7 @@ def get_dataloader(config):
         data_files = data_files,
         split      = "train",
         streaming  = True,
-        features   = None,  # 不自动解码，保持原始二进制
+        decode     = False,  # 不自动解码，保持原始二进制
     )
 
     img_transform_train = pth_transforms.Compose([
@@ -49,8 +49,19 @@ def get_dataloader(config):
         
         for item in batch:
             try:
-                # 获取原始二进制数据
-                img_bytes = item["jpg"]
+                # 获取图片数据，可能是 PIL Image 或二进制
+                img_data = item["jpg"]
+                
+                # 如果是 PIL Image，转换为二进制
+                if hasattr(img_data, 'save'):
+                    # 这是一个 PIL Image 对象
+                    img_buffer = io.BytesIO()
+                    img_data.save(img_buffer, format='JPEG')
+                    img_bytes = img_buffer.getvalue()
+                else:
+                    # 这已经是二进制数据
+                    img_bytes = img_data
+                
                 pixel_value = decode_image(img_bytes)
                 pixel_values.append(pixel_value)
             except Exception as e:
