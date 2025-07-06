@@ -120,8 +120,6 @@ def main(args):
                 x = x.to(device=accelerator.device, dtype=dtype)
                 x = x * 2 - 1
 
-                print(accelerator.process_index, x.mean())
-                break
 
                 # with torch.no_grad():
                 #     x_siglip = siglip(x).to(dtype)

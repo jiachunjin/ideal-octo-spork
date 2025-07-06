@@ -23,7 +23,6 @@ def get_dataloader(config, accelerator=None):
     # 为分布式训练设置不同的seed
     seed = None
     if accelerator is not None and accelerator.num_processes > 1:
-        # 使用进程rank作为seed的一部分，确保每个进程看到不同的数据
         seed = 42 + accelerator.process_index
     
     dataset = load_dataset(
@@ -31,7 +30,7 @@ def get_dataloader(config, accelerator=None):
         data_files = data_files,
         split      = "train",
         streaming  = True,
-        features   = features,  # 使用自定义特性
+        features   = features,
     )
     
     # 为streaming数据集设置seed
