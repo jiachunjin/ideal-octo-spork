@@ -1,10 +1,11 @@
 import os
 import glob
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, Features, Value, Image
 from torch.utils.data import DataLoader
 from torchvision import transforms as pth_transforms
 from PIL import Image, UnidentifiedImageError
+from io import BytesIO
 
 def get_dataloader(config):
     data_files = []
@@ -12,11 +13,16 @@ def get_dataloader(config):
         data_files.extend(glob.glob(os.path.join(path, "*.tar")))
     print(f"Found {len(data_files)} tar files")
 
+    features = Features({
+        "jpg": Image(decode=False),
+    })
+
     dataset = load_dataset(
         "webdataset",
         data_files = data_files,
         split      = "train",
         streaming  = True,
+        features   = features,
     )
 
     img_transform_train = pth_transforms.Compose([
@@ -28,10 +34,8 @@ def get_dataloader(config):
 
     def decode_image(img):
         try:
-            # 如果 img 不是 Image 对象，先用 Image.open 打开
             if not isinstance(img, Image.Image):
-                img = Image.open(img)
-            # 尝试去除 exif 信息
+                img = Image.open(BytesIO(img["bytes"]))  # 用字节流打开
             img.info.pop("exif", None)
             img = img.convert("RGB")
         except (UnicodeDecodeError, UnidentifiedImageError, OSError) as e:
@@ -64,7 +68,7 @@ def get_dataloader(config):
 
         if len(pixel_values) == 0:
             print(f"No valid image in this batch, return an empty batch.")
-            return {"pixel_values": torch.empty(0, 3, config.img_size, config.img_size), "texts": texts}
+            return {"pixel_values": torch.empty(0, 3, config.img_size, config.img_size), "texts": []}
 
         pixel_values = torch.stack(pixel_values)
         
