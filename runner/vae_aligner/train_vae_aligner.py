@@ -70,7 +70,7 @@ def main(args):
     else:
         dtype = torch.float32
     
-    dataloader = get_dataloader(config.data)
+    dataloader = get_dataloader(config.data, accelerator)
 
     vae_aligner, dataloader, optimizer = accelerator.prepare(vae_aligner, dataloader, optimizer)
     siglip = siglip.to(accelerator.device, dtype).eval()
@@ -107,6 +107,10 @@ def main(args):
 
     accelerator.print(f"vae_aligner dtype: {next(vae_aligner.parameters()).dtype}")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
+    
+    # 打印分布式训练信息
+    accelerator.print(f"Process {accelerator.process_index}/{accelerator.num_processes}")
+    accelerator.print(f"Device: {accelerator.device}")
 
     while not training_done:
         for batch in dataloader:
