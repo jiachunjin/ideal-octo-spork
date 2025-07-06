@@ -70,7 +70,7 @@ def main(args):
     else:
         dtype = torch.float32
     
-    dataloader = get_dataloader(config.data)
+    dataloader = get_dataloader(config.data, accelerator)
 
     vae_aligner, dataloader, optimizer = accelerator.prepare(vae_aligner, dataloader, optimizer)
     siglip = siglip.to(accelerator.device, dtype).eval()
