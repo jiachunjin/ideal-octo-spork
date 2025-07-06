@@ -1,12 +1,10 @@
 import os
 import glob
 import torch
-from datasets import load_dataset, Features, Value
-from datasets.features import Image as DatasetsImage
+from datasets import load_dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms as pth_transforms
 from PIL import Image, UnidentifiedImageError
-from io import BytesIO
 
 def get_dataloader(config):
     data_files = []
@@ -30,9 +28,6 @@ def get_dataloader(config):
 
     def decode_image(img):
         try:
-            # img 是 dict，img["bytes"] 是图片二进制
-            img = Image.open(BytesIO(img["bytes"]))
-            img.info.pop("exif", None)
             img = img.convert("RGB")
         except (UnicodeDecodeError, UnidentifiedImageError, OSError) as e:
             print(f"Image decode error: {e}")
