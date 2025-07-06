@@ -26,10 +26,15 @@ def get_dataloader(config):
     ])
 
     def decode_image(img):
+        try:
+            img = img.convert("RGB")
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError in decode_image: {e}")
+            raise ValueError("Corrupted EXIF or non-UTF8 image, skip")
         width, height = img.size
         if min(width, height) < config.img_size:
             raise ValueError(f"Image too small: {width}x{height}, skip")
-        pixel_value = img_transform_train(img.convert("RGB"))
+        pixel_value = img_transform_train(img)
         return pixel_value
 
     def collate_fn(batch):

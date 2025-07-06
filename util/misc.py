@@ -17,9 +17,9 @@ def process_path_for_different_machine(config):
         elif config.data.name == "hybrid":
             config.data.train_path = [
                                       "/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds",
-                                      "/data/phd/jinjiachun/dataset/timm/imagenet-22k-wds",
-                                      "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption",
-                                      "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption",
+                                    #   "/data/phd/jinjiachun/dataset/timm/imagenet-22k-wds",
+                                    #   "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption",
+                                    #   "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption",
                                       ]
     else:
         raise ValueError(f"Invalid machine: {config.machine}")
