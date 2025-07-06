@@ -1,10 +1,12 @@
 import os
+import io
 import glob
 import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms as pth_transforms
 from PIL import Image, UnidentifiedImageError
+
 
 def get_dataloader(config):
     data_files = []
@@ -17,6 +19,7 @@ def get_dataloader(config):
         data_files = data_files,
         split      = "train",
         streaming  = True,
+        features   = None,  # 不自动解码，保持原始二进制
     )
 
     img_transform_train = pth_transforms.Compose([
@@ -26,12 +29,14 @@ def get_dataloader(config):
         pth_transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x),
     ])
 
-    def decode_image(img):
+    def decode_image(img_bytes):
         try:
+            # 从二进制数据创建 PIL Image
+            img = Image.open(io.BytesIO(img_bytes))
             img = img.convert("RGB")
-        except (UnicodeDecodeError, UnidentifiedImageError, OSError) as e:
+        except (UnidentifiedImageError, OSError, ValueError, SyntaxError) as e:
             print(f"Image decode error: {e}")
-            raise ValueError("Corrupted or non-UTF8 image, skip")
+            raise ValueError("Corrupted or unsupported image, skip")
         width, height = img.size
         if min(width, height) < config.img_size:
             raise ValueError(f"Image too small: {width}x{height}, skip")
@@ -44,17 +49,16 @@ def get_dataloader(config):
         
         for item in batch:
             try:
-                pixel_value = decode_image(item["jpg"])
+                # 获取原始二进制数据
+                img_bytes = item["jpg"]
+                pixel_value = decode_image(img_bytes)
                 pixel_values.append(pixel_value)
-            except UnicodeDecodeError as e:
-                print(f"UnicodeDecodeError in collate_fn(): {e}")
-                print(f"Problematic item keys: {list(item.keys()) if hasattr(item, 'keys') else 'No keys'}")
-                continue
             except Exception as e:
-                if isinstance(e, ValueError) and "Image too small" in str(e):
+                if isinstance(e, ValueError) and ("Image too small" in str(e) or "Corrupted or unsupported image" in str(e)):
+                    # 静默跳过已知的图片问题
                     pass
                 else:
-                    print(f"Error in collate_fn(): {e}")
+                    print(f"Unexpected error in collate_fn(): {e}")
                 continue
 
         if len(pixel_values) == 0:
