@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 import torch
 from omegaconf import OmegaConf
 from model.vae_aligner import get_vae_aligner
