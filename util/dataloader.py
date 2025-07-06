@@ -1,7 +1,8 @@
 import os
 import glob
 import torch
-from datasets import load_dataset, Features, Value, Image
+from datasets import load_dataset, Features, Value
+from datasets.features import Image as DatasetsImage
 from torch.utils.data import DataLoader
 from torchvision import transforms as pth_transforms
 from PIL import Image, UnidentifiedImageError
@@ -14,7 +15,7 @@ def get_dataloader(config):
     print(f"Found {len(data_files)} tar files")
 
     features = Features({
-        "jpg": Image(decode=False),
+        "jpg": DatasetsImage(decode=False),
     })
 
     dataset = load_dataset(
