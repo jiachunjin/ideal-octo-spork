@@ -4,6 +4,7 @@ import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms as pth_transforms
+from PIL import Image, UnidentifiedImageError
 
 def get_dataloader(config):
     data_files = []
@@ -27,10 +28,15 @@ def get_dataloader(config):
 
     def decode_image(img):
         try:
+            # 如果 img 不是 Image 对象，先用 Image.open 打开
+            if not isinstance(img, Image.Image):
+                img = Image.open(img)
+            # 尝试去除 exif 信息
+            img.info.pop("exif", None)
             img = img.convert("RGB")
-        except UnicodeDecodeError as e:
-            print(f"UnicodeDecodeError in decode_image: {e}")
-            raise ValueError("Corrupted EXIF or non-UTF8 image, skip")
+        except (UnicodeDecodeError, UnidentifiedImageError, OSError) as e:
+            print(f"Image decode error: {e}")
+            raise ValueError("Corrupted or non-UTF8 image, skip")
         width, height = img.size
         if min(width, height) < config.img_size:
             raise ValueError(f"Image too small: {width}x{height}, skip")
