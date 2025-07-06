@@ -1,0 +1,36 @@
+machine: "g3" # [g3, ks]
+
+vae_aligner:
+  hidden_size: 1024
+  depth: 16
+  num_heads: 16
+  grid_size: 24
+
+  siglip_feature_dim: 1024
+  siglip_feature_dim_down: 16
+
+train:
+  root:
+  resume_path:
+  skipped_keys:
+  global_step:
+
+  exp_name: &exp_name "vae_aligner"
+  wandb_proj: *exp_name
+  output_dir: "0706_vae_aligner_hybrid_50M"
+  logging_dir: "logs"
+  mixed_precision: "bf16"
+  gradient_accumulation_steps: 1
+  report_to: "wandb"
+
+  lr: 1e-4
+  lr_disc: 2e-5
+  num_iter: 500000
+  save_every: 10000
+
+data:
+  name: "hybrid"
+  train_path:
+  batch_size: 128
+  num_workers: 8
+  img_size: 384

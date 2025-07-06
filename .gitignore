@@ -1,0 +1,6 @@
+__pycache__/
+wandb/
+asset/
+*.ckpt
+*.ipynb
+*.jpg
