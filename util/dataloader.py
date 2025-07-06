@@ -14,12 +14,16 @@ def get_dataloader(config):
         data_files.extend(glob.glob(os.path.join(path, "*.tar")))
     print(f"Found {len(data_files)} tar files")
 
+    from datasets import Features, Value
+    
     dataset = load_dataset(
         "webdataset",
         data_files = data_files,
         split      = "train",
         streaming  = True,
-        decode     = False,  # 不自动解码，保持原始二进制
+        features   = Features({
+            "jpg": Value("binary"),  # 指定为二进制类型，避免自动解码
+        }),
     )
 
     img_transform_train = pth_transforms.Compose([
@@ -49,19 +53,8 @@ def get_dataloader(config):
         
         for item in batch:
             try:
-                # 获取图片数据，可能是 PIL Image 或二进制
-                img_data = item["jpg"]
-                
-                # 如果是 PIL Image，转换为二进制
-                if hasattr(img_data, 'save'):
-                    # 这是一个 PIL Image 对象
-                    img_buffer = io.BytesIO()
-                    img_data.save(img_buffer, format='JPEG')
-                    img_bytes = img_buffer.getvalue()
-                else:
-                    # 这已经是二进制数据
-                    img_bytes = img_data
-                
+                # 获取原始二进制数据
+                img_bytes = item["jpg"]
                 pixel_value = decode_image(img_bytes)
                 pixel_values.append(pixel_value)
             except Exception as e:
