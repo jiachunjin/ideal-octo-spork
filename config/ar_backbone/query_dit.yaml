@@ -48,5 +48,5 @@ data:
   batch_size: 32
   num_workers: 8
   img_size: 384
-  streaming: false
-  max_text_length: 192
+  streaming: true
+  max_text_length: 256
