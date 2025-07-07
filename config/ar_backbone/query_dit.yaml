@@ -29,17 +29,17 @@ train:
 
   exp_name: &exp_name "query"
   wandb_proj: *exp_name
-  output_dir: "0707_query"
+  output_dir: "0707_query_dit"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "no"
+  report_to: "wandb"
 
   cfg_drop_rate: 0.1
 
   lr: 1e-4
   num_iter: 500000
-  save_every: 5000
+  save_every: 10000
 
 
 data:
