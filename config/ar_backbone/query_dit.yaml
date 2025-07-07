@@ -27,7 +27,7 @@ train:
   skipped_keys:
   global_step:
 
-  exp_name: &exp_name "query"
+  exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
   output_dir: "0707_query_dit"
   logging_dir: "logs"
