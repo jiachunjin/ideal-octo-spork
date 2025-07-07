@@ -8,7 +8,7 @@ from torchvision import transforms as pth_transforms
 from PIL import Image, UnidentifiedImageError
 
 
-def get_dataloader(config, accelerator=None):
+def get_dataloader(config, accelerator=None, tokenizer=None):
     data_files = []
     for path in config.train_path:
         data_files.extend(glob.glob(os.path.join(path, "*.tar")))
@@ -20,7 +20,6 @@ def get_dataloader(config, accelerator=None):
         "txt": Value("string"),  # 文本字段
     })
     
-    # 为分布式训练设置不同的seed
     seed = None
     if accelerator is not None and accelerator.num_processes > 1:
         seed = 42 + accelerator.process_index
@@ -29,11 +28,10 @@ def get_dataloader(config, accelerator=None):
         "webdataset",
         data_files = data_files,
         split      = "train",
-        streaming  = True,
+        streaming  = config.streaming,
         features   = features,
     )
     
-    # 为streaming数据集设置seed
     if seed is not None:
         dataset = dataset.shuffle(seed=seed, buffer_size=10000)
 
@@ -46,7 +44,6 @@ def get_dataloader(config, accelerator=None):
 
     def decode_image(img_bytes):
         try:
-            # 从二进制数据创建 PIL Image
             img = Image.open(io.BytesIO(img_bytes))
             img = img.convert("RGB")
         except (UnidentifiedImageError, OSError, ValueError, SyntaxError) as e:
@@ -60,17 +57,14 @@ def get_dataloader(config, accelerator=None):
 
     def collate_fn(batch):
         pixel_values = []
-        texts = []
         
         for item in batch:
             try:
-                # 获取原始二进制数据
                 img_bytes = item["jpg"]
                 pixel_value = decode_image(img_bytes)
                 pixel_values.append(pixel_value)
             except Exception as e:
                 if isinstance(e, ValueError) and ("Image too small" in str(e) or "Corrupted or unsupported image" in str(e)):
-                    # 静默跳过已知的图片问题
                     pass
                 else:
                     print(f"Unexpected error in collate_fn(): {e}")
@@ -78,23 +72,60 @@ def get_dataloader(config, accelerator=None):
 
         if len(pixel_values) == 0:
             print(f"No valid image in this batch, return an empty batch.")
-            return {"pixel_values": torch.empty(0, 3, config.img_size, config.img_size), "texts": []}
+            return {"pixel_values": torch.empty(0, 3, config.img_size, config.img_size)}
 
         pixel_values = torch.stack(pixel_values)
         
         return {
             "pixel_values": pixel_values,
-            "texts": texts,
         }
 
+    def collate_fn_t2i(batch):
+        assert tokenizer is not None
+        pixel_values = []
+        texts = []
+
+        for item in batch:
+            try:
+                img_bytes = item["jpg"]
+                pixel_value = decode_image(img_bytes)
+                pixel_values.append(pixel_value)
+                texts.append(item["txt"])
+            except Exception as e:
+                if isinstance(e, ValueError) and ("Image too small" in str(e) or "Corrupted or unsupported image" in str(e)):
+                    pass
+                else:
+                    print(f"Unexpected error in collate_fn(): {e}")
+                continue
+
+        if len(pixel_values) == 0:
+            print(f"No valid image in this batch, return an empty batch.")
+            return {"pixel_values": torch.empty(0, 3, config.img_size, config.img_size)}
+
+        pixel_values = torch.stack(pixel_values)
+        processed_text = tokenizer(
+            texts, 
+            return_tensors = "pt",
+            padding        = "max_length",
+            truncation     = True,
+            max_length     = config.max_text_length,
+        )
+        input_ids = processed_text.input_ids
+        attention_mask = processed_text.attention_mask
+
+        return {
+            "pixel_values": pixel_values,
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+        }
     dataloader = DataLoader(
         dataset,
         batch_size  = config.batch_size,
-        shuffle     = False,  # 对于streaming数据集，shuffle在dataset层面处理
+        shuffle     = False if config.streaming else True,
         num_workers = config.num_workers,
         pin_memory  = True,
         drop_last   = True,
-        collate_fn  = collate_fn,
+        collate_fn  = collate_fn if config.name != "t2i" else collate_fn_t2i,
     )
 
     return dataloader
