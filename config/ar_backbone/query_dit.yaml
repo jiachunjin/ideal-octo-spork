@@ -1,7 +1,7 @@
 machine: "ks" # [g3, ks]
 
 vae_aligner:
-  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0706_vae_aligner_hybrid_50M/vae_aligner-vae_aligner-190k"
+  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0706_vae_aligner_hybrid_50M/vae_aligner-vae_aligner-200k"
   hidden_size: 1024
   depth: 16
   num_heads: 16
