@@ -49,4 +49,4 @@ data:
   num_workers: 8
   img_size: 384
   streaming: true
-  max_text_length: 256
+  max_text_length: 192
