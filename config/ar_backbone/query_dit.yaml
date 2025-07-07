@@ -39,7 +39,7 @@ train:
 
   lr: 1e-4
   num_iter: 500000
-  save_every: 10
+  save_every: 5000
 
 
 data:
