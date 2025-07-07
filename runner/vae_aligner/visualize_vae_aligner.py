@@ -19,8 +19,8 @@ config.janus_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-1B"
 vae_aligner = get_vae_aligner(config.vae_aligner)
 siglip = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True).vision_model
 
-ckpt_path = "/data/phd/jinjiachun/experiment/vae_aligner/0703_vae_aligner_15M/vae_aligner-vae_aligner-150k"
-print(ckpt_path)
+ckpt_path = "/data/phd/jinjiachun/experiment/vae_aligner/0706_vae_aligner_hybrid_50M/vae_aligner-vae_aligner-180k"
+print("current ckpt: ", ckpt_path)
 
 vae = AutoencoderKL.from_pretrained("/data/phd/jinjiachun/ckpt/black-forest-labs/FLUX.1-dev/vae")
 ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
@@ -41,6 +41,7 @@ with torch.no_grad():
     rec_latent = vae_aligner(x_siglip)
     reconstructed = vae.decode(rec_latent).sample
     residual = vae.decode(z - rec_latent).sample
+    rec = vae.decode(z).sample
 
 print(f"MSE loss: {torch.nn.functional.mse_loss(z, rec_latent)}")
 
@@ -50,13 +51,16 @@ reconstructed = (reconstructed + 1) / 2
 reconstructed = torch.clamp(reconstructed, 0, 1)
 residual = (residual + 1) / 2
 residual = torch.clamp(residual, 0, 1)
+rec = (rec + 1) / 2
+rec = torch.clamp(rec, 0, 1)
 
 # 转换为PIL图像并显示
 reconstructed_img = pth_transforms.ToPILImage()(reconstructed.squeeze(0))
 original_img = pth_transforms.ToPILImage()(original.squeeze(0))
 residual_img = pth_transforms.ToPILImage()(residual.squeeze(0))
+rec_img = pth_transforms.ToPILImage()(rec.squeeze(0))
 # 创建一个包含两个子图的图像
-fig, axes = plt.subplots(1, 3, figsize=(12, 6))
+fig, axes = plt.subplots(1, 4, figsize=(24, 6))
 
 # 显示原始图像
 axes[0].imshow(original_img)
@@ -72,6 +76,10 @@ axes[1].axis('off')
 axes[2].imshow(residual_img)
 axes[2].set_title('residual', fontsize=14)
 axes[2].axis('off')
+
+axes[3].imshow(rec_img)
+axes[3].set_title('rec', fontsize=14)
+axes[3].axis('off')
 
 plt.tight_layout()
 plt.show()

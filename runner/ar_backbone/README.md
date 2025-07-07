@@ -1,0 +1,1 @@
+train_query: 固定主干，训练query，用query的对应hidden state作为DiT的condition来得到16维的siglip feature
