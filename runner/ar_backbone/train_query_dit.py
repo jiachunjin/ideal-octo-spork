@@ -48,6 +48,16 @@ def main(args):
     janus = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True)
     janus, train_scheduler = equip_dit_query_with_janus(janus, config)
 
+    if config.train.dit_resume_path is not None:
+        diff_ckpt = torch.load(config.train.dit_resume_path, map_location="cpu")
+        janus.dit.load_state_dict(diff_ckpt, strict=True)
+        accelerator.print(f"DiT model loaded from {config.train.dit_resume_path}")
+    
+    if config.train.query_resume_path is not None:
+        query_ckpt = torch.load(config.train.query_resume_path, map_location="cpu")
+        janus.query.data.copy_(query_ckpt["query"])
+        accelerator.print(f"Query model loaded from {config.train.query_resume_path}")
+
     siglip = janus.vision_model
 
     vae_aligner_projector.requires_grad_(False)

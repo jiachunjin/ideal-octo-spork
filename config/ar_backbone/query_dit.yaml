@@ -23,7 +23,8 @@ query:
 
 train:
   root:
-  resume_path:
+  dit_resume_path:
+  query_resume_path:
   skipped_keys:
   global_step:
 
@@ -45,7 +46,7 @@ train:
 data:
   name: "t2i"
   train_path:
-  batch_size: 32
+  batch_size: 30
   num_workers: 8
   img_size: 384
   streaming: true
