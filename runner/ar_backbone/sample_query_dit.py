@@ -30,7 +30,7 @@ def diff_generate(z, dit, sample_scheduler):
 
 @torch.no_grad()
 def main():
-    exp_dir = "/data1/jjc/experiment/query/0707_query"
+    exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -43,10 +43,10 @@ def main():
 
     janus = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True)
     janus, _ = equip_dit_query_with_janus(janus, config)
-    query_dit_ckpt = torch.load(os.path.join(exp_dir, "query_dit-query-10"), map_location="cpu")
+    query_dit_ckpt = torch.load(os.path.join(exp_dir, "query_dit-query_dit-30000"), map_location="cpu", weights_only=True)
     janus.query_dit.load_state_dict(query_dit_ckpt, strict=True)
 
-    query_ckpt = torch.load(os.path.join(exp_dir, "query-query-10"), map_location="cpu")
+    query_ckpt = torch.load(os.path.join(exp_dir, "query-query_dit-30000"), map_location="cpu", weights_only=True)
     janus.query.data.copy_(query_ckpt["query"]);
 
     sample_scheduler = DDIMScheduler(
