@@ -43,6 +43,19 @@ class ViTVAEAligner(nn.Module):
         x = x.permute(0, 2, 1).reshape(-1, self.hidden_size, self.grid_size, self.grid_size).contiguous()
         x = self.output_proj(x)
         return x
+    
+    def forward_with_low_dim(self, x_siglip_dimdown):
+        pos = self.fetch_pos(self.grid_size, self.grid_size, x_siglip_dimdown.device)
+
+        x = self.input_proj(x_siglip_dimdown)
+        x = self.norm1(x)
+        x = x.to(x_siglip_dimdown.dtype)
+        for block in self.blocks:
+            x = block(x, pos)
+        x = self.norm2(x)
+        x = x.permute(0, 2, 1).reshape(-1, self.hidden_size, self.grid_size, self.grid_size).contiguous()
+        x = self.output_proj(x)
+        return x        
 
     def fetch_pos(self, height, width, device):
         if (height, width) in self.precompute_pos:

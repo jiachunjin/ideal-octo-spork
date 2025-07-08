@@ -63,19 +63,17 @@ def main():
         rescale_betas_zero_snr = True
     )
 
-    device = torch.device("cuda:7")
+    device = torch.device("cuda:0")
     dtype = torch.float32
 
     vae_aligner_projector = vae_aligner_projector.to(device, dtype)
     vae_aligner_projector.eval()
+    vae_aligner = vae_aligner.to(device, dtype)
+    vae_aligner.eval()
     janus = janus.to(device, dtype)
     janus.eval()
     vae = vae.to(device, dtype)
     vae.eval()
-    
-
-    # print(janus.query_dit)
-    # print(janus.query)
 
     prompt = "A red dog in a desert"
     B = 1
@@ -116,8 +114,10 @@ def main():
     print(z.shape)
     gen = diff_generate(z, janus.query_dit, sample_scheduler)
     print(gen.shape)
+    rec = vae_aligner.forward_with_low_dim(gen)
+    print(rec.shape)
 
-    reconstructed = vae.decode(gen).sample
+    reconstructed = vae.decode(rec).sample
     reconstructed = (reconstructed + 1) / 2
     reconstructed = torch.clamp(reconstructed, 0, 1)
     reconstructed_img = pth_transforms.ToPILImage()(reconstructed.squeeze(0))
