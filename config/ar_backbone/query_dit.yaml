@@ -23,8 +23,8 @@ query:
 
 train:
   root:
-  dit_resume_path:
-  query_resume_path:
+  dit_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query_dit-query_dit-40000"
+  query_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query-query_dit-40000"
   skipped_keys:
   global_step:
 
