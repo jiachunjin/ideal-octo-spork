@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from diffusers import AutoencoderKL, DDIMScheduler
-
+from torchvision import transforms as pth_transforms
 
 from model.vae_aligner import get_vae_aligner
 from model.janus.models import MultiModalityCausalLM, VLChatProcessor
@@ -35,10 +35,10 @@ def main():
     config = OmegaConf.load(config_path)
 
     tokenizer = VLChatProcessor.from_pretrained(config.janus_path).tokenizer
-    # vae = AutoencoderKL.from_pretrained(config.vae_path)
+    vae = AutoencoderKL.from_pretrained(config.vae_path)
     vae_aligner = get_vae_aligner(config.vae_aligner)
-    # ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
-    # vae_aligner.load_state_dict(ckpt, strict=True)
+    ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
+    vae_aligner.load_state_dict(ckpt, strict=True)
     vae_aligner_projector = vae_aligner.siglip_feature_proj
 
     janus = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True)
@@ -70,8 +70,8 @@ def main():
     vae_aligner_projector.eval()
     janus = janus.to(device, dtype)
     janus.eval()
-    # vae = vae.to(device, dtype)
-    # vae.eval()
+    vae = vae.to(device, dtype)
+    vae.eval()
     
 
     # print(janus.query_dit)
@@ -121,6 +121,7 @@ def main():
     reconstructed = (reconstructed + 1) / 2
     reconstructed = torch.clamp(reconstructed, 0, 1)
     reconstructed_img = pth_transforms.ToPILImage()(reconstructed.squeeze(0))
+    reconstructed_img.save("query_rec.png")
 
 if __name__ == "__main__":
     main()
