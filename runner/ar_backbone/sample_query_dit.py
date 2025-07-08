@@ -3,6 +3,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
+import torchvision
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from diffusers import AutoencoderKL, DDIMScheduler
@@ -43,10 +44,10 @@ def main():
 
     janus = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True)
     janus, _ = equip_dit_query_with_janus(janus, config)
-    query_dit_ckpt = torch.load(os.path.join(exp_dir, "query_dit-query_dit-40000"), map_location="cpu", weights_only=True)
+    query_dit_ckpt = torch.load(os.path.join(exp_dir, "query_dit-query_dit-50000"), map_location="cpu", weights_only=True)
     janus.query_dit.load_state_dict(query_dit_ckpt, strict=True)
 
-    query_ckpt = torch.load(os.path.join(exp_dir, "query-query_dit-40000"), map_location="cpu", weights_only=True)
+    query_ckpt = torch.load(os.path.join(exp_dir, "query-query_dit-50000"), map_location="cpu", weights_only=True)
     janus.query.data.copy_(query_ckpt["query"]);
 
     sample_scheduler = DDIMScheduler(
@@ -75,14 +76,13 @@ def main():
     vae = vae.to(device, dtype)
     vae.eval()
 
-    prompt = "A cute dog sitting on a chair"
-    B = 1
+    prompt = "A stunning princess from kabul in red, white traditional clothing, blue eyes, brown hair"
+    B = 4
     cfg_scale = 3
 
     input_ids = tokenizer.encode(prompt)
     input_ids = torch.LongTensor(input_ids)
     input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device).unsqueeze(0)
-
 
     if cfg_scale > 1:
         input_ids = input_ids.repeat(2, 1)
@@ -111,7 +111,7 @@ def main():
     else:
         z = z
 
-    print(z.shape)
+    z = z.repeat(B, 1, 1)
     gen = diff_generate(z, janus.query_dit, sample_scheduler)
     print(gen.shape)
     rec = vae_aligner.forward_with_low_dim(gen)
@@ -120,8 +120,8 @@ def main():
     reconstructed = vae.decode(rec).sample
     reconstructed = (reconstructed + 1) / 2
     reconstructed = torch.clamp(reconstructed, 0, 1)
-    reconstructed_img = pth_transforms.ToPILImage()(reconstructed.squeeze(0))
-    reconstructed_img.save("query_rec.png")
+    grid = torchvision.utils.make_grid(reconstructed, nrow=2)
+    torchvision.utils.save_image(grid, "query_rec.png")
 
 if __name__ == "__main__":
     main()
