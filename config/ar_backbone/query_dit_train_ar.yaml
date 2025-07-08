@@ -31,7 +31,7 @@ train:
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0707_query_dit"
+  output_dir: "0708_query_dit_ar"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
