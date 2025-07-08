@@ -29,6 +29,7 @@ def process_path_for_different_machine(config):
             config.data.train_path = [
                 "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption",
                 "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption",
+                "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",
             ]
     else:
         raise ValueError(f"Invalid machine: {config.machine}")
