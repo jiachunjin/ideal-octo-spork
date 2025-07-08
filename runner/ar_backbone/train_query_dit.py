@@ -49,8 +49,8 @@ def main(args):
     janus, train_scheduler = equip_dit_query_with_janus(janus, config)
 
     if config.train.dit_resume_path is not None:
-        diff_ckpt = torch.load(config.train.dit_resume_path, map_location="cpu")
-        janus.dit.load_state_dict(diff_ckpt, strict=True)
+        dit_ckpt = torch.load(config.train.dit_resume_path, map_location="cpu")
+        janus.query_dit.load_state_dict(dit_ckpt, strict=True)
         accelerator.print(f"DiT model loaded from {config.train.dit_resume_path}")
     
     if config.train.query_resume_path is not None:
