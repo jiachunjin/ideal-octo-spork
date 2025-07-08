@@ -7,8 +7,13 @@ from .query_dit_basic import DiTBlock, TimestepEmbedder, FinalLayer, precompute_
 def equip_dit_query_with_janus(janus, config):
     query_dit = QueryDiT(config.query_dit)
     query = nn.Parameter(torch.randn(config.query.num_queries, config.query.query_dim))
-    janus.requires_grad_(False)
-    janus.eval()
+
+    if getattr(config.query_dit, "freeze_janus", True):
+        janus.requires_grad_(False)
+        janus.eval()
+    else:
+        janus.requires_grad_(True)
+        janus.train()
 
     janus.query = query
     janus.query.requires_grad_(True)
