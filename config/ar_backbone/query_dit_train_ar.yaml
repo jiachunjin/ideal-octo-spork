@@ -47,7 +47,7 @@ train:
 data:
   name: "t2i"
   train_path:
-  batch_size: 32
+  batch_size: 30
   num_workers: 8
   img_size: 384
   streaming: true
