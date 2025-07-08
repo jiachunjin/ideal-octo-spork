@@ -24,10 +24,10 @@ query:
 
 train:
   root:
-  dit_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query_dit-query_dit-60000"
-  query_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query-query_dit-60000"
+  dit_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query_dit-query_dit-70000"
+  query_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query-query_dit-70000"
   skipped_keys:
-  global_step: 60000
+  global_step: 70000
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
@@ -47,7 +47,7 @@ train:
 data:
   name: "t2i"
   train_path:
-  batch_size: 30
+  batch_size: 32
   num_workers: 8
   img_size: 384
   streaming: true
