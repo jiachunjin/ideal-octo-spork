@@ -12,7 +12,8 @@ def equip_dit_query_with_janus(janus, config):
         janus.requires_grad_(False)
         janus.eval()
     else:
-        janus.requires_grad_(True)
+        janus.requires_grad_(False)
+        janus.language_model.model.layers.requires_grad_(True)
         janus.train()
 
     janus.query = query
