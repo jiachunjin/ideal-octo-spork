@@ -44,10 +44,10 @@ def main():
 
     janus = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True)
     janus, _ = equip_dit_query_with_janus(janus, config)
-    query_dit_ckpt = torch.load(os.path.join(exp_dir, "query_dit-query_dit-50000"), map_location="cpu", weights_only=True)
+    query_dit_ckpt = torch.load(os.path.join(exp_dir, "query_dit-query_dit-200000"), map_location="cpu", weights_only=True)
     janus.query_dit.load_state_dict(query_dit_ckpt, strict=True)
 
-    query_ckpt = torch.load(os.path.join(exp_dir, "query-query_dit-50000"), map_location="cpu", weights_only=True)
+    query_ckpt = torch.load(os.path.join(exp_dir, "query-query_dit-200000"), map_location="cpu", weights_only=True)
     janus.query.data.copy_(query_ckpt["query"]);
 
     sample_scheduler = DDIMScheduler(
@@ -76,52 +76,59 @@ def main():
     vae = vae.to(device, dtype)
     vae.eval()
 
-    prompt = "A stunning princess from kabul in red, white traditional clothing, blue eyes, brown hair"
-    B = 4
-    cfg_scale = 3
+    prompts = [
+        "A stunning princess from kabul in red, white traditional clothing, blue eyes, brown hair",
+        "A soft, natural portrait photograph captures a young woman with fair skin and long, ash-blonde hair cascading gently over her shoulders. At the very bottom of the frame, in simple, elegant lettering, appears the phrase 'BE KIND'",
+        "The image depicts a modern, multi-story building with a white facade and numerous balconies. The structure is partially covered in purple scaffolding on the right side, indicating ongoing construction or renovation. The building is situated in an urban area with clear blue skies above. In front of the building, there is a paved plaza with some greenery and a few palm trees. A street lamp stands prominently on the left side of the plaza. To the right, part of another building with a beige exterior is visible. The scene suggests a sunny day in a developed cityscape.",
+        "A photo of 4 TVs in a row, with a white background",
+        "The image depicts the American Red Cross building, characterized by its neoclassical architectural style. The structure features tall, white columns supporting a pediment and a balustrade at the top. The facade is adorned with large windows, some of which have red crosses, symbolizing the organization's humanitarian mission. The building is set against a clear blue sky, with a tree partially obscuring the right side of the image. The overall appearance suggests a sense of stability and dedication to service, reflecting the Red Cross's commitment to aid and support.",
+        "A photo of a red dog",
+        "Scientist at Sunway University conducts research in a laboratory setting.",
+        "A serious Santa Claus in a rustic setting.",
+        "Muscular man in workout attire, standing confidently by a railing.",
+        "Confident man in leather jacket leaning against a wall.",
+    ]
+    for i, prompt in enumerate(prompts):
+        B = 8
+        cfg_scale = 3
 
-    input_ids = tokenizer.encode(prompt)
-    input_ids = torch.LongTensor(input_ids)
-    input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device).unsqueeze(0)
+        input_ids = tokenizer.encode(prompt)
+        input_ids = torch.LongTensor(input_ids)
+        input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device).unsqueeze(0)
 
-    if cfg_scale > 1:
-        input_ids = input_ids.repeat(2, 1)
-        input_ids[1, :-1] = 100002
-        text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
-        joint_embedding = torch.cat((text_embedding, janus.query.unsqueeze(0).repeat(2, 1, 1)), dim=1)
-    else:
-        text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
-        joint_embedding = torch.cat((text_embedding, janus.query.unsqueeze(0)), dim=1)
-    
-    print(joint_embedding.shape)
+        if cfg_scale > 1:
+            input_ids = input_ids.repeat(2, 1)
+            input_ids[1, :-1] = 100002
+            text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
+            joint_embedding = torch.cat((text_embedding, janus.query.unsqueeze(0).repeat(2, 1, 1)), dim=1)
+        else:
+            text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
+            joint_embedding = torch.cat((text_embedding, janus.query.unsqueeze(0)), dim=1)
 
-    hidden_states = janus.language_model(
-        inputs_embeds        = joint_embedding,
-        attention_mask       = None,
-        output_hidden_states = True,
-    ).hidden_states[-1]
-    z = hidden_states[:, -576:, :]
-    print(z.shape)
+        hidden_states = janus.language_model(
+            inputs_embeds        = joint_embedding,
+            attention_mask       = None,
+            output_hidden_states = True,
+        ).hidden_states[-1]
+        z = hidden_states[:, -576:, :]
 
-    if cfg_scale > 1:
-        z_cond = z[0]
-        z_uncond = z[1]
-        z = z_uncond + cfg_scale * (z_cond - z_uncond)
-        z = z.unsqueeze(0)
-    else:
-        z = z
+        if cfg_scale > 1:
+            z_cond = z[0]
+            z_uncond = z[1]
+            z = z_uncond + cfg_scale * (z_cond - z_uncond)
+            z = z.unsqueeze(0)
+        else:
+            z = z
 
-    z = z.repeat(B, 1, 1)
-    gen = diff_generate(z, janus.query_dit, sample_scheduler)
-    print(gen.shape)
-    rec = vae_aligner.forward_with_low_dim(gen)
-    print(rec.shape)
+        z = z.repeat(B, 1, 1)
+        gen = diff_generate(z, janus.query_dit, sample_scheduler)
+        rec = vae_aligner.forward_with_low_dim(gen)
 
-    reconstructed = vae.decode(rec).sample
-    reconstructed = (reconstructed + 1) / 2
-    reconstructed = torch.clamp(reconstructed, 0, 1)
-    grid = torchvision.utils.make_grid(reconstructed, nrow=2)
-    torchvision.utils.save_image(grid, "query_rec.png")
+        reconstructed = vae.decode(rec).sample
+        reconstructed = (reconstructed + 1) / 2
+        reconstructed = torch.clamp(reconstructed, 0, 1)
+        grid = torchvision.utils.make_grid(reconstructed, nrow=4)
+        torchvision.utils.save_image(grid, f"asset/{i:02d}.png")
 
 if __name__ == "__main__":
     main()
