@@ -15,11 +15,11 @@ query_dit:
   num_heads: 16
   depth: 16
   x_dim: 16
-  z_dim: 4096
+  z_dim: 2048
 
 query:
   num_queries: 576
-  query_dim: 4096
+  query_dim: 2048
 
 train:
   root:
