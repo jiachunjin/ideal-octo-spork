@@ -1,7 +1,7 @@
 def process_path_for_different_machine(config):
     if config.machine == "g3":
         config.train.root = "/data1/jjc/experiment"
-        config.janus_path = "/data1/ckpts/deepseek-ai_/Janus-Pro-1B"
+        config.janus_1b_path = "/data1/ckpts/deepseek-ai_/Janus-Pro-1B"
         config.janus_7b_path = None
         config.vae_path = "/data1/ckpts/black-forest-labs/FLUX.1-dev/vae"
         if config.data.name == "imagenet_wds":
@@ -13,7 +13,7 @@ def process_path_for_different_machine(config):
 
     elif config.machine == "ks":
         config.train.root = "/data/phd/jinjiachun/experiment"
-        config.janus_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-1B"
+        config.janus_1b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-1B"
         config.janus_7b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-7B"
         config.vae_path = "/data/phd/jinjiachun/ckpt/black-forest-labs/FLUX.1-dev/vae"
         if config.data.name == "imagenet_wds":

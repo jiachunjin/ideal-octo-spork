@@ -40,14 +40,17 @@ def main(args):
     accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
 
     # load models
-    tokenizer = VLChatProcessor.from_pretrained(config.janus_7b_path).tokenizer
+    tokenizer = VLChatProcessor.from_pretrained(config.janus_1b_path).tokenizer
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
     ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
     vae_aligner.load_state_dict(ckpt, strict=True)
     vae_aligner_projector = vae_aligner.siglip_feature_proj
     
-    janus = MultiModalityCausalLM.from_pretrained(config.janus_7b_path, trust_remote_code=True)
+    if config.train.ar_backbone == "janus1b":
+        janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
+    elif config.train.ar_backbone == "janus7b":
+        janus = MultiModalityCausalLM.from_pretrained(config.janus_7b_path, trust_remote_code=True)
     janus, train_scheduler = equip_dit_query_with_janus(janus, config)
 
     if config.train.dit_resume_path is not None:
