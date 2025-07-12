@@ -23,20 +23,20 @@ query:
 
 train:
   root:
-  dit_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query_dit-query_dit-200000"
-  query_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query-query_dit-200000"
+  dit_resume_path:
+  query_resume_path:
   skipped_keys:
   global_step: 200000
 
-  gen_feature: "siglip16" # [vae, siglip16]
+  gen_feature: "vae" # [vae, siglip16]
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0707_query_dit"
+  output_dir: "0712_query_dit_vae_feature"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "wandb"
+  report_to: "no"
 
   cfg_drop_rate: 0.1
 
@@ -50,6 +50,6 @@ data:
   train_path:
   batch_size: 30
   num_workers: 8
-  img_size: 384
+  img_size: 192
   streaming: true
   max_text_length: 192

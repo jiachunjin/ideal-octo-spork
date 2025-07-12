@@ -1,6 +1,7 @@
 __pycache__/
 wandb/
 asset/
+sd3.5/
 *.ckpt
 *.ipynb
 *.jpg

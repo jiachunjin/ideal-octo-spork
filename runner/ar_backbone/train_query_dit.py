@@ -5,10 +5,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 import argparse
 import pprint
 import torch
+from tqdm import tqdm
 from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
-from tqdm import tqdm
+from diffusers import AutoencoderKL
 
 from model.vae_aligner import get_vae_aligner
 from model.janus.models import MultiModalityCausalLM, VLChatProcessor
@@ -38,14 +39,14 @@ def main(args):
     accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
 
     # load models
-    tokenizer = VLChatProcessor.from_pretrained(config.janus_path).tokenizer
+    tokenizer = VLChatProcessor.from_pretrained(config.janus_7b_path).tokenizer
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
     ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
     vae_aligner.load_state_dict(ckpt, strict=True)
     vae_aligner_projector = vae_aligner.siglip_feature_proj
     
-    janus = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True)
+    janus = MultiModalityCausalLM.from_pretrained(config.janus_7b_path, trust_remote_code=True)
     janus, train_scheduler = equip_dit_query_with_janus(janus, config)
 
     if config.train.dit_resume_path is not None:
@@ -58,10 +59,14 @@ def main(args):
         janus.query.data.copy_(query_ckpt["query"])
         accelerator.print(f"Query model loaded from {config.train.query_resume_path}")
 
-    siglip = janus.vision_model
-
-    vae_aligner_projector.requires_grad_(False)
-    siglip.requires_grad_(False)
+    
+    if config.train.gen_feature == "siglip16":
+        siglip = janus.vision_model
+        vae_aligner_projector.requires_grad_(False)
+        siglip.requires_grad_(False)
+    elif config.train.gen_feature == "vae":
+        vae = AutoencoderKL.from_pretrained(config.vae_path)
+        vae.requires_grad_(False)
 
     global_step = config.train.global_step if config.train.global_step is not None else 0
     params_to_learn = list(p for p in janus.parameters() if p.requires_grad)
@@ -84,8 +89,12 @@ def main(args):
     dataloader = get_dataloader(config.data, accelerator, tokenizer)
 
     janus, dataloader, optimizer = accelerator.prepare(janus, dataloader, optimizer)
-    siglip = siglip.to(accelerator.device, dtype).eval()
-    vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
+
+    if config.train.gen_feature == "siglip16":
+        siglip = siglip.to(accelerator.device, dtype).eval()
+        vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
+    elif config.train.gen_feature == "vae":
+        vae = vae.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -121,8 +130,13 @@ def main(args):
                 pixel_values = pixel_values * 2 - 1
 
                 with torch.no_grad():
-                    x_siglip = siglip(pixel_values)
-                    x_siglip_dimdown = vae_aligner_projector(x_siglip)
+                    if config.train.gen_feature == "siglip16":
+                        x_siglip = siglip(pixel_values)
+                        x_siglip_dimdown = vae_aligner_projector(x_siglip)
+                        x_0 = x_siglip_dimdown
+                    elif config.train.gen_feature == "vae":
+                        x_vae = vae.encode(pixel_values).latent_dist.sample()
+                        x_0 = x_vae
                 
                 # cfg dropout
                 B, L = input_ids.shape
@@ -147,15 +161,15 @@ def main(args):
 
                 # diffusion training
                 timesteps = torch.randint(0, 1000, (B,), dtype=torch.int64, device=accelerator.device)
-                noise = torch.randn_like(x_siglip_dimdown, device=accelerator.device, dtype=z.dtype)
-                noisy_latents = train_scheduler.add_noise(x_siglip_dimdown, noise, timesteps)
-                target = train_scheduler.get_velocity(x_siglip_dimdown, noise, timesteps)
+                noise = torch.randn_like(x_0, device=accelerator.device, dtype=z.dtype)
+                noisy_latents = train_scheduler.add_noise(x_0, noise, timesteps)
+                target = train_scheduler.get_velocity(x_0, noise, timesteps)
                 pred = janus.query_dit(noisy_latents, z, timesteps)
                 loss = torch.nn.functional.mse_loss(pred, target)
 
+                optimizer.zero_grad()
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
-                    optimizer.zero_grad()
                     accelerator.clip_grad_norm_(params_to_learn, 1.0)
                     optimizer.step()
 

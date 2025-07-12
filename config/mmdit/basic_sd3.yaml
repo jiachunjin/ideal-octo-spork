@@ -1,4 +1,4 @@
-machine: "ks" # [g3, ks]
+machine: "g3" # [g3, ks]
 
 vae_aligner:
   pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0706_vae_aligner_hybrid_50M/vae_aligner-vae_aligner-200k"
@@ -16,7 +16,6 @@ query_dit:
   depth: 16
   x_dim: 16
   z_dim: 2048
-  freeze_janus: false
 
 query:
   num_queries: 576
@@ -24,14 +23,14 @@ query:
 
 train:
   root:
-  dit_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query_dit-query_dit-70000"
-  query_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query-query_dit-70000"
+  dit_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query_dit-query_dit-200000"
+  query_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query-query_dit-200000"
   skipped_keys:
-  global_step: 70000
+  global_step: 200000
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0708_query_dit_ar"
+  output_dir: "0707_query_dit"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
@@ -47,7 +46,7 @@ train:
 data:
   name: "t2i"
   train_path:
-  batch_size: 24
+  batch_size: 30
   num_workers: 8
   img_size: 384
   streaming: true
