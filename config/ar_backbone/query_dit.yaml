@@ -15,24 +15,24 @@ query_dit:
   num_heads: 16
   depth: 16
   x_dim: 16
-  z_dim: 2048
+  z_dim: 4096
 
 query:
   num_queries: 576
-  query_dim: 2048
+  query_dim: 4096
 
 train:
   root:
-  dit_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query_dit-query_dit-200000"
-  query_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query-query_dit-200000"
+  dit_resume_path:
+  query_resume_path:
   skipped_keys:
-  global_step: 200000
+  global_step:
 
   gen_feature: "siglip16" # [vae, siglip16]
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0707_query_dit"
+  output_dir: "0712_query_dit_siglip16_feature"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
@@ -41,7 +41,7 @@ train:
   cfg_drop_rate: 0.1
 
   lr: 1e-4
-  num_iter: 500000
+  num_iter: 100000
   save_every: 10000
 
 
@@ -52,4 +52,5 @@ data:
   num_workers: 8
   img_size: 384
   streaming: true
+  buffer_size: 10000
   max_text_length: 192

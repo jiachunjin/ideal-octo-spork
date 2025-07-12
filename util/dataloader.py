@@ -33,7 +33,7 @@ def get_dataloader(config, accelerator=None, tokenizer=None):
     )
     
     if seed is not None:
-        dataset = dataset.shuffle(seed=seed, buffer_size=100000)
+        dataset = dataset.shuffle(seed=seed, buffer_size=config.buffer_size)
 
     img_transform_train = pth_transforms.Compose([
         pth_transforms.Resize(config.img_size, max_size=None),

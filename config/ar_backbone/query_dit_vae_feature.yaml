@@ -15,18 +15,18 @@ query_dit:
   num_heads: 16
   depth: 16
   x_dim: 16
-  z_dim: 2048
+  z_dim: 4096
 
 query:
   num_queries: 576
-  query_dim: 2048
+  query_dim: 4096
 
 train:
   root:
   dit_resume_path:
   query_resume_path:
   skipped_keys:
-  global_step: 200000
+  global_step:
 
   gen_feature: "vae" # [vae, siglip16]
 
@@ -41,7 +41,7 @@ train:
   cfg_drop_rate: 0.1
 
   lr: 1e-4
-  num_iter: 500000
+  num_iter: 100000
   save_every: 10000
 
 
@@ -52,4 +52,5 @@ data:
   num_workers: 8
   img_size: 192
   streaming: true
+  buffer_size: 10000
   max_text_length: 192
