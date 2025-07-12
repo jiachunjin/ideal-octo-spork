@@ -10,6 +10,7 @@ from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
 from diffusers import AutoencoderKL
+from einops import rearrange
 
 from model.vae_aligner import get_vae_aligner
 from model.janus.models import MultiModalityCausalLM, VLChatProcessor
@@ -136,7 +137,7 @@ def main(args):
                         x_0 = x_siglip_dimdown
                     elif config.train.gen_feature == "vae":
                         x_vae = vae.encode(pixel_values).latent_dist.sample()
-                        x_0 = x_vae
+                        x_0 = rearrange(x_vae, "b c h w -> b (h w) c")
                 
                 # cfg dropout
                 B, L = input_ids.shape
