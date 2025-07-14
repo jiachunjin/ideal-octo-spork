@@ -41,13 +41,13 @@ train:
   lr: 1e-4
   num_iter: 50000
   save_every: 10000
-  val_every: 100  # 每5000步进行一次验证和采样
+  val_every: 500  # 每5000步进行一次验证和采样
 
 
 data:
   name: "t2i"
   train_path:
-  batch_size: 16
+  batch_size: 64
   num_workers: 8
   img_size: 384
   streaming: true
