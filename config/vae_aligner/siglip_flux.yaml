@@ -25,12 +25,12 @@ train:
 
   lr: 1e-4
   num_iter: 200000
-  save_every: 10000
+  save_every: 1000
 
 data:
   name: "hybrid"
   train_path:
-  batch_size: 128
+  batch_size: 150
   num_workers: 8
   img_size: 384
   streaming: true
