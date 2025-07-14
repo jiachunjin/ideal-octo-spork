@@ -3,19 +3,19 @@ def process_path_for_different_machine(config):
         config.train.root = "/data1/jjc/experiment"
         config.janus_1b_path = "/data1/ckpts/deepseek-ai_/Janus-Pro-1B"
         config.janus_7b_path = None
+        config.sd3_5_path = "/data1/ckpts/stabilityai/stable-diffusion-3.5-medium"
         config.vae_path = "/data1/ckpts/black-forest-labs/FLUX.1-dev/vae"
         if config.data.name == "imagenet_wds":
             config.data.train_path = "/data1/LargeData/timm/imagenet-1k-wds"
         elif config.data.name == "hybrid":
             config.data.train_path = ["/data1/LargeData/timm/imagenet-1k-wds"]
         elif config.data.name == "t2i":
-            config.data.train_path = ["/data1/LargeData/BLIP3o-Pretrain-JourneyD"]
-
+            config.data.train_path = ["/data1/LargeData/BLIP3o-tmp"]
     elif config.machine == "ks":
         config.train.root = "/data/phd/jinjiachun/experiment"
         config.janus_1b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-1B"
         config.janus_7b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-7B"
-        config.vae_path = "/data/phd/jinjiachun/ckpt/black-forest-labs/FLUX.1-dev/vae"
+        config.vae_path = "/data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium/vae"
         if config.data.name == "imagenet_wds":
             config.data.train_path = "/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds"
         elif config.data.name == "hybrid":

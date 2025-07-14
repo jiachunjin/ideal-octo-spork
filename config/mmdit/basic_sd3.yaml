@@ -23,31 +23,32 @@ query:
 
 train:
   root:
-  dit_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query_dit-query_dit-200000"
-  query_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0707_query_dit/query-query_dit-200000"
+  resume_path:
   skipped_keys:
-  global_step: 200000
+  global_step:
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0707_query_dit"
+  output_dir: "tmp"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "wandb"
+  report_to: "no"
 
   cfg_drop_rate: 0.1
 
   lr: 1e-4
-  num_iter: 500000
+  num_iter: 50000
   save_every: 10000
+  val_every: 100  # 每5000步进行一次验证和采样
 
 
 data:
   name: "t2i"
   train_path:
-  batch_size: 30
+  batch_size: 12
   num_workers: 8
-  img_size: 384
+  img_size: 192
   streaming: true
+  buffer_size: 500
   max_text_length: 192

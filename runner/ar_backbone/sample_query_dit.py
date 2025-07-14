@@ -35,14 +35,14 @@ def main():
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
-    tokenizer = VLChatProcessor.from_pretrained(config.janus_path).tokenizer
+    tokenizer = VLChatProcessor.from_pretrained(config.janus_1b_path).tokenizer
     vae = AutoencoderKL.from_pretrained(config.vae_path)
     vae_aligner = get_vae_aligner(config.vae_aligner)
     ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
     vae_aligner.load_state_dict(ckpt, strict=True)
     vae_aligner_projector = vae_aligner.siglip_feature_proj
 
-    janus = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True)
+    janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
     janus, _ = equip_dit_query_with_janus(janus, config)
     query_dit_ckpt = torch.load(os.path.join(exp_dir, "query_dit-query_dit-200000"), map_location="cpu", weights_only=True)
     janus.query_dit.load_state_dict(query_dit_ckpt, strict=True)

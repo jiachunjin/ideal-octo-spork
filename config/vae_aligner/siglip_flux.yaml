@@ -11,20 +11,20 @@ vae_aligner:
 
 train:
   root:
-  resume_path: "/data/phd/jinjiachun/experiment/vae_aligner/0703_vae_aligner_15M/vae_aligner-vae_aligner-150k"
+  resume_path:
   skipped_keys:
-  global_step: 150000
+  global_step:
 
   exp_name: &exp_name "vae_aligner"
   wandb_proj: *exp_name
-  output_dir: "0706_vae_aligner_hybrid_50M"
+  output_dir: "0714_sd3_vae_aligner_hybrid"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
   report_to: "wandb"
 
   lr: 1e-4
-  num_iter: 500000
+  num_iter: 200000
   save_every: 10000
 
 data:
