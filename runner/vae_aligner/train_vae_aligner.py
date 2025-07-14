@@ -39,7 +39,7 @@ def main(args):
     accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
-    siglip = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True).vision_model
+    siglip = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True).vision_model
     vae = AutoencoderKL.from_pretrained(config.vae_path)
 
     siglip.requires_grad_(False)
