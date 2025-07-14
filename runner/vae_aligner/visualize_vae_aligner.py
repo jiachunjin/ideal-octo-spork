@@ -15,14 +15,14 @@ from torchvision import transforms as pth_transforms
 
 
 config = OmegaConf.load("config/vae_aligner/siglip_flux.yaml")
-config.janus_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-1B"
+config.janus_1b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-1B"
 vae_aligner = get_vae_aligner(config.vae_aligner)
-siglip = MultiModalityCausalLM.from_pretrained(config.janus_path, trust_remote_code=True).vision_model
+siglip = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True).vision_model
 
-ckpt_path = "/data/phd/jinjiachun/experiment/vae_aligner/0706_vae_aligner_hybrid_50M/vae_aligner-vae_aligner-180k"
+ckpt_path = "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-1k"
 print("current ckpt: ", ckpt_path)
 
-vae = AutoencoderKL.from_pretrained("/data/phd/jinjiachun/ckpt/black-forest-labs/FLUX.1-dev/vae")
+vae = AutoencoderKL.from_pretrained(config.vae_path)
 ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
 vae_aligner.load_state_dict(ckpt, strict=False)
 
