@@ -1,7 +1,8 @@
-machine: "g3" # [g3, ks]
+machine: "ks" # [g3, ks]
 
 vae_aligner:
-  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0706_vae_aligner_hybrid_50M/vae_aligner-vae_aligner-200k"
+  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-7k"
+  # pretrained_path: "/data1/jjc/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-6k"
   hidden_size: 1024
   depth: 16
   num_heads: 16
@@ -27,9 +28,9 @@ train:
   skipped_keys:
   global_step:
 
-  exp_name: &exp_name "query_dit"
+  exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
-  output_dir: "tmp"
+  output_dir: "0714_mmdit_dev"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
@@ -46,9 +47,9 @@ train:
 data:
   name: "t2i"
   train_path:
-  batch_size: 12
+  batch_size: 16
   num_workers: 8
-  img_size: 192
+  img_size: 384
   streaming: true
   buffer_size: 500
   max_text_length: 192

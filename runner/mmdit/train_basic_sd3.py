@@ -8,16 +8,19 @@ import pprint
 import torch
 from tqdm import tqdm
 from omegaconf import OmegaConf
+from einops import rearrange
 
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
 from safetensors.torch import load_file
 from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
 from diffusers.training_utils import compute_density_for_timestep_sampling, compute_loss_weighting_for_sd3
-from model.janus.models import VLChatProcessor
+from model.janus.models import VLChatProcessor, MultiModalityCausalLM
 from model.mmdit.mmditx import MMDiTX
+from model.vae_aligner import get_vae_aligner
 from util.misc import process_path_for_different_machine, flatten_dict
 from util.dataloader import get_dataloader
+
 
 def get_accelerator(config):
     output_dir = os.path.join(config.root, config.exp_name, config.output_dir)
@@ -33,9 +36,21 @@ def get_accelerator(config):
 
     return accelerator, output_dir
 
-def sample_from_transformer(transformer, vae, noise_scheduler, accelerator, dtype, 
-                           batch_size=1, height=192, width=192, num_inference_steps=20, 
-                           guidance_scale=1.0, seed=None):
+@torch.no_grad()
+def sample_sd3_5(
+    transformer,
+    vae,
+    noise_scheduler,
+    accelerator,
+    dtype, 
+    context,
+    batch_size          = 1,
+    height              = 192,
+    width               = 192,
+    num_inference_steps = 20,
+    guidance_scale      = 1.0,
+    seed                = None
+):
     if seed is not None:
         torch.manual_seed(seed)
     
@@ -53,39 +68,27 @@ def sample_from_transformer(transformer, vae, noise_scheduler, accelerator, dtyp
     noise_scheduler.set_timesteps(num_inference_steps)
     timesteps = noise_scheduler.timesteps.to(device=accelerator.device, dtype=dtype)
     
-    encoder_hidden_states = torch.zeros(
-        (batch_size, 154, 4096), 
-        device=accelerator.device, 
-        dtype=dtype
-    )
-    pooled_projections = torch.zeros(
-        (batch_size, 2048), 
-        device=accelerator.device, 
-        dtype=dtype
-    )
-    
-    with torch.no_grad():
-        for i, t in enumerate(tqdm(timesteps, desc="Sampling", disable=not accelerator.is_local_main_process)):
-            if t.ndim == 0:
-                t = t.unsqueeze(0)
-            t = t.repeat(batch_size)
-            
-            latent_model_input = latents
-            
-            noise_pred = transformer(
-                x           = latent_model_input,
-                t           = t,
-                context     = encoder_hidden_states,
-                y           = pooled_projections,
-            )
+    for i, t in enumerate(tqdm(timesteps, desc="Sampling", disable=not accelerator.is_local_main_process)):
+        if t.ndim == 0:
+            t = t.unsqueeze(0)
+        t = t.repeat(batch_size)
 
-            step_output = noise_scheduler.step(
-                model_output=noise_pred,
-                timestep=t[0] if t.ndim > 0 else t,
-                sample=latents,
-                return_dict=False,
-            )
-            latents = step_output[0]
+        latent_model_input = latents
+        
+        noise_pred = transformer(
+            x           = latent_model_input,
+            t           = t,
+            context     = context,
+            y           = None,
+        )
+
+        step_output = noise_scheduler.step(
+            model_output=noise_pred,
+            timestep=t[0] if t.ndim > 0 else t,
+            sample=latents,
+            return_dict=False,
+        )
+        latents = step_output[0]
     
     latents = 1 / vae.config.scaling_factor * latents + vae.config.shift_factor
     image = vae.decode(latents).sample
@@ -105,7 +108,7 @@ def load_pretrained_mmdit(ckpt_path):
     context_embedder_config = {
         "target": "torch.nn.Linear",
         "params": {
-            "in_features": 4096,
+            "in_features": 256,
             "out_features": 1536,
         },
     }
@@ -129,17 +132,19 @@ def load_pretrained_mmdit(ckpt_path):
         device                   = device,
         dtype                    = dtype,
         verbose                  = False,
-    )    
+    )
 
-    # ckpt = load_file(os.path.join(ckpt_path, "transformer", "diffusion_pytorch_model.safetensors"))
-    ckpt = load_file("/data1/jjc/codebase/ideal-octo-spork/sd3_5/models/sd3.5_medium.safetensors")
+    ckpt = load_file(os.path.join(ckpt_path, "sd3.5_medium.safetensors"))
     new_ckpt = {}
     prefix = "model.diffusion_model."
     for k, v in ckpt.items():
         if k.startswith(prefix):
             new_key = k[len(prefix):]
-            new_ckpt[new_key] = v    
-    transformer.load_state_dict(new_ckpt, strict=True)
+            new_ckpt[new_key] = v
+    del new_ckpt["context_embedder.weight"]
+    m, u = transformer.load_state_dict(new_ckpt, strict=False)
+    print(f"missing keys: {m}")
+    print(f"unexpected keys: {u}")
 
     return transformer
 
@@ -155,9 +160,16 @@ def main(args):
     noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
 
-    # vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
-    vae = AutoencoderKL.from_pretrained(config.vae_path)
+    vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
     vae.requires_grad_(False)
+
+    siglip = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True).vision_model
+    siglip.requires_grad_(False)
+
+    vae_aligner = get_vae_aligner(config.vae_aligner)
+    ckpt_vae_aligner = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
+    vae_aligner.load_state_dict(ckpt_vae_aligner, strict=True)
+    vae_aligner.requires_grad_(False)
     
     transformer = load_pretrained_mmdit(config.sd3_5_path)
 
@@ -183,6 +195,8 @@ def main(args):
 
     transformer, dataloader, optimizer = accelerator.prepare(transformer, dataloader, optimizer)
     vae = vae.to(accelerator.device, dtype).eval()
+    vae_aligner = vae_aligner.to(accelerator.device, dtype).eval()
+    siglip = siglip.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -224,15 +238,16 @@ def main(args):
                 transformer.train()
                 pixel_values = batch["pixel_values"].to(dtype)
                 pixel_values = pixel_values * 2 - 1
+                x_siglip = siglip(pixel_values)
+                x_coarse_reference = vae_aligner(x_siglip)
+                context = rearrange(x_coarse_reference, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
+
                 x_vae = vae.encode(pixel_values).latent_dist.sample()
                 model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
 
-                # Sample noise that we'll add to the latents
                 noise = torch.randn_like(model_input)
                 bsz = model_input.shape[0]
 
-                # Sample a random timestep for each image
-                # for weighting schemes where we sample timesteps non-uniformly
                 u = compute_density_for_timestep_sampling(
                     weighting_scheme = "logit_normal",
                     batch_size       = bsz,
@@ -243,17 +258,14 @@ def main(args):
                 indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
                 timesteps = noise_scheduler_copy.timesteps[indices].to(device=model_input.device)
 
-                # Add noise according to flow matching.
-                # zt = (1 - texp) * x + texp * z1
                 sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise
 
-                # Predict the noise residual
                 model_pred = transformer(
                     x           = noisy_model_input,
                     t           = timesteps,
-                    context     = torch.zeros((bsz, 154, 4096), device=accelerator.device, dtype=dtype),
-                    y           = torch.zeros((bsz, 2048), device=accelerator.device, dtype=dtype),
+                    context     = context,
+                    y           = None,
                 )
 
                 model_pred = model_pred * (-sigmas) + noisy_model_input
@@ -273,43 +285,48 @@ def main(args):
                 optimizer.step()
                 optimizer.zero_grad()
 
-            # Checks if the accelerator has performed an optimization step behind the scenes
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
 
                 logs = dict(
-                    sd3_loss  = accelerator.gather(loss.detach()).mean().item(),
+                    sd3_loss = accelerator.gather(loss.detach()).mean().item(),
                 )
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
 
             if global_step > 0 and global_step % config.train.val_every == 0 and accelerator.is_main_process:
                 transformer.eval()
-                # 从transformer采样
-                accelerator.print(f"Generating samples at step {global_step}")
-                
-                # 生成样本
-                samples = sample_from_transformer(
+
+                samples = sample_sd3_5(
                     transformer         = transformer,
                     vae                 = vae,
                     noise_scheduler     = noise_scheduler,
                     accelerator         = accelerator,
                     dtype               = dtype,
-                    batch_size          = 4,                    # 生成4张图片
+                    context             = context,
+                    batch_size          = context.shape[0],
                     height              = config.data.img_size,
                     width               = config.data.img_size,
                     num_inference_steps = 20,
                     guidance_scale      = 5.0,
-                    seed                = 42  # 固定种子以确保可重现性
+                    seed                = 42
                 )
-                
-                # 保存样本图像
+
                 import torchvision.utils as vutils
                 sample_path = f"samples_step_{global_step}.png"
                 vutils.save_image(samples, sample_path, nrow=2, normalize=False)
                 accelerator.print(f"Samples saved to {sample_path}")
 
+                import torchvision
+                with torch.no_grad():
+                    reconstructed = vae.decode(x_coarse_reference).sample
+                    reconstructed = reconstructed.to(torch.float32)
+                    reconstructed = (reconstructed + 1) / 2
+                    reconstructed = torch.clamp(reconstructed, 0, 1)
+                    vutils.save_image(reconstructed, f"coarse_step_{global_step}.png", nrow=2, normalize=False)
+                    # reconstructed_img = torchvision.transforms.ToPILImage()(reconstructed[0].squeeze(0))
+                    # reconstructed_img.save("reconstructed.png")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

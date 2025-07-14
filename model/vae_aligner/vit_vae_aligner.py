@@ -55,7 +55,7 @@ class ViTVAEAligner(nn.Module):
         x = self.norm2(x)
         x = x.permute(0, 2, 1).reshape(-1, self.hidden_size, self.grid_size, self.grid_size).contiguous()
         x = self.output_proj(x)
-        return x        
+        return x
 
     def fetch_pos(self, height, width, device):
         if (height, width) in self.precompute_pos:
