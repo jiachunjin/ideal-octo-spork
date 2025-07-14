@@ -15,6 +15,7 @@ def process_path_for_different_machine(config):
         config.train.root = "/data/phd/jinjiachun/experiment"
         config.janus_1b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-1B"
         config.janus_7b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-7B"
+        config.sd3_5_path = "/data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium"
         config.vae_path = "/data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium/vae"
         if config.data.name == "imagenet_wds":
             config.data.train_path = "/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds"

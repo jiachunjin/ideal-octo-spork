@@ -304,8 +304,8 @@ def main(args):
                     noise_scheduler     = noise_scheduler,
                     accelerator         = accelerator,
                     dtype               = dtype,
-                    context             = context,
-                    batch_size          = context.shape[0],
+                    context             = context[:4],
+                    batch_size          = 4,
                     height              = config.data.img_size,
                     width               = config.data.img_size,
                     num_inference_steps = 20,
@@ -324,7 +324,7 @@ def main(args):
                     reconstructed = reconstructed.to(torch.float32)
                     reconstructed = (reconstructed + 1) / 2
                     reconstructed = torch.clamp(reconstructed, 0, 1)
-                    vutils.save_image(reconstructed, f"coarse_step_{global_step}.png", nrow=2, normalize=False)
+                    vutils.save_image(reconstructed[:4], f"coarse_step_{global_step}.png", nrow=2, normalize=False)
                     # reconstructed_img = torchvision.transforms.ToPILImage()(reconstructed[0].squeeze(0))
                     # reconstructed_img.save("reconstructed.png")
 
