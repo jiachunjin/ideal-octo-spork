@@ -310,6 +310,13 @@ def main(args):
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
 
+            if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                transformer.eval()
+                state_dict = accelerator.unwrap_model(transformer).state_dict()
+                save_path = os.path.join(output_dir, f"transformer-{config.train.exp_name}-{global_step}")
+                torch.save(state_dict, save_path)
+                print(f"Transformer saved to {save_path}")
+
             if global_step > 0 and global_step % config.train.val_every == 0 and accelerator.is_main_process:
                 transformer.eval()
 
@@ -340,6 +347,11 @@ def main(args):
                     reconstructed = torch.clamp(reconstructed, 0, 1)
                     vutils.save_image(reconstructed[:4], f"coarse_step_{global_step}.png", nrow=2, normalize=False)
 
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
