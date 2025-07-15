@@ -74,13 +74,24 @@ def sample_sd3_5(
         t = t.repeat(batch_size)
 
         latent_model_input = latents
-        
+
+        if guidance_scale > 1.0:
+            latent_model_input = torch.cat([latent_model_input, latent_model_input], dim=0)
+            t = torch.cat([t, t], dim=0)
+            context_ = torch.cat([context, torch.zeros_like(context, device=context.device, dtype=context.dtype)], dim=0)
+        else:
+            context_ = context
+
         noise_pred = transformer(
             x           = latent_model_input,
             t           = t,
-            context     = context,
+            context     = context_,
             y           = None,
         )
+
+        if guidance_scale > 1.0:
+            noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2)
+            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
 
         step_output = noise_scheduler.step(
             model_output=noise_pred,
@@ -241,6 +252,10 @@ def main(args):
                 x_siglip = siglip(pixel_values)
                 x_coarse_reference = vae_aligner(x_siglip)
                 context = rearrange(x_coarse_reference, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
+                # add cfg dropout with p = config.train.cfg_drop_rate
+                B, L, D = context.shape
+                mask = (torch.rand(B, 1, 1) < config.train.cfg_drop_rate).repeat(1, L, D)
+                context[mask] = 0
 
                 x_vae = vae.encode(pixel_values).latent_dist.sample()
                 model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
@@ -318,15 +333,13 @@ def main(args):
                 vutils.save_image(samples, sample_path, nrow=2, normalize=False)
                 accelerator.print(f"Samples saved to {sample_path}")
 
-                import torchvision
                 with torch.no_grad():
                     reconstructed = vae.decode(x_coarse_reference).sample
                     reconstructed = reconstructed.to(torch.float32)
                     reconstructed = (reconstructed + 1) / 2
                     reconstructed = torch.clamp(reconstructed, 0, 1)
                     vutils.save_image(reconstructed[:4], f"coarse_step_{global_step}.png", nrow=2, normalize=False)
-                    # reconstructed_img = torchvision.transforms.ToPILImage()(reconstructed[0].squeeze(0))
-                    # reconstructed_img.save("reconstructed.png")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

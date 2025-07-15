@@ -16,6 +16,7 @@ from torchvision import transforms as pth_transforms
 
 config = OmegaConf.load("config/vae_aligner/siglip_flux.yaml")
 config.janus_1b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-1B"
+config.vae_path = "/data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium/vae"
 vae_aligner = get_vae_aligner(config.vae_aligner)
 siglip = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True).vision_model
 

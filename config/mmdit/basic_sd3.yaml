@@ -1,7 +1,7 @@
 machine: "ks" # [g3, ks]
 
 vae_aligner:
-  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-7k"
+  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-23k"
   # pretrained_path: "/data1/jjc/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-6k"
   hidden_size: 1024
   depth: 16
@@ -41,13 +41,13 @@ train:
   lr: 1e-4
   num_iter: 50000
   save_every: 10000
-  val_every: 500  # 每5000步进行一次验证和采样
+  val_every: 200  # 每5000步进行一次验证和采样
 
 
 data:
   name: "t2i"
   train_path:
-  batch_size: 64
+  batch_size: 40
   num_workers: 8
   img_size: 384
   streaming: true
