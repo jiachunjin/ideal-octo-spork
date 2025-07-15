@@ -908,6 +908,8 @@ class MMDiTX(nn.Module):
             c = c + y  # (N, D)
 
         context = self.context_embedder(context)
+        context_pe = self.cropped_pos_embed((2 * int(context.shape[1] ** (0.5)), 2 * int(context.shape[1] ** (0.5))))
+        context = context + context_pe
 
         x = self.forward_core_with_concat(x, c, context, skip_layers, controlnet_hidden_states)
 
