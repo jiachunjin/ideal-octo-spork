@@ -1,8 +1,7 @@
 machine: "ks" # [g3, ks]
 
 vae_aligner:
-  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-25k"
-  # pretrained_path: "/data1/jjc/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-6k"
+  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-32k"
   hidden_size: 1024
   depth: 16
   num_heads: 16
@@ -11,22 +10,11 @@ vae_aligner:
   siglip_feature_dim: 1024
   siglip_feature_dim_down: 16
 
-query_dit:
-  hidden_size: 1024
-  num_heads: 16
-  depth: 16
-  x_dim: 16
-  z_dim: 2048
-
-query:
-  num_queries: 576
-  query_dim: 2048
-
 train:
   root:
-  resume_path:
+  resume_path: "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev/transformer-mmdit-10000"
   skipped_keys:
-  global_step:
+  global_step: 10000
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
@@ -41,7 +29,7 @@ train:
   lr: 1e-4
   num_iter: 50000
   save_every: 10000
-  val_every: 500  # 每5000步进行一次验证和采样
+  val_every: 1000  # 每5000步进行一次验证和采样
 
 
 data:
@@ -51,5 +39,5 @@ data:
   num_workers: 8
   img_size: 384
   streaming: true
-  buffer_size: 10000
+  buffer_size: 100000
   max_text_length: 192

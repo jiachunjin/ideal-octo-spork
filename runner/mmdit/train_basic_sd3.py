@@ -183,6 +183,11 @@ def main(args):
     vae_aligner.requires_grad_(False)
     
     transformer = load_pretrained_mmdit(config.sd3_5_path)
+    if config.train.resume_path is not None:
+        ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
+        transformer.load_state_dict(ckpt, strict=True)
+        accelerator.print(f"Transformer loaded from {config.train.resume_path}")
+
 
     global_step = config.train.global_step if config.train.global_step is not None else 0
     params_to_learn = list(p for p in transformer.parameters() if p.requires_grad)
