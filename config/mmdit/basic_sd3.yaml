@@ -18,7 +18,7 @@ train:
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
-  output_dir: "0714_mmdit_dev"
+  output_dir: "0716_mmdit_noisy_context_0.1"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
