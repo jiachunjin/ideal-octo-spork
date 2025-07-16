@@ -8,6 +8,7 @@ from tqdm import tqdm
 from omegaconf import OmegaConf
 from diffusers import AutoencoderKL, DDIMScheduler
 from torchvision import transforms as pth_transforms
+from einops import rearrange
 
 from model.vae_aligner import get_vae_aligner
 from model.janus.models import MultiModalityCausalLM, VLChatProcessor
@@ -128,6 +129,7 @@ def main():
 
         z = z.repeat(B, 1, 1)
         gen = diff_generate(z, janus.query_dit, sample_scheduler)
+        gen = rearrange(gen, "b c h w -> b (h w) c")
         rec = vae_aligner.forward_with_low_dim(gen)
 
         reconstructed = vae.decode(rec).sample
