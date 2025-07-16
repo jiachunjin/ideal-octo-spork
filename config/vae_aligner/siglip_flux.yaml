@@ -11,9 +11,9 @@ vae_aligner:
 
 train:
   root:
-  resume_path:
+  resume_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-51k"
   skipped_keys:
-  global_step:
+  global_step: 51000
 
   exp_name: &exp_name "vae_aligner"
   wandb_proj: *exp_name
@@ -24,8 +24,8 @@ train:
   report_to: "wandb"
 
   lr: 1e-4
-  num_iter: 200000
-  save_every: 1000
+  num_iter: 100000
+  save_every: 5000
 
 data:
   name: "hybrid"
@@ -34,5 +34,5 @@ data:
   num_workers: 8
   img_size: 384
   streaming: true
-  buffer_size: 50000
+  buffer_size: 80000
   max_text_length: 192
