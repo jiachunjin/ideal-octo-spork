@@ -41,7 +41,7 @@ def sample_sd3_5(
     transformer,
     vae,
     noise_scheduler,
-    accelerator,
+    device,
     dtype, 
     context,
     batch_size          = 1,
@@ -61,14 +61,14 @@ def sample_sd3_5(
     
     latents = torch.randn(
         (batch_size, 16, latent_height, latent_width),
-        device = accelerator.device,
+        device = device,
         dtype  = dtype
     )
 
     noise_scheduler.set_timesteps(num_inference_steps)
-    timesteps = noise_scheduler.timesteps.to(device=accelerator.device, dtype=dtype)
+    timesteps = noise_scheduler.timesteps.to(device=device, dtype=dtype)
     
-    for i, t in enumerate(tqdm(timesteps, desc="Sampling", disable=not accelerator.is_local_main_process)):
+    for i, t in enumerate(tqdm(timesteps, desc="Sampling")):
         if t.ndim == 0:
             t = t.unsqueeze(0)
         t = t.repeat(batch_size)
@@ -329,7 +329,7 @@ def main(args):
                     transformer         = transformer,
                     vae                 = vae,
                     noise_scheduler     = noise_scheduler,
-                    accelerator         = accelerator,
+                    device              = accelerator.device,
                     dtype               = dtype,
                     context             = context[:4],
                     batch_size          = 4,

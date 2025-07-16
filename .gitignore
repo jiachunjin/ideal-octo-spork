@@ -2,6 +2,7 @@ __pycache__/
 wandb/
 asset/
 sd3.5/
+study_multi_node.sh
 *.ckpt
 *.ipynb
 *.jpg
