@@ -11,8 +11,7 @@ from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
 from model.janus.models import MultiModalityCausalLM
 from model.vae_aligner import get_vae_aligner
 
-from .train_basic_sd3 import load_pretrained_mmdit, sample_sd3_5
-
+from runner.mmdit.train_basic_sd3 import load_pretrained_mmdit, sample_sd3_5
 
 exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
 
@@ -50,8 +49,8 @@ vae_transform = pth_transforms.Compose([
 img_1 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/kobe.png").convert("RGB")
 img_2 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/004.jpg").convert("RGB")
 
-x_1 = vae_transform(img_1).unsqueeze(0)
-x_2 = vae_transform(img_2).unsqueeze(0)
+x_1 = vae_transform(img_1).unsqueeze(0).to(device, dtype)
+x_2 = vae_transform(img_2).unsqueeze(0).to(device, dtype)
 x = torch.cat([x_1, x_2], dim=0)
 x = x * 2 - 1
 

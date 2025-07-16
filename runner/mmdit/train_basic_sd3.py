@@ -257,6 +257,8 @@ def main(args):
                 x_siglip = siglip(pixel_values)
                 x_coarse_reference = vae_aligner(x_siglip)
                 context = rearrange(x_coarse_reference, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
+                if getattr(config.train, "add_noise_to_context", False):
+                    context += torch.randn_like(context, device=context.device, dtype=context.dtype) * config.train.context_noise_std
                 # add cfg dropout with p = config.train.cfg_drop_rate
                 B, L, D = context.shape
                 mask = (torch.rand(B, 1, 1) < config.train.cfg_drop_rate).repeat(1, L, D)
@@ -325,16 +327,38 @@ def main(args):
             if global_step > 0 and global_step % config.train.val_every == 0 and accelerator.is_main_process:
                 transformer.eval()
 
+                import torchvision.transforms as pth_transforms
+                from PIL import Image
+
+
+                vae_transform = pth_transforms.Compose([
+                    pth_transforms.Resize(384, max_size=None),
+                    pth_transforms.CenterCrop(384),
+                    pth_transforms.ToTensor(),
+                ])
+
+                img_1 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/kobe.png").convert("RGB")
+                img_2 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/004.jpg").convert("RGB")
+
+                x_1 = vae_transform(img_1).unsqueeze(0).to(accelerator.device, dtype)
+                x_2 = vae_transform(img_2).unsqueeze(0).to(accelerator.device, dtype)
+                x = torch.cat([x_1, x_2], dim=0)
+                x = x * 2 - 1
+
+                x_siglip = siglip(x)
+                x_coarse_reference = vae_aligner(x_siglip)
+                context = rearrange(x_coarse_reference, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
+
                 samples = sample_sd3_5(
                     transformer         = transformer,
                     vae                 = vae,
                     noise_scheduler     = noise_scheduler,
                     device              = accelerator.device,
                     dtype               = dtype,
-                    context             = context[:4],
-                    batch_size          = 4,
-                    height              = config.data.img_size,
-                    width               = config.data.img_size,
+                    context             = context,
+                    batch_size          = context.shape[0],
+                    height              = 384,
+                    width               = 384,
                     num_inference_steps = 20,
                     guidance_scale      = 5.0,
                     seed                = 42
