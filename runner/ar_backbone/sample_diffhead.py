@@ -28,15 +28,14 @@ def main():
     janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
     janus, _ = equip_diffhead_query_with_janus(janus, config)
 
-    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-11000"), map_location="cpu", weights_only=True)
+    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-10000"), map_location="cpu", weights_only=True)
     janus.diff_head.load_state_dict(diffhead_ckpt, strict=True)
 
-    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-11000"), map_location="cpu", weights_only=True)
+    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-10000"), map_location="cpu", weights_only=True)
     janus.siglip16_aligner.load_state_dict(siglip16_aligner_ckpt, strict=True)
-
-    if config.tune_backbone:
-        llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-11000"), map_location="cpu", weights_only=True)
-        janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
+    
+    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-10000"), map_location="cpu", weights_only=True)
+    janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
 
     device = "cuda:7"
     dtype = torch.float32
@@ -83,7 +82,6 @@ def main():
 
     prompt = "A soft, natural portrait photograph captures a young woman with fair skin and long, ash-blonde hair cascading gently over her shoulders. At the very bottom of the frame, in simple, elegant lettering, appears the phrase 'BE KIND'"
     cfg_scale = 3
-    bsz = 4  # batch size
 
     with torch.no_grad():
         input_ids = tokenizer.encode(prompt)
@@ -94,36 +92,27 @@ def main():
             input_ids = input_ids.repeat(2, 1)
             input_ids[1, :-1] = 100002
             text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
-            # 扩展text_embedding到batch_size
-            text_embedding = text_embedding.repeat(bsz, 1, 1)
         else:
             text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
-            # 扩展text_embedding到batch_size
-            text_embedding = text_embedding.repeat(bsz, 1, 1)
 
-        generated_tokens = torch.zeros((bsz, 576, 16)).to(device)
-        outputs = None
+        generated_tokens = torch.zeros((1, 576, 16)).to(device)
 
         for i in trange(576):
             outputs = janus.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
 
             if cfg_scale > 1:
-                # 对于CFG，我们需要处理条件和非条件的hidden states
-                cond_z = hidden_states[0:bsz, -1, :]  # 前bsz个是条件样本
-                uncond_z = hidden_states[bsz:, -1, :]  # 后bsz个是非条件样本
+                cond_z = hidden_states[0, -1, :]
+                uncond_z = hidden_states[1, -1, :]
                 z = uncond_z + cfg_scale * (cond_z - uncond_z)
+                z = z.unsqueeze(0)
             else:
                 z = hidden_states[:, -1, :]
-            
             next_token = diff_generate(z, janus.diff_head)
             generated_tokens[:, i] = next_token.squeeze()
-            
-            # 为batch中的每个样本生成img_embeds
-            img_embeds = janus.siglip16_aligner(next_token)
+            img_embeds = janus.siglip16_aligner(next_token.unsqueeze(0))
             
             if cfg_scale > 1:
-                # 对于CFG，需要重复img_embeds
                 text_embedding = img_embeds.repeat(2, 1, 1)
             else:
                 text_embedding = img_embeds
