@@ -61,6 +61,11 @@ def main(args):
         siglip16_aligner_ckpt = torch.load(config.train.siglip16_aligner_resume_path, map_location="cpu", weights_only=True)
         janus.siglip16_aligner.load_state_dict(siglip16_aligner_ckpt, strict=True)
         accelerator.print(f"siglip16_aligner model loaded from {config.train.siglip16_aligner_resume_path}")
+    
+    if config.train.backbone_resume_path is not None:
+        backbone_ckpt = torch.load(config.train.backbone_resume_path, map_location="cpu", weights_only=True)
+        janus.language_model.model.load_state_dict(backbone_ckpt, strict=True)
+        accelerator.print(f"Backbone model loaded from {config.train.backbone_resume_path}")
 
     siglip = janus.vision_model
     vae_aligner_projector.requires_grad_(False)
