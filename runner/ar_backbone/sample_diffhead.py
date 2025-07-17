@@ -80,27 +80,24 @@ def main():
         return pred_latents
 
     prompt = "A man in a white shirt and black pants is playing guitar on the street, with a crowd of people watching him. The background is a city street with buildings and trees."
-    cfg_scale = 5
+    cfg_scale = 1
 
     with torch.no_grad():
-        if cfg_scale > 1:
-            input_ids = tokenizer.encode(prompt)
-            input_ids = torch.LongTensor(input_ids)
-            input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device)
-            input_ids = input_ids.unsqueeze(0)
-            input_ids = input_ids.repeat(2, 1)
-            input_ids[1, :-1] = 100002        
-        else:
-            input_ids = tokenizer(prompt, return_tensors="pt").input_ids[0]
-            input_ids = torch.LongTensor(input_ids)
-            input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device).unsqueeze(0)
+        input_ids = tokenizer.encode(prompt)
+        input_ids = torch.LongTensor(input_ids)
+        input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device)
 
-        inputs_embeds = janus.language_model.get_input_embeddings()(input_ids).to(device)
+        if cfg_scale > 1:
+            input_ids = input_ids.repeat(2, 1)
+            input_ids[1, :-1] = 100002
+            text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
+        else:
+            text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
 
         generated_tokens = torch.zeros((1, 576, 16)).to(device)
 
         for i in trange(576):
-            outputs = janus.language_model.model(inputs_embeds=inputs_embeds, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
+            outputs = janus.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
 
             if cfg_scale > 1:
@@ -115,9 +112,9 @@ def main():
             img_embeds = janus.siglip16_aligner(next_token.unsqueeze(0))
             
             if cfg_scale > 1:
-                inputs_embeds = img_embeds.repeat(2, 1, 1)
+                text_embedding = img_embeds.repeat(2, 1, 1)
             else:
-                inputs_embeds = img_embeds
+                text_embedding = img_embeds
 
         print(generated_tokens.shape)
         rec = vae_aligner.forward_with_low_dim(generated_tokens)
