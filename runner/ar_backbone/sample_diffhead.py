@@ -112,7 +112,7 @@ def main():
     ]
     cfg_scale = 3
 
-    for i, prompt in enumerate(prompts): 
+    for img_idx, prompt in enumerate(prompts): 
         input_ids = tokenizer.encode(prompt)
         input_ids = torch.LongTensor(input_ids)
         input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device)
@@ -172,10 +172,10 @@ def main():
         reconstructed = torch.clamp(reconstructed, 0, 1)
         grid = torchvision.utils.make_grid(reconstructed, nrow=4)
         os.makedirs("asset/diffhead", exist_ok=True)
-        torchvision.utils.save_image(grid, f"asset/diffhead/coarse_{i:02d}.png")
+        torchvision.utils.save_image(grid, f"asset/diffhead/coarse_{img_idx:02d}.png")
 
         import torchvision.utils as vutils
-        sample_path = f"asset/diffhead/fine_{i:02d}.png"
+        sample_path = f"asset/diffhead/fine_{img_idx:02d}.png"
         vutils.save_image(samples, sample_path, nrow=2, normalize=False)
         print(f"Samples saved to {sample_path}")
 
