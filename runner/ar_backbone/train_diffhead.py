@@ -9,7 +9,6 @@ from tqdm import tqdm
 from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
-from diffusers import AutoencoderKL
 from einops import rearrange
 
 from model.vae_aligner import get_vae_aligner
