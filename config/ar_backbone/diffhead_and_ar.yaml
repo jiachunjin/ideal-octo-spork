@@ -17,7 +17,7 @@ diffhead:
   x_dim: 16
   z_dim: 2048
 
-tune_backbone: false
+tune_backbone: true
 
 train:
   root:
