@@ -28,13 +28,13 @@ def main():
     janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
     janus, _ = equip_diffhead_query_with_janus(janus, config)
 
-    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-10000"), map_location="cpu", weights_only=True)
+    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-13000"), map_location="cpu", weights_only=True)
     janus.diff_head.load_state_dict(diffhead_ckpt, strict=True)
 
-    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-10000"), map_location="cpu", weights_only=True)
+    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-13000"), map_location="cpu", weights_only=True)
     janus.siglip16_aligner.load_state_dict(siglip16_aligner_ckpt, strict=True)
     
-    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-10000"), map_location="cpu", weights_only=True)
+    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-13000"), map_location="cpu", weights_only=True)
     janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
 
     device = "cuda:7"
@@ -80,7 +80,7 @@ def main():
 
         return pred_latents
 
-    prompt = "A soft, natural portrait photograph captures a young woman with fair skin and long, ash-blonde hair cascading gently over her shoulders. At the very bottom of the frame, in simple, elegant lettering, appears the phrase 'BE KIND'"
+    prompt = "Scientist at Sunway University conducts research in a laboratory setting."
     cfg_scale = 3
 
     with torch.no_grad():
@@ -120,12 +120,49 @@ def main():
         print(generated_tokens.shape)
         rec = vae_aligner.forward_with_low_dim(generated_tokens)
         print(rec.shape)
+
+        # the refiner
+        from runner.mmdit.train_basic_sd3 import load_pretrained_mmdit, sample_sd3_5
+        from diffusers import FlowMatchEulerDiscreteScheduler
+        exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
+
+        config_path = os.path.join(exp_dir, "config.yaml")
+        config = OmegaConf.load(config_path)
+
+        noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+        transformer = load_pretrained_mmdit(config.sd3_5_path)
+        ckpt_path = os.path.join(exp_dir, "transformer-mmdit-30000")
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+        transformer.load_state_dict(ckpt, strict=True)
+
+        transformer = transformer.to(device, dtype).eval()
+        samples = sample_sd3_5(
+            transformer         = transformer,
+            vae                 = vae,
+            noise_scheduler     = noise_scheduler,
+            device              = device,
+            dtype               = dtype,
+            context             = rec,
+            batch_size          = rec.shape[0],
+            height              = 384,
+            width               = 384,
+            num_inference_steps = 20,
+            guidance_scale      = 5.0,
+            seed                = 42
+        )
+
+
         reconstructed = vae.decode(rec).sample
         reconstructed = (reconstructed + 1) / 2
         reconstructed = torch.clamp(reconstructed, 0, 1)
         grid = torchvision.utils.make_grid(reconstructed, nrow=4)
         os.makedirs("asset/diffhead", exist_ok=True)
         torchvision.utils.save_image(grid, f"asset/diffhead/00.png")
+
+        import torchvision.utils as vutils
+        sample_path = f"asset/diffhead/samples.png"
+        vutils.save_image(samples, sample_path, nrow=2, normalize=False)
+        print(f"Samples saved to {sample_path}")
 
 if __name__ == "__main__":
     main()
