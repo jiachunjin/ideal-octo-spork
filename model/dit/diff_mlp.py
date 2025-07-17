@@ -202,8 +202,6 @@ class SimpleMLPAdaLN(nn.Module):
         return torch.cat([eps, rest], dim=1)
 
 
-from model.janus.models.projector import MlpProjector
-
 def equip_diffhead_query_with_janus(janus, config):
     diff_head = SimpleMLPAdaLN(
         in_channels    = config.diffhead.x_dim,
