@@ -124,6 +124,8 @@ def main():
         # the refiner
         from runner.mmdit.train_basic_sd3 import load_pretrained_mmdit, sample_sd3_5
         from diffusers import FlowMatchEulerDiscreteScheduler
+        from einops import rearrange
+
         exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
 
         config_path = os.path.join(exp_dir, "config.yaml")
@@ -136,14 +138,15 @@ def main():
         transformer.load_state_dict(ckpt, strict=True)
 
         transformer = transformer.to(device, dtype).eval()
+        context = rearrange(rec, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
         samples = sample_sd3_5(
             transformer         = transformer,
             vae                 = vae,
             noise_scheduler     = noise_scheduler,
             device              = device,
             dtype               = dtype,
-            context             = rec,
-            batch_size          = rec.shape[0],
+            context             = context,
+            batch_size          = context.shape[0],
             height              = 384,
             width               = 384,
             num_inference_steps = 20,
