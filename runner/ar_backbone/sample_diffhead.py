@@ -67,7 +67,7 @@ def main():
         sample_scheduler.set_timesteps(50)
         B = feature.shape[0]
 
-        pred_latents = torch.randn((B, 1024), device=feature.device)
+        pred_latents = torch.randn((B, 16), device=feature.device)
         pred_latents *= sample_scheduler.init_noise_sigma
 
         for t in sample_scheduler.timesteps:
@@ -99,28 +99,35 @@ def main():
 
         generated_tokens = torch.zeros((1, 576, 16)).to(device)
 
-        with torch.no_grad():
-            for i in trange(576):
-                outputs = janus.language_model.model(inputs_embeds=inputs_embeds, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
-                hidden_states = outputs.last_hidden_state
+        for i in trange(576):
+            outputs = janus.language_model.model(inputs_embeds=inputs_embeds, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
+            hidden_states = outputs.last_hidden_state
 
-                if cfg_scale > 1:
-                    cond_z = hidden_states[0, -1, :]
-                    uncond_z = hidden_states[1, -1, :]
-                    z = uncond_z + cfg_scale * (cond_z - uncond_z)
-                    z = z.unsqueeze(0)
-                else:
-                    z = hidden_states[:, -1, :]
-                next_token = diff_generate(z, janus.diff_head)
-                generated_tokens[:, i] = next_token.squeeze()
-                img_embeds = janus.siglip16_aligner(next_token.unsqueeze(0))
-                
-                if cfg_scale > 1:
-                    inputs_embeds = img_embeds.repeat(2, 1, 1)
-                else:
-                    inputs_embeds = img_embeds
+            if cfg_scale > 1:
+                cond_z = hidden_states[0, -1, :]
+                uncond_z = hidden_states[1, -1, :]
+                z = uncond_z + cfg_scale * (cond_z - uncond_z)
+                z = z.unsqueeze(0)
+            else:
+                z = hidden_states[:, -1, :]
+            next_token = diff_generate(z, janus.diff_head)
+            generated_tokens[:, i] = next_token.squeeze()
+            img_embeds = janus.siglip16_aligner(next_token.unsqueeze(0))
+            
+            if cfg_scale > 1:
+                inputs_embeds = img_embeds.repeat(2, 1, 1)
+            else:
+                inputs_embeds = img_embeds
 
         print(generated_tokens.shape)
+        rec = vae_aligner.forward_with_low_dim(generated_tokens)
+        print(rec.shape)
+        reconstructed = vae.decode(rec).sample
+        reconstructed = (reconstructed + 1) / 2
+        reconstructed = torch.clamp(reconstructed, 0, 1)
+        grid = torchvision.utils.make_grid(reconstructed, nrow=4)
+        os.makedirs("asset/diffhead", exist_ok=True)
+        torchvision.utils.save_image(grid, f"asset/diffhead/00.png")
 
 if __name__ == "__main__":
     main()
