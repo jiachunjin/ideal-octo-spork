@@ -212,7 +212,6 @@ def equip_diffhead_query_with_janus(janus, config):
         z_channels     = config.diffhead.z_dim,
         num_res_blocks = config.diffhead.depth,
     )
-    query = nn.Parameter(torch.randn(config.query.num_queries, config.query.query_dim))
 
     siglip16_aligner = nn.Sequential(
         nn.Linear(16, 2048),
@@ -223,9 +222,6 @@ def equip_diffhead_query_with_janus(janus, config):
     janus.requires_grad_(False)
     if config.tune_backbone:
         janus.language_model.model.requires_grad_(True)
-
-    janus.query = query
-    janus.query.requires_grad_(True)
 
     janus.diff_head = diff_head
     janus.diff_head.requires_grad_(True)

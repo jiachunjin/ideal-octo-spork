@@ -58,10 +58,10 @@ def main(args):
         janus.diff_head.load_state_dict(diffhead_ckpt, strict=True)
         accelerator.print(f"DiffHead model loaded from {config.train.diffhead_resume_path}")
     
-    if config.train.query_resume_path is not None:
-        query_ckpt = torch.load(config.train.query_resume_path, map_location="cpu", weights_only=True)
-        janus.query.data.copy_(query_ckpt["query"])
-        accelerator.print(f"Query model loaded from {config.train.query_resume_path}")
+    if config.train.siglip16_aligner_resume_path is not None:
+        siglip16_aligner_ckpt = torch.load(config.train.siglip16_aligner_resume_path, map_location="cpu", weights_only=True)
+        janus.siglip16_aligner.load_state_dict(siglip16_aligner_ckpt, strict=True)
+        accelerator.print(f"siglip16_aligner model loaded from {config.train.siglip16_aligner_resume_path}")
 
     siglip = janus.vision_model
     vae_aligner_projector.requires_grad_(False)
@@ -184,10 +184,10 @@ def main(args):
                 torch.save(state_dict, save_path)
                 print(f"diff_head saved to {save_path}")
 
-                state_dict = accelerator.unwrap_model(janus).query.detach().cpu()
-                save_path = os.path.join(output_dir, f"query-{config.train.exp_name}-{global_step}")
-                torch.save({"query": state_dict}, save_path)
-                print(f"Query saved to {save_path}")
+                state_dict = accelerator.unwrap_model(janus).siglip16_aligner.state_dict()
+                save_path = os.path.join(output_dir, f"siglip16_aligner-{config.train.exp_name}-{global_step}")
+                torch.save(state_dict, save_path)
+                print(f"siglip16_aligner saved to {save_path}")
 
                 if config.tune_backbone:
                     state_dict = accelerator.unwrap_model(janus).language_model.model.state_dict()
