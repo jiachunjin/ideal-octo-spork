@@ -189,7 +189,7 @@ def main(args):
                 torch.save({"query": state_dict}, save_path)
                 print(f"Query saved to {save_path}")
 
-                if config.train.tune_backbone:
+                if config.tune_backbone:
                     state_dict = accelerator.unwrap_model(janus).language_model.model.state_dict()
                     save_path = os.path.join(output_dir, f"janus-backbone-{config.train.exp_name}-{global_step}")
                     torch.save(state_dict, save_path)
