@@ -12,7 +12,10 @@ from model.vae_aligner import get_vae_aligner
 from model.janus.models import MultiModalityCausalLM, VLChatProcessor
 from model.dit.diff_mlp import equip_diffhead_query_with_janus
 
+@torch.no_grad()
 def main():
+    device = "cuda:7"
+    dtype = torch.float32
 #     exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone"
     exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar"
     config_path = os.path.join(exp_dir, "config.yaml")
@@ -37,8 +40,23 @@ def main():
     llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-13000"), map_location="cpu", weights_only=True)
     janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
 
-    device = "cuda:7"
-    dtype = torch.float32
+    # the refiner
+    from runner.mmdit.train_basic_sd3 import load_pretrained_mmdit, sample_sd3_5
+    from diffusers import FlowMatchEulerDiscreteScheduler
+    from einops import rearrange
+
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
+
+    config_path = os.path.join(exp_dir, "config.yaml")
+    config = OmegaConf.load(config_path)
+
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+    transformer = load_pretrained_mmdit(config.sd3_5_path)
+    ckpt_path = os.path.join(exp_dir, "transformer-mmdit-30000")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    transformer.load_state_dict(ckpt, strict=True)
+
+    transformer = transformer.to(device, dtype).eval()
 
     vae_aligner_projector = vae_aligner_projector.to(device, dtype)
     vae_aligner_projector.eval()
@@ -80,10 +98,21 @@ def main():
 
         return pred_latents
 
-    prompt = "Scientist at Sunway University conducts research in a laboratory setting."
+    prompts = [
+        "A stunning princess from kabul in red, white traditional clothing, blue eyes, brown hair",
+        "A soft, natural portrait photograph captures a young woman with fair skin and long, ash-blonde hair cascading gently over her shoulders. At the very bottom of the frame, in simple, elegant lettering, appears the phrase 'BE KIND'",
+        "The image depicts a modern, multi-story building with a white facade and numerous balconies. The structure is partially covered in purple scaffolding on the right side, indicating ongoing construction or renovation. The building is situated in an urban area with clear blue skies above. In front of the building, there is a paved plaza with some greenery and a few palm trees. A street lamp stands prominently on the left side of the plaza. To the right, part of another building with a beige exterior is visible. The scene suggests a sunny day in a developed cityscape.",
+        "A photo of 4 TVs in a row, with a white background",
+        "The image depicts the American Red Cross building, characterized by its neoclassical architectural style. The structure features tall, white columns supporting a pediment and a balustrade at the top. The facade is adorned with large windows, some of which have red crosses, symbolizing the organization's humanitarian mission. The building is set against a clear blue sky, with a tree partially obscuring the right side of the image. The overall appearance suggests a sense of stability and dedication to service, reflecting the Red Cross's commitment to aid and support.",
+        "A photo of a red dog",
+        "Scientist at Sunway University conducts research in a laboratory setting.",
+        "A serious Santa Claus in a rustic setting.",
+        "Muscular man in workout attire, standing confidently by a railing.",
+        "Confident man in leather jacket leaning against a wall.",
+    ]
     cfg_scale = 3
 
-    with torch.no_grad():
+    for i, prompt in enumerate(prompts): 
         input_ids = tokenizer.encode(prompt)
         input_ids = torch.LongTensor(input_ids)
         input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device)
@@ -121,23 +150,6 @@ def main():
         rec = vae_aligner.forward_with_low_dim(generated_tokens)
         print(rec.shape)
 
-        # the refiner
-        from runner.mmdit.train_basic_sd3 import load_pretrained_mmdit, sample_sd3_5
-        from diffusers import FlowMatchEulerDiscreteScheduler
-        from einops import rearrange
-
-        exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
-
-        config_path = os.path.join(exp_dir, "config.yaml")
-        config = OmegaConf.load(config_path)
-
-        noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
-        transformer = load_pretrained_mmdit(config.sd3_5_path)
-        ckpt_path = os.path.join(exp_dir, "transformer-mmdit-30000")
-        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-        transformer.load_state_dict(ckpt, strict=True)
-
-        transformer = transformer.to(device, dtype).eval()
         context = rearrange(rec, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
         samples = sample_sd3_5(
             transformer         = transformer,
@@ -149,8 +161,8 @@ def main():
             batch_size          = context.shape[0],
             height              = 384,
             width               = 384,
-            num_inference_steps = 20,
-            guidance_scale      = 5.0,
+            num_inference_steps = 50,
+            guidance_scale      = 2.0,
             seed                = 42
         )
 
@@ -160,10 +172,10 @@ def main():
         reconstructed = torch.clamp(reconstructed, 0, 1)
         grid = torchvision.utils.make_grid(reconstructed, nrow=4)
         os.makedirs("asset/diffhead", exist_ok=True)
-        torchvision.utils.save_image(grid, f"asset/diffhead/00.png")
+        torchvision.utils.save_image(grid, f"asset/diffhead/coarse_{i:02d}.png")
 
         import torchvision.utils as vutils
-        sample_path = f"asset/diffhead/samples.png"
+        sample_path = f"asset/diffhead/fine_{i:02d}.png"
         vutils.save_image(samples, sample_path, nrow=2, normalize=False)
         print(f"Samples saved to {sample_path}")
 
