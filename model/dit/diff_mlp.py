@@ -212,9 +212,9 @@ def equip_diffhead_query_with_janus(janus, config):
     )
 
     siglip16_aligner = nn.Sequential(
-        nn.Linear(16, 2048),
+        nn.Linear(16, config.diffhead.z_dim),
         nn.GELU(),
-        nn.Linear(2048, 2048),
+        nn.Linear(config.diffhead.z_dim, config.diffhead.z_dim),
     )
 
     janus.requires_grad_(False)
