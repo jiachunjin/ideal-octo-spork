@@ -21,11 +21,11 @@ tune_backbone: true
 
 train:
   root:
-  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar/diff_head-query_dit-16000"
-  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar/siglip16_aligner-query_dit-16000"
-  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar/janus-backbone-query_dit-16000"
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar/diff_head-query_dit-70000"
+  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar/siglip16_aligner-query_dit-70000"
+  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar/janus-backbone-query_dit-70000"
   skipped_keys:
-  global_step: 16000
+  global_step: 70000
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
   gen_feature: "siglip16" # [vae, siglip16]

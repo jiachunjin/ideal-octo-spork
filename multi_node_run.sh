@@ -81,3 +81,15 @@ echo "  --num_machines ${WORLD_SIZE}"
 echo "  --num_processes ${NUM_PROCESSES}"
 echo "  Python Script: ${MAIN_PYTHON_SCRIPT}"
 echo "  Script Arguments: ${MAIN_PYTHON_SCRIPT_ARGS}"
+
+accelerate launch \
+  --config_file "$ACCELERATE_CONFIG_FILE" \
+  --main_process_ip "$MASTER_ADDR" \
+  --main_process_port "$MASTER_PORT" \
+  --machine_rank "$NODE_RANK" \
+  --num_machines "$WORLD_SIZE" \
+  --num_processes "$NUM_PROCESSES" \
+  "$MAIN_PYTHON_SCRIPT" \
+  $MAIN_PYTHON_SCRIPT_ARGS
+
+echo "[INFO] accelerate launch command finished."
