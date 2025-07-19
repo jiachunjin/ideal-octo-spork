@@ -41,7 +41,7 @@ train:
   cfg_drop_rate: 0.1
 
   lr: 1e-4
-  num_iter: 100000
+  num_iter: 150000
   save_every: 5000
 
 
@@ -49,7 +49,7 @@ data:
   name: "t2i"
   train_path:
   batch_size: 25
-  num_workers: 8
+  num_workers: 16
   img_size: 384
   streaming: true
   buffer_size: 80000
