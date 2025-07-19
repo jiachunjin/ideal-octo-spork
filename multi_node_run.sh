@@ -1,4 +1,4 @@
-WORLD_SIZE=2
+WORLD_SIZE=4
 SHARED_DIR="/data/phd/jinjiachun/shared_dir"
 
 ACCELERATE_CONFIG_FILE="config/accelerate_config/multi_node_example_zero2.yaml"
