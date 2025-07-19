@@ -1,3 +1,6 @@
+export NCCL_DEBUG=INFO
+export TOKENIZERS_PARALLELISM=false
+
 WORLD_SIZE=2
 SHARED_DIR="/data/phd/jinjiachun/shared_dir"
 
