@@ -49,8 +49,8 @@ data:
   name: "t2i"
   train_path:
   batch_size: 25
-  num_workers: 16
+  num_workers: 8
   img_size: 384
   streaming: true
-  buffer_size: 80000
+  buffer_size: 100000
   max_text_length: 192
