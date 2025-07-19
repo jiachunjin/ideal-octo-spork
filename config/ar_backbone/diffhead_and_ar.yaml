@@ -35,7 +35,7 @@ train:
   output_dir: "0717_diff_head_fixbackbone_ar"
   logging_dir: "logs"
   mixed_precision: "bf16"
-  gradient_accumulation_steps: 4
+  gradient_accumulation_steps: 5
   report_to: "wandb"
 
   cfg_drop_rate: 0.1
@@ -48,9 +48,9 @@ train:
 data:
   name: "t2i"
   train_path:
-  batch_size: 25
+  batch_size: 20
   num_workers: 8
   img_size: 384
   streaming: true
-  buffer_size: 100000
+  buffer_size: 200000
   max_text_length: 192
