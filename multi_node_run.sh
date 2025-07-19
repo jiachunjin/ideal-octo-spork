@@ -90,6 +90,6 @@ accelerate launch \
   --num_machines "$WORLD_SIZE" \
   --num_processes "$NUM_PROCESSES" \
   "$MAIN_PYTHON_SCRIPT" \
-  $MAIN_PYTHON_SCRIPT_ARGS
+  --config $MAIN_PYTHON_SCRIPT_ARGS
 
 echo "[INFO] accelerate launch command finished."
