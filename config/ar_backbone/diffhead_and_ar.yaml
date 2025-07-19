@@ -35,7 +35,7 @@ train:
   output_dir: "0717_diff_head_fixbackbone_ar"
   logging_dir: "logs"
   mixed_precision: "bf16"
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 4
   report_to: "wandb"
 
   cfg_drop_rate: 0.1
