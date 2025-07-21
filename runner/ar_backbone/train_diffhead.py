@@ -144,6 +144,7 @@ def main(args):
                         visual_gen_feature = x_siglip_dimdown
                     elif config.train.gen_feature == "vae":
                         x_vae = vae.encode(pixel_values).latent_dist.sample()
+                        x_vae = rearrange(x_vae, "b c h w -> b (h w) c")
                         visual_gen_feature = x_vae
 
                 # cfg dropout
