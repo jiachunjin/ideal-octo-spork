@@ -10,6 +10,7 @@ from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
 from einops import rearrange
+from diffusers import AutoencoderKL
 
 from model.vae_aligner import get_vae_aligner
 from model.janus.models import MultiModalityCausalLM, VLChatProcessor
@@ -67,9 +68,13 @@ def main(args):
         janus.language_model.model.load_state_dict(backbone_ckpt, strict=True)
         accelerator.print(f"Backbone model loaded from {config.train.backbone_resume_path}")
 
-    siglip = janus.vision_model
-    vae_aligner_projector.requires_grad_(False)
-    siglip.requires_grad_(False)
+    if config.train.gen_feature == "siglip16":
+        siglip = janus.vision_model
+        vae_aligner_projector.requires_grad_(False)
+        siglip.requires_grad_(False)
+    elif config.train.gen_feature == "vae":
+        vae = AutoencoderKL.from_pretrained(config.vae_path)
+        vae.requires_grad_(False)
 
     global_step = config.train.global_step if config.train.global_step is not None else 0
     params_to_learn = list(p for p in janus.parameters() if p.requires_grad)
