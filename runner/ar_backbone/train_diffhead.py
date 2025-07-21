@@ -93,8 +93,11 @@ def main(args):
 
     janus, dataloader, optimizer = accelerator.prepare(janus, dataloader, optimizer)
 
-    siglip = siglip.to(accelerator.device, dtype).eval()
-    vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
+    if config.train.gen_feature == "siglip16":
+        siglip = siglip.to(accelerator.device, dtype).eval()
+        vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
+    elif config.train.gen_feature == "vae":
+        vae = vae.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -130,8 +133,14 @@ def main(args):
                 pixel_values = pixel_values * 2 - 1
 
                 with torch.no_grad():
-                    x_siglip = siglip(pixel_values)
-                    x_siglip_dimdown = vae_aligner_projector(x_siglip)
+                    if config.train.gen_feature == "siglip16":
+                        x_siglip = siglip(pixel_values)
+                        x_siglip_dimdown = vae_aligner_projector(x_siglip)
+                        visual_gen_feature = x_siglip_dimdown
+                    elif config.train.gen_feature == "vae":
+                        x_vae = vae.encode(pixel_values).latent_dist.sample()
+                        x_vae = vae_aligner_projector(x_vae)
+                        visual_gen_feature = x_vae
 
                 # cfg dropout
                 B, L = input_ids.shape
@@ -141,7 +150,7 @@ def main(args):
                 boi_token = torch.ones((B, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.convert_tokens_to_ids("<begin_of_image>")
                 input_ids = torch.cat([input_ids, boi_token], dim=1)
                 text_embedding = janus.module.language_model.get_input_embeddings()(input_ids)
-                img_embedding = janus.siglip16_aligner(x_siglip_dimdown)
+                img_embedding = janus.siglip16_aligner(visual_gen_feature)
                 joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
 
                 img_mask = torch.ones((B, 1 + 576), dtype=torch.bool, device=accelerator.device)
@@ -153,7 +162,7 @@ def main(args):
                     output_hidden_states = True,
                 ).hidden_states[-1]
                 z = hidden_states[:, -576-1:-1, :]
-                gt_feature = x_siglip_dimdown
+                gt_feature = visual_gen_feature
 
                 z = rearrange(z, "B L D -> (B L) D")
                 gt_feature = rearrange(gt_feature, "B L D -> (B L) D")
