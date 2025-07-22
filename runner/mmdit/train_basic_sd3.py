@@ -303,78 +303,76 @@ def main(args):
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
                     accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
 
-                optimizer.step()
-                optimizer.zero_grad()
+                    progress_bar.update(1)
+                    global_step += 1
 
-            if accelerator.sync_gradients:
-                progress_bar.update(1)
-                global_step += 1
+                    logs = dict(
+                        sd3_loss = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
 
-                logs = dict(
-                    sd3_loss = accelerator.gather(loss.detach()).mean().item(),
-                )
-                accelerator.log(logs, step=global_step)
-                progress_bar.set_postfix(**logs)
+                if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process and accelerator.sync_gradients:
+                    transformer.eval()
+                    state_dict = accelerator.unwrap_model(transformer).state_dict()
+                    save_path = os.path.join(output_dir, f"transformer-{config.train.exp_name}-{global_step}")
+                    torch.save(state_dict, save_path)
+                    print(f"Transformer saved to {save_path}")
 
-            if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
-                transformer.eval()
-                state_dict = accelerator.unwrap_model(transformer).state_dict()
-                save_path = os.path.join(output_dir, f"transformer-{config.train.exp_name}-{global_step}")
-                torch.save(state_dict, save_path)
-                print(f"Transformer saved to {save_path}")
+            # if global_step > 0 and global_step % config.train.val_every == 0 and accelerator.is_main_process:
+            #     transformer.eval()
 
-            if global_step > 0 and global_step % config.train.val_every == 0 and accelerator.is_main_process:
-                transformer.eval()
-
-                import torchvision.transforms as pth_transforms
-                from PIL import Image
+            #     import torchvision.transforms as pth_transforms
+            #     from PIL import Image
 
 
-                vae_transform = pth_transforms.Compose([
-                    pth_transforms.Resize(384, max_size=None),
-                    pth_transforms.CenterCrop(384),
-                    pth_transforms.ToTensor(),
-                ])
+            #     vae_transform = pth_transforms.Compose([
+            #         pth_transforms.Resize(384, max_size=None),
+            #         pth_transforms.CenterCrop(384),
+            #         pth_transforms.ToTensor(),
+            #     ])
 
-                img_1 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/kobe.png").convert("RGB")
-                img_2 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/004.jpg").convert("RGB")
+            #     img_1 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/kobe.png").convert("RGB")
+            #     img_2 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/004.jpg").convert("RGB")
 
-                x_1 = vae_transform(img_1).unsqueeze(0).to(accelerator.device, dtype)
-                x_2 = vae_transform(img_2).unsqueeze(0).to(accelerator.device, dtype)
-                x = torch.cat([x_1, x_2], dim=0)
-                x = x * 2 - 1
+            #     x_1 = vae_transform(img_1).unsqueeze(0).to(accelerator.device, dtype)
+            #     x_2 = vae_transform(img_2).unsqueeze(0).to(accelerator.device, dtype)
+            #     x = torch.cat([x_1, x_2], dim=0)
+            #     x = x * 2 - 1
 
-                x_siglip = siglip(x)
-                x_coarse_reference = vae_aligner(x_siglip)
-                context = rearrange(x_coarse_reference, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
+            #     x_siglip = siglip(x)
+            #     x_coarse_reference = vae_aligner(x_siglip)
+            #     context = rearrange(x_coarse_reference, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
 
-                samples = sample_sd3_5(
-                    transformer         = transformer,
-                    vae                 = vae,
-                    noise_scheduler     = noise_scheduler,
-                    device              = accelerator.device,
-                    dtype               = dtype,
-                    context             = context,
-                    batch_size          = context.shape[0],
-                    height              = 384,
-                    width               = 384,
-                    num_inference_steps = 20,
-                    guidance_scale      = 5.0,
-                    seed                = 42
-                )
+            #     samples = sample_sd3_5(
+            #         transformer         = transformer,
+            #         vae                 = vae,
+            #         noise_scheduler     = noise_scheduler,
+            #         device              = accelerator.device,
+            #         dtype               = dtype,
+            #         context             = context,
+            #         batch_size          = context.shape[0],
+            #         height              = 384,
+            #         width               = 384,
+            #         num_inference_steps = 20,
+            #         guidance_scale      = 5.0,
+            #         seed                = 42
+            #     )
 
-                import torchvision.utils as vutils
-                sample_path = f"samples_step_{global_step}.png"
-                vutils.save_image(samples, sample_path, nrow=2, normalize=False)
-                accelerator.print(f"Samples saved to {sample_path}")
+            #     import torchvision.utils as vutils
+            #     sample_path = f"samples_step_{global_step}.png"
+            #     vutils.save_image(samples, sample_path, nrow=2, normalize=False)
+            #     accelerator.print(f"Samples saved to {sample_path}")
 
-                with torch.no_grad():
-                    reconstructed = vae.decode(x_coarse_reference).sample
-                    reconstructed = reconstructed.to(torch.float32)
-                    reconstructed = (reconstructed + 1) / 2
-                    reconstructed = torch.clamp(reconstructed, 0, 1)
-                    vutils.save_image(reconstructed[:4], f"coarse_step_{global_step}.png", nrow=2, normalize=False)
+            #     with torch.no_grad():
+            #         reconstructed = vae.decode(x_coarse_reference).sample
+            #         reconstructed = reconstructed.to(torch.float32)
+            #         reconstructed = (reconstructed + 1) / 2
+            #         reconstructed = torch.clamp(reconstructed, 0, 1)
+            #         vutils.save_image(reconstructed[:4], f"coarse_step_{global_step}.png", nrow=2, normalize=False)
 
         epoch += 1
         accelerator.print(f"epoch {epoch}: finished")
