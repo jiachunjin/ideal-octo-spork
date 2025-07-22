@@ -250,7 +250,7 @@ def main(args):
                 accelerator.print("Skip empty batch")
                 continue
         
-            with accelerator.accumulate(transformer):
+            with accelerator.accumulate([transformer]):
                 transformer.train()
                 pixel_values = batch["pixel_values"].to(dtype)
                 pixel_values = pixel_values * 2 - 1
