@@ -195,23 +195,23 @@ def main(args):
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
                 
-            if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
-                janus.eval()
-                state_dict = accelerator.unwrap_model(janus).diff_head.state_dict()
-                save_path = os.path.join(output_dir, f"diff_head-{config.train.exp_name}-{global_step}")
-                torch.save(state_dict, save_path)
-                print(f"diff_head saved to {save_path}")
-
-                state_dict = accelerator.unwrap_model(janus).siglip16_aligner.state_dict()
-                save_path = os.path.join(output_dir, f"siglip16_aligner-{config.train.exp_name}-{global_step}")
-                torch.save(state_dict, save_path)
-                print(f"siglip16_aligner saved to {save_path}")
-
-                if config.tune_backbone:
-                    state_dict = accelerator.unwrap_model(janus).language_model.model.state_dict()
-                    save_path = os.path.join(output_dir, f"janus-backbone-{config.train.exp_name}-{global_step}")
+                if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process and accelerator.sync_gradients:
+                    janus.eval()
+                    state_dict = accelerator.unwrap_model(janus).diff_head.state_dict()
+                    save_path = os.path.join(output_dir, f"diff_head-{config.train.exp_name}-{global_step}")
                     torch.save(state_dict, save_path)
-                    print(f"janus-backbone saved to {save_path}")
+                    print(f"diff_head saved to {save_path}")
+
+                    state_dict = accelerator.unwrap_model(janus).siglip16_aligner.state_dict()
+                    save_path = os.path.join(output_dir, f"siglip16_aligner-{config.train.exp_name}-{global_step}")
+                    torch.save(state_dict, save_path)
+                    print(f"siglip16_aligner saved to {save_path}")
+
+                    if config.tune_backbone:
+                        state_dict = accelerator.unwrap_model(janus).language_model.model.state_dict()
+                        save_path = os.path.join(output_dir, f"janus-backbone-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"janus-backbone saved to {save_path}")
 
         epoch += 1
         accelerator.print(f"epoch {epoch}: finished")
