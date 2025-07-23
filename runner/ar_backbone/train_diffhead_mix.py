@@ -167,13 +167,9 @@ def main(args):
 
                 # generation input embedding
                 B_gen, L_gen = input_ids_gen.shape
-                # eos_token = torch.ones((B, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.eos_token_id
-                # eoi_token = torch.ones((B, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.convert_tokens_to_ids("<end_of_image>")
                 mask = (torch.rand(B_gen, 1) < config.train.cfg_drop_rate).repeat(1, L_gen)
                 input_ids_gen[mask] = tokenizer.pad_token_id
 
-                # boi_token = torch.ones((B, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.convert_tokens_to_ids("<begin_of_image>")
-                # input_ids_gen = torch.cat([input_ids_gen], dim=1)
                 text_embedding = janus.language_model.get_input_embeddings()(input_ids_gen)
                 img_embedding_gen = janus.siglip16_aligner(visual_gen_feature)
                 joint_embedding_gen = torch.cat((text_embedding, boi_embedding.repeat(B_gen, 1, 1), img_embedding_gen, eoi_embedding.repeat(B_gen, 1, 1), eos_embedding.repeat(B_gen, 1, 1)), dim=1)
@@ -181,11 +177,14 @@ def main(args):
                 img_mask = torch.ones((B_gen, 1 + 576 + 1 + 1), dtype=torch.bool, device=accelerator.device) # boi, img, eoi, eos
                 attention_mask_gen = torch.cat([attention_mask_gen, img_mask], dim=1)
 
-                B_und, L_und = input_ids_und.shape
+                # understanding input embedding
+                # append eos to input_ids_und
+                B_und, _ = input_ids_und.shape
+                input_ids_und = torch.cat([input_ids_und, eos_token.repeat(B_und, 1)], dim=1)
                 text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
                 img_embedding_und = janus.aligner(visual_und_feature)
 
-                joint_embedding_und = torch.cat((boi_embedding.repeat(B_und, 1, 1), img_embedding_und, eoi_embedding.repeat(B_und, 1, 1), text_embedding_und, eos_embedding.repeat(B_und, 1, 1)), dim=1)
+                joint_embedding_und = torch.cat((boi_embedding.repeat(B_und, 1, 1), img_embedding_und, eoi_embedding.repeat(B_und, 1, 1), text_embedding_und), dim=1) # eos is merged into input_ids_und
 
                 img_mask = torch.ones((B_und, 1 + 576 + 1), dtype=torch.bool, device=accelerator.device) # boi, img, eoi
                 eos_mask = torch.ones((B_und, 1), dtype=torch.bool, device=accelerator.device)
@@ -201,23 +200,39 @@ def main(args):
                     output_hidden_states = True,
                 ).hidden_states[-1]
 
-                print(hidden_states.shape, B_gen, B_und)
-                exit(0)
 
-                # compute gen loss
-                z = hidden_states[:, -576-1:-1, :]
+                # ---------- compute gen loss ----------
+                hidden_states_gen = hidden_states[:B_gen]
+                z_gen = hidden_states_gen[:, -576-1-2:-1-2, :]
                 gt_feature = visual_gen_feature
-
-                z = rearrange(z, "B L D -> (B L) D")
+                z_gen = rearrange(z_gen, "B L D -> (B L) D")
                 gt_feature = rearrange(gt_feature, "B L D -> (B L) D")
-                B = z.shape[0]
-                timesteps = torch.randint(0, 1000, (B,), dtype=torch.int64, device=z.device)
-                noise = torch.randn_like(gt_feature, device=z.device, dtype=z.dtype)
+                B = z_gen.shape[0]
+                timesteps = torch.randint(0, 1000, (B,), dtype=torch.int64, device=z_gen.device)
+                noise = torch.randn_like(gt_feature, device=z_gen.device, dtype=z_gen.dtype)
                 noisy_latents = train_scheduler.add_noise(gt_feature, noise, timesteps)
                 target = train_scheduler.get_velocity(gt_feature, noise, timesteps)
-                pred = janus.diff_head(noisy_latents, timesteps, z)
+                pred = janus.diff_head(noisy_latents, timesteps, z_gen)
 
-                loss = torch.nn.functional.mse_loss(pred.to(dtype), target)
+                loss_gen = torch.nn.functional.mse_loss(pred.to(dtype), target)
+
+                # ---------- compute und loss ----------
+                hidden_states_und = hidden_states[B_gen:]
+                z_und = hidden_states_und[:, 1 + 576:-1, :] # skip boi, img
+                # 使用 z_und 进行下一个 token 的预测
+                logits = janus.language_model.lm_head(z_und)
+                # print(logits.shape, input_ids_und.shape)
+                # exit(0)
+                # 计算下一个 token 的预测损失（交叉熵损失）
+                loss_und = torch.nn.functional.cross_entropy(
+                    logits.view(-1, logits.size(-1)),
+                    input_ids_und.view(-1),
+                    ignore_index=tokenizer.pad_token_id
+                )
+                loss = 0.5 * loss_gen + 0.5 * loss_und
+                # print(input_ids_und)
+                # exit(0)
+                # loss = loss_gen
 
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
@@ -229,7 +244,9 @@ def main(args):
                     progress_bar.update(1)
 
                     logs = dict(
-                        query_dit_loss = accelerator.gather(loss.detach()).mean().item(),
+                        loss_gen_und = accelerator.gather(loss.detach()).mean().item(),
+                        loss_gen     = accelerator.gather(loss_gen.detach()).mean().item(),
+                        loss_und     = accelerator.gather(loss_und.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
