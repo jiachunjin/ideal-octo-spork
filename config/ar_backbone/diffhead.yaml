@@ -1,8 +1,8 @@
-machine: "ks" # [g3, ks]
+machine: "g3" # [g3, ks]
 
 vae_aligner:
-  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-51k"
-  # pretrained_path: "/data1/jjc/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-6k"
+  # pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-51k"
+  pretrained_path: "/data1/jjc/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-6k"
   hidden_size: 1024
   depth: 16
   num_heads: 16
@@ -23,6 +23,7 @@ train:
   root:
   diffhead_resume_path:
   siglip16_aligner_resume_path:
+  backbone_resume_path:
   skipped_keys:
   global_step: 0
 
@@ -31,11 +32,11 @@ train:
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0717_diff_head_fixbackbone"
+  output_dir: "tmp"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "wandb"
+  report_to: "no"
 
   cfg_drop_rate: 0.1
 
@@ -47,9 +48,9 @@ train:
 data:
   name: "t2i"
   train_path:
-  batch_size: 32
-  num_workers: 8
+  batch_size: 5
+  num_workers: 3
   img_size: 384
   streaming: true
-  buffer_size: 80000
+  buffer_size: 1000
   max_text_length: 192

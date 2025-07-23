@@ -21,11 +21,11 @@ tune_backbone: true
 
 train:
   root:
-  diffhead_resume_path:
-  siglip16_aligner_resume_path:
-  backbone_resume_path:
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0721_diff_head_gen_vae/diff_head-query_dit-35000"
+  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0721_diff_head_gen_vae/siglip16_aligner-query_dit-35000"
+  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0721_diff_head_gen_vae/janus-backbone-query_dit-35000"
   skipped_keys:
-  global_step:
+  global_step: 35000
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
   gen_feature: "vae" # [vae, siglip16]
@@ -35,14 +35,14 @@ train:
   output_dir: "0721_diff_head_gen_vae"
   logging_dir: "logs"
   mixed_precision: "bf16"
-  gradient_accumulation_steps: 5
+  gradient_accumulation_steps: 1
   report_to: "wandb"
 
   cfg_drop_rate: 0.1
 
   lr: 1e-4
-  num_iter: 150000
-  save_every: 5000
+  num_iter: 100000
+  save_every: 2500
 
 
 data:
@@ -52,5 +52,5 @@ data:
   num_workers: 8
   img_size: 192
   streaming: true
-  buffer_size: 150000
+  buffer_size: 75000
   max_text_length: 192

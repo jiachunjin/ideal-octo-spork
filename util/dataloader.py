@@ -6,9 +6,13 @@ from datasets import load_dataset, Features, Value
 from torch.utils.data import DataLoader
 from torchvision import transforms as pth_transforms
 from PIL import Image, UnidentifiedImageError
+from model.janus.models import VLChatProcessor
+
 
 
 def get_dataloader(config, accelerator=None, tokenizer=None):
+    vl_chat_processor = VLChatProcessor.from_pretrained(config.janus_1b_path)
+    config = config.data
     data_files = []
     for path in config.train_path:
         data_files.extend(glob.glob(os.path.join(path, "*.tar")))
@@ -83,6 +87,7 @@ def get_dataloader(config, accelerator=None, tokenizer=None):
     def collate_fn_t2i(batch):
         assert tokenizer is not None
         pixel_values = []
+        pixel_values_und = []
         texts = []
 
         for item in batch:
@@ -90,6 +95,8 @@ def get_dataloader(config, accelerator=None, tokenizer=None):
                 img_bytes = item["jpg"]
                 pixel_value = decode_image(img_bytes)
                 pixel_values.append(pixel_value)
+                pixel_value_und = vl_chat_processor.image_processor([Image.open(io.BytesIO(img_bytes)).convert("RGB")]).pixel_values
+                pixel_values_und.append(pixel_value_und)
                 texts.append(item["txt"])
             except Exception as e:
                 if isinstance(e, ValueError) and ("Image too small" in str(e) or "Corrupted or unsupported image" in str(e)):
@@ -103,6 +110,7 @@ def get_dataloader(config, accelerator=None, tokenizer=None):
             return {"pixel_values": torch.empty(0, 3, config.img_size, config.img_size)}
 
         pixel_values = torch.stack(pixel_values)
+        pixel_values_und = torch.cat(pixel_values_und, dim=0)
         processed_text = tokenizer(
             texts, 
             return_tensors = "pt",
@@ -116,6 +124,7 @@ def get_dataloader(config, accelerator=None, tokenizer=None):
         return {
             "pixel_values": pixel_values,
             "input_ids": input_ids,
+            "pixel_values_und": pixel_values_und,
             "attention_mask": attention_mask,
         }
     dataloader = DataLoader(

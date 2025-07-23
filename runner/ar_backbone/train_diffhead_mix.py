@@ -43,8 +43,8 @@ def main(args):
     tokenizer = VLChatProcessor.from_pretrained(config.janus_1b_path).tokenizer
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
-    ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
-    vae_aligner.load_state_dict(ckpt, strict=True)
+    # ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
+    # vae_aligner.load_state_dict(ckpt, strict=True)
     vae_aligner_projector = vae_aligner.siglip_feature_proj
 
     if config.train.ar_backbone == "janus1b":
@@ -132,40 +132,79 @@ def main(args):
             
             with accelerator.accumulate([janus]):
                 janus.train()
-                input_ids = batch["input_ids"]
-                attention_mask = batch["attention_mask"]
-                pixel_values = batch["pixel_values"].to(dtype)
-                pixel_values = pixel_values * 2 - 1
+                B = batch["pixel_values"].shape[0]
+                idx = torch.randperm(B, device=accelerator.device)
+                half = B // 2
+                gen_idx = idx[:half]
+                und_idx = idx[half:]                
 
+                input_ids_gen = batch["input_ids"][gen_idx]
+                input_ids_und = batch["input_ids"][und_idx]
+                # print(tokenizer.decode(input_ids_und[0], skip_special_tokens=False))
+                # exit(0)
+                attention_mask_gen = batch["attention_mask"][gen_idx]
+                attention_mask_und = batch["attention_mask"][und_idx]
+                pixel_values_gen = batch["pixel_values"][gen_idx].to(dtype)
+                pixel_values_und = batch["pixel_values_und"][und_idx].to(dtype)
+                pixel_values_gen = pixel_values_gen * 2 - 1
+
+                # prepare visual features
                 with torch.no_grad():
                     if config.train.gen_feature == "siglip16":
-                        x_siglip = siglip(pixel_values)
+                        x_siglip = siglip(pixel_values_gen)
                         x_siglip_dimdown = vae_aligner_projector(x_siglip)
-                        visual_gen_feature = x_siglip_dimdown
+                        visual_gen_feature = x_siglip_dimdown # (B_gen, 576, 16)
+                        visual_und_feature = siglip(pixel_values_und) # (B_und, 576, 1024)
                     elif config.train.gen_feature == "vae":
-                        x_vae = vae.encode(pixel_values).latent_dist.sample()
-                        x_vae = rearrange(x_vae, "b c h w -> b (h w) c")
-                        visual_gen_feature = x_vae
+                        raise NotImplementedError
 
-                # cfg dropout
-                B, L = input_ids.shape
-                mask = (torch.rand(B, 1) < config.train.cfg_drop_rate).repeat(1, L)
-                input_ids[mask] = tokenizer.pad_token_id
+                eos_token = torch.ones((1, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.eos_token_id
+                boi_token = torch.ones((1, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.convert_tokens_to_ids("<begin_of_image>")
+                eoi_token = torch.ones((1, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.convert_tokens_to_ids("<end_of_image>")
+                eos_embedding = janus.language_model.get_input_embeddings()(eos_token)
+                boi_embedding = janus.language_model.get_input_embeddings()(boi_token)
+                eoi_embedding = janus.language_model.get_input_embeddings()(eoi_token)
 
-                boi_token = torch.ones((B, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.convert_tokens_to_ids("<begin_of_image>")
-                input_ids = torch.cat([input_ids, boi_token], dim=1)
-                text_embedding = janus.module.language_model.get_input_embeddings()(input_ids)
-                img_embedding = janus.siglip16_aligner(visual_gen_feature)
-                joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+                # generation input embedding
+                B_gen, L_gen = input_ids_gen.shape
+                # eos_token = torch.ones((B, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.eos_token_id
+                # eoi_token = torch.ones((B, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.convert_tokens_to_ids("<end_of_image>")
+                mask = (torch.rand(B_gen, 1) < config.train.cfg_drop_rate).repeat(1, L_gen)
+                input_ids_gen[mask] = tokenizer.pad_token_id
 
-                img_mask = torch.ones((B, 1 + 576), dtype=torch.bool, device=accelerator.device)
-                attention_mask = torch.cat([attention_mask, img_mask], dim=1)
+                # boi_token = torch.ones((B, 1), dtype=torch.int64, device=accelerator.device) * tokenizer.convert_tokens_to_ids("<begin_of_image>")
+                # input_ids_gen = torch.cat([input_ids_gen], dim=1)
+                text_embedding = janus.language_model.get_input_embeddings()(input_ids_gen)
+                img_embedding_gen = janus.siglip16_aligner(visual_gen_feature)
+                joint_embedding_gen = torch.cat((text_embedding, boi_embedding.repeat(B_gen, 1, 1), img_embedding_gen, eoi_embedding.repeat(B_gen, 1, 1), eos_embedding.repeat(B_gen, 1, 1)), dim=1)
+
+                img_mask = torch.ones((B_gen, 1 + 576 + 1 + 1), dtype=torch.bool, device=accelerator.device) # boi, img, eoi, eos
+                attention_mask_gen = torch.cat([attention_mask_gen, img_mask], dim=1)
+
+                B_und, L_und = input_ids_und.shape
+                text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
+                img_embedding_und = janus.aligner(visual_und_feature)
+
+                joint_embedding_und = torch.cat((boi_embedding.repeat(B_und, 1, 1), img_embedding_und, eoi_embedding.repeat(B_und, 1, 1), text_embedding_und, eos_embedding.repeat(B_und, 1, 1)), dim=1)
+
+                img_mask = torch.ones((B_und, 1 + 576 + 1), dtype=torch.bool, device=accelerator.device) # boi, img, eoi
+                eos_mask = torch.ones((B_und, 1), dtype=torch.bool, device=accelerator.device)
+                attention_mask_und = torch.cat([img_mask, attention_mask_und, eos_mask], dim=1)
+
+                joint_embedding = torch.cat([joint_embedding_gen, joint_embedding_und], dim=0)
+                attention_mask = torch.cat([attention_mask_gen, attention_mask_und], dim=0)
+                # print(joint_embedding.shape, attention_mask.shape)
 
                 hidden_states = janus.module.language_model(
                     inputs_embeds        = joint_embedding,
                     attention_mask       = attention_mask,
                     output_hidden_states = True,
                 ).hidden_states[-1]
+
+                print(hidden_states.shape, B_gen, B_und)
+                exit(0)
+
+                # compute gen loss
                 z = hidden_states[:, -576-1:-1, :]
                 gt_feature = visual_gen_feature
 
@@ -195,24 +234,23 @@ def main(args):
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
                 
-                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
-                        janus.eval()
-                        state_dict = accelerator.unwrap_model(janus).diff_head.state_dict()
-                        save_path = os.path.join(output_dir, f"diff_head-{config.train.exp_name}-{global_step}")
-                        torch.save(state_dict, save_path)
-                        print(f"diff_head saved to {save_path}")
+                if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process and accelerator.sync_gradients:
+                    janus.eval()
+                    state_dict = accelerator.unwrap_model(janus).diff_head.state_dict()
+                    save_path = os.path.join(output_dir, f"diff_head-{config.train.exp_name}-{global_step}")
+                    torch.save(state_dict, save_path)
+                    print(f"diff_head saved to {save_path}")
 
-                        state_dict = accelerator.unwrap_model(janus).siglip16_aligner.state_dict()
-                        save_path = os.path.join(output_dir, f"siglip16_aligner-{config.train.exp_name}-{global_step}")
-                        torch.save(state_dict, save_path)
-                        print(f"siglip16_aligner saved to {save_path}")
+                    state_dict = accelerator.unwrap_model(janus).siglip16_aligner.state_dict()
+                    save_path = os.path.join(output_dir, f"siglip16_aligner-{config.train.exp_name}-{global_step}")
+                    torch.save(state_dict, save_path)
+                    print(f"siglip16_aligner saved to {save_path}")
 
-                        if config.tune_backbone:
-                            state_dict = accelerator.unwrap_model(janus).language_model.model.state_dict()
-                            save_path = os.path.join(output_dir, f"janus-backbone-{config.train.exp_name}-{global_step}")
-                            torch.save(state_dict, save_path)
-                            print(f"janus-backbone saved to {save_path}")
-                    accelerator.wait_for_everyone()
+                    if config.tune_backbone:
+                        state_dict = accelerator.unwrap_model(janus).language_model.model.state_dict()
+                        save_path = os.path.join(output_dir, f"janus-backbone-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"janus-backbone saved to {save_path}")
 
         epoch += 1
         accelerator.print(f"epoch {epoch}: finished")
