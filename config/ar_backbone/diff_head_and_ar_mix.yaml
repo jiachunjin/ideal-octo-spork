@@ -21,8 +21,8 @@ tune_backbone: true
 
 train:
   root:
-  diffhead_resume_path:
-  siglip16_aligner_resume_path:
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar/diff_head-query_dit-120000"
+  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar/siglip16_aligner-query_dit-120000"
   backbone_resume_path:
   skipped_keys:
   global_step: 0
@@ -36,13 +36,13 @@ train:
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "no"
+  report_to: "wandb"
 
   cfg_drop_rate: 0.1
 
   lr: 1e-4
   num_iter: 100000
-  save_every: 1000
+  save_every: 5000
 
 
 data:
@@ -52,5 +52,5 @@ data:
   num_workers: 8
   img_size: 384
   streaming: true
-  buffer_size: 1000
+  buffer_size: 80000
   max_text_length: 192
