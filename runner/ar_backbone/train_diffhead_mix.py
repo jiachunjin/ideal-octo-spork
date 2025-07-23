@@ -43,8 +43,8 @@ def main(args):
     tokenizer = VLChatProcessor.from_pretrained(config.janus_1b_path).tokenizer
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
-    # ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
-    # vae_aligner.load_state_dict(ckpt, strict=True)
+    ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
+    vae_aligner.load_state_dict(ckpt, strict=True)
     vae_aligner_projector = vae_aligner.siglip_feature_proj
 
     if config.train.ar_backbone == "janus1b":
