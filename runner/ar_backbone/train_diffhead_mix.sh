@@ -3,4 +3,4 @@ accelerate launch \
 --main_process_port 30002 \
 --num_processes 8 \
 runner/ar_backbone/train_diffhead_mix.py \
---config config/ar_backbone/diffhead.yaml
+--config config/ar_backbone/diff_head_and_ar_mix.yaml
