@@ -12,56 +12,59 @@ from model.vae_aligner import get_vae_aligner
 from model.janus.models import MultiModalityCausalLM, VLChatProcessor
 from model.dit.diff_mlp import equip_diffhead_query_with_janus
 
+from einops import rearrange
+
 @torch.no_grad()
 def main():
     device = "cuda:7"
     dtype = torch.float32
-    exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0723_mix"
+#     exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone"
     # exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar"
+    exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0721_diff_head_gen_vae"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
     tokenizer = VLChatProcessor.from_pretrained(config.janus_1b_path).tokenizer
     vae = AutoencoderKL.from_pretrained(config.vae_path)
-    vae_aligner = get_vae_aligner(config.vae_aligner)
-    ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
-    vae_aligner.load_state_dict(ckpt, strict=True)
-    vae_aligner_projector = vae_aligner.siglip_feature_proj
+    # vae_aligner = get_vae_aligner(config.vae_aligner)
+    # ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
+    # vae_aligner.load_state_dict(ckpt, strict=True)
+    # vae_aligner_projector = vae_aligner.siglip_feature_proj
 
     janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
     janus, _ = equip_diffhead_query_with_janus(janus, config)
 
-    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-15000"), map_location="cpu", weights_only=True)
+    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-75000"), map_location="cpu", weights_only=True)
     janus.diff_head.load_state_dict(diffhead_ckpt, strict=True)
 
-    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-15000"), map_location="cpu", weights_only=True)
+    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-75000"), map_location="cpu", weights_only=True)
     janus.siglip16_aligner.load_state_dict(siglip16_aligner_ckpt, strict=True)
     
-    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-15000"), map_location="cpu", weights_only=True)
+    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-75000"), map_location="cpu", weights_only=True)
     janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
 
     # the refiner
-    from runner.mmdit.train_basic_sd3 import load_pretrained_mmdit, sample_sd3_5
-    from diffusers import FlowMatchEulerDiscreteScheduler
-    from einops import rearrange
+    # from runner.mmdit.train_basic_sd3 import load_pretrained_mmdit, sample_sd3_5
+    # from diffusers import FlowMatchEulerDiscreteScheduler
+    # from einops import rearrange
 
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
+    # exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
 
-    config_path = os.path.join(exp_dir, "config.yaml")
-    config = OmegaConf.load(config_path)
+    # config_path = os.path.join(exp_dir, "config.yaml")
+    # config = OmegaConf.load(config_path)
 
-    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
-    transformer = load_pretrained_mmdit(config.sd3_5_path)
-    ckpt_path = os.path.join(exp_dir, "transformer-mmdit-30000")
-    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-    transformer.load_state_dict(ckpt, strict=True)
+    # noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+    # transformer = load_pretrained_mmdit(config.sd3_5_path)
+    # ckpt_path = os.path.join(exp_dir, "transformer-mmdit-30000")
+    # ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    # transformer.load_state_dict(ckpt, strict=True)
 
-    transformer = transformer.to(device, dtype).eval()
+    # transformer = transformer.to(device, dtype).eval()
 
-    vae_aligner_projector = vae_aligner_projector.to(device, dtype)
-    vae_aligner_projector.eval()
-    vae_aligner = vae_aligner.to(device, dtype)
-    vae_aligner.eval()
+    # vae_aligner_projector = vae_aligner_projector.to(device, dtype)
+    # vae_aligner_projector.eval()
+    # vae_aligner = vae_aligner.to(device, dtype)
+    # vae_aligner.eval()
     janus = janus.to(device, dtype)
     janus.eval()
     vae = vae.to(device, dtype)
@@ -110,9 +113,9 @@ def main():
         "Muscular man in workout attire, standing confidently by a railing.",
         "Confident man in leather jacket leaning against a wall.",
     ]
-    cfg_scale = 3
+    cfg_scale = 4
 
-    for img_idx, prompt in enumerate(prompts): 
+    for img_idx, prompt in enumerate(prompts):
         input_ids = tokenizer.encode(prompt)
         input_ids = torch.LongTensor(input_ids)
         input_ids = torch.cat([input_ids, torch.tensor([100003])]).to(device)
@@ -147,37 +150,13 @@ def main():
                 text_embedding = img_embeds
 
         print(generated_tokens.shape)
-        rec = vae_aligner.forward_with_low_dim(generated_tokens)
-        print(rec.shape)
-
-        context = rearrange(rec, "b c (h p1) (w p2) -> b (h w) (p1 p2 c)", p1=4, p2=4)
-        samples = sample_sd3_5(
-            transformer         = transformer,
-            vae                 = vae,
-            noise_scheduler     = noise_scheduler,
-            device              = device,
-            dtype               = dtype,
-            context             = context,
-            batch_size          = context.shape[0],
-            height              = 384,
-            width               = 384,
-            num_inference_steps = 50,
-            guidance_scale      = 2.0,
-            seed                = 42
-        )
-
-
+        rec = rearrange(generated_tokens, "b (h w) c -> b c h w", h=24)
         reconstructed = vae.decode(rec).sample
         reconstructed = (reconstructed + 1) / 2
         reconstructed = torch.clamp(reconstructed, 0, 1)
         grid = torchvision.utils.make_grid(reconstructed, nrow=4)
-        os.makedirs("asset/diffhead", exist_ok=True)
-        torchvision.utils.save_image(grid, f"asset/diffhead/coarse_{img_idx:02d}.png")
-
-        import torchvision.utils as vutils
-        sample_path = f"asset/diffhead/fine_{img_idx:02d}.png"
-        vutils.save_image(samples, sample_path, nrow=2, normalize=False)
-        print(f"Samples saved to {sample_path}")
+        os.makedirs("asset/diffhead_vae", exist_ok=True)
+        torchvision.utils.save_image(grid, f"asset/diffhead_vae/coarse_{img_idx:02d}.png")
 
 if __name__ == "__main__":
     main()
