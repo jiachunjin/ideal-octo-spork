@@ -168,6 +168,9 @@ def main(args):
             # understanding input embedding
             text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
             img_embedding_und = janus.aligner(visual_und_feature)
+            text_embedding_und[:, 42:618, :] = img_embedding_und
+            accelerator.print(text_embedding_und[:, 42:618, :].shape)
+            accelerator.print(img_embedding_und.shape)
             # TODO replace img_place_holder with img_embedding_und
             accelerator.print(f"text_embedding_und shape: {text_embedding_und.shape}")
             accelerator.print(f"img_embedding_und shape: {img_embedding_und.shape}")
