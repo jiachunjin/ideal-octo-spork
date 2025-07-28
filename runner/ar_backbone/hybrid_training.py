@@ -2,7 +2,7 @@ import os
 import pprint
 import argparse
 
-
+from tqdm import tqdm
 from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
@@ -61,6 +61,16 @@ def main(args):
     inf_iter_und = InfiniteIterator(dataloader_und, "理解数据集")
     inf_iter_gen = InfiniteIterator(dataloader_gen, "生成数据集")
 
+    und_samples = 0
+    gen_samples = 0
+
+    progress_bar = tqdm(
+        total   = config.train.num_iter,
+        initial = 0,
+        desc    = "Steps",
+        disable = not accelerator.is_local_main_process,
+    )
+
     while True:
         # 使用无限迭代器获取数据
         # try:
@@ -69,6 +79,7 @@ def main(args):
         und_input_ids = batch_und["input_ids"]
         und_attention_mask = batch_und["attention_mask"]
         und_labels = batch_und["labels"]
+        und_samples += und_pixel_values.shape[0]
 
         # print(und_pixel_values.shape)
         # print(und_input_ids.shape)
@@ -85,10 +96,17 @@ def main(args):
         gen_pixel_value = batch_gen_img["pixel_value"]
         gen_input_ids = batch_gen_prompt["input_ids"]
         gen_attention_mask = batch_gen_prompt["attention_mask"]
+        gen_samples += gen_pixel_value.shape[0]
 
-        print(gen_pixel_value.shape)
-        print(gen_input_ids.shape)
-        print(gen_attention_mask.shape)
+        if und_samples % 10000 == 0:
+            print(f"理解数据集样本数: {und_samples}")
+        if gen_samples % 10000 == 0:
+            print(f"生成数据集样本数: {gen_samples}")
+        progress_bar.update(1)
+
+        # print(gen_pixel_value.shape)
+        # print(gen_input_ids.shape)
+        # print(gen_attention_mask.shape)
 
         # print("生成数据集 batch:")
 
