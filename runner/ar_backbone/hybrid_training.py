@@ -9,7 +9,7 @@ from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
 
 from model.vae_aligner import get_vae_aligner
-from model.janus.models import MultiModalityCausalLM
+from model.janus.models import MultiModalityCausalLM, VLChatProcessor
 from model.dit.diff_mlp import equip_diffhead_query_with_janus
 from util.dual_dataloader import get_dataloader_und, get_dataloader_gen, InfiniteIterator
 from util.misc import process_pretrained_model_path, flatten_dict
@@ -38,6 +38,7 @@ def main(args):
     accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
 
     # load models
+    tokenizer = VLChatProcessor.from_pretrained(config.janus_1b_path).tokenizer
     vae_aligner = get_vae_aligner(config.vae_aligner)
     ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
     vae_aligner.load_state_dict(ckpt, strict=True)
@@ -94,8 +95,8 @@ def main(args):
     siglip = siglip.to(accelerator.device, dtype).eval()
     vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
 
-    inf_iter_und = InfiniteIterator(dataloader_und, "理解数据集")
-    inf_iter_gen = InfiniteIterator(dataloader_gen, "生成数据集")
+    inf_iter_und = InfiniteIterator(dataloader_und, "understanding")
+    inf_iter_gen = InfiniteIterator(dataloader_gen, "generation")
     training_done = False
 
     progress_bar = tqdm(
@@ -120,47 +121,62 @@ def main(args):
     while not training_done:
         # load und data and gen data
         batch_gen = next(inf_iter_gen)
-        gen_pixel_value = batch_gen["pixel_values"].to(dtype)
-        gen_pixel_value = gen_pixel_value * 2 - 1
-        gen_input_ids = batch_gen["input_ids"]
-        gen_attention_mask = batch_gen["attention_mask"]
-        accelerator.print(f"gen_pixel_value shape: {gen_pixel_value.shape}")
-        accelerator.print(f"gen_input_ids shape: {gen_input_ids.shape}")
-        accelerator.print(f"gen_attention_mask shape: {gen_attention_mask.shape}")
+        pixel_value_gen = batch_gen["pixel_values"].to(dtype)
+        pixel_value_gen = pixel_value_gen * 2 - 1
+        input_ids_gen = batch_gen["input_ids"]
+        attention_mask_gen = batch_gen["attention_mask"]
+        # accelerator.print(f"pixel_value_gen shape: {pixel_value_gen.shape}")
+        # accelerator.print(f"input_ids_gen shape: {input_ids_gen.shape}")
+        # accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
 
         batch_und = next(inf_iter_und)
-        und_pixel_values = batch_und["pixel_values"].to(dtype)
-        und_input_ids = batch_und["input_ids"]
-        und_attention_mask = batch_und["attention_mask"]
-        und_labels = batch_und["labels"]
-        accelerator.print(f"und_pixel_values shape: {und_pixel_values.shape}")
-        accelerator.print(f"und_input_ids shape: {und_input_ids.shape}")
-        accelerator.print(f"und_attention_mask shape: {und_attention_mask.shape}")
-        accelerator.print(f"und_labels shape: {und_labels.shape}")
+        pixel_values_und = batch_und["pixel_values"].to(dtype)
+        input_ids_und = batch_und["input_ids"]
+        attention_mask_und = batch_und["attention_mask"]
+        labels_und = batch_und["labels"]
+        # accelerator.print(f"pixel_values_und shape: {pixel_values_und.shape}")
+        # accelerator.print(f"input_ids_und shape: {input_ids_und.shape}")
+        # accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
+        # accelerator.print(f"labels_und shape: {labels_und.shape}")
 
-        if gen_pixel_value.shape[0] == 0 or und_pixel_values.shape[0] == 0:
+        if pixel_value_gen.shape[0] == 0 or pixel_values_und.shape[0] == 0:
             continue
     
         with accelerator.accumulate([janus]):
             janus.train()
 
-            # forward
             with torch.no_grad():
-                x_siglip = siglip(gen_pixel_value)
+                x_siglip = siglip(pixel_value_gen)
                 visual_gen_feature = vae_aligner_projector(x_siglip)
+
+            # generation input embedding
+            B_gen, L_gen = input_ids_gen.shape
+            mask = (torch.rand(B_gen, 1) < config.train.cfg_drop_rate).repeat(1, L_gen)
+            input_ids_gen[mask] = tokenizer.pad_token_id
+
+            text_embedding_gen = janus.language_model.get_input_embeddings()(input_ids_gen)
+            img_embedding_gen = janus.siglip16_aligner(visual_gen_feature)
+            joint_embedding_gen = torch.cat([text_embedding_gen, img_embedding_gen], dim=1)
+
+            img_mask_gen = torch.ones((B_gen, 576), dtype=torch.bool, device=accelerator.device)
+            attention_mask_gen = torch.cat([attention_mask_gen, img_mask_gen], dim=1)
+
+            accelerator.print(f"joint_embedding_gen shape: {joint_embedding_gen.shape}")
+            accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
+
         # 使用无限迭代器获取数据
         # try:
         # batch_und = next(inf_iter_und)
-        # und_pixel_values = batch_und["pixel_values"]
-        # und_input_ids = batch_und["input_ids"]
-        # und_attention_mask = batch_und["attention_mask"]
-        # und_labels = batch_und["labels"]
-        # und_samples += und_pixel_values.shape[0]
+        # pixel_values_und = batch_und["pixel_values"]
+        # input_ids_und = batch_und["input_ids"]
+        # attention_mask_und = batch_und["attention_mask"]
+        # labels_und = batch_und["labels"]
+        # und_samples += pixel_values_und.shape[0]
 
-        # print(und_pixel_values.shape)
-        # print(und_input_ids.shape)
-        # print(und_attention_mask.shape)
-        # print(und_labels.shape)
+        # print(pixel_values_und.shape)
+        # print(input_ids_und.shape)
+        # print(attention_mask_und.shape)
+        # print(labels_und.shape)
         # print("理解数据集 batch:")
         # for k, v in batch_und.items():
         #     print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
@@ -169,14 +185,14 @@ def main(args):
 
         # try:
         # batch_gen_img, batch_gen_prompt = next(inf_iter_gen)
-        # gen_pixel_value = batch_gen_img["pixel_value"]
-        # gen_input_ids = batch_gen_prompt["input_ids"]
-        # gen_attention_mask = batch_gen_prompt["attention_mask"]
+        # pixel_value_gen = batch_gen_img["pixel_value"]
+        # input_ids_gen = batch_gen_prompt["input_ids"]
+        # attention_mask_gen = batch_gen_prompt["attention_mask"]
         # gen_samples += gen_pixel_value.shape[0]
         # batch_gen = next(inf_iter_gen)
         # gen_pixel_value = batch_gen["pixel_value"]
-        # gen_input_ids = batch_gen["input_ids"]
-        # gen_attention_mask = batch_gen["attention_mask"]
+        # input_ids_gen = batch_gen["input_ids"]
+        # attention_mask_gen = batch_gen["attention_mask"]
         # gen_samples += gen_pixel_value.shape[0]
 
         # if und_samples % 10000 == 0:
@@ -184,13 +200,13 @@ def main(args):
         # if gen_samples % 10000 == 0:
         #     print(f"生成数据集样本数: {gen_samples}")
         #     print(gen_pixel_value.shape)
-        #     print(gen_input_ids.shape)
-        #     print(gen_attention_mask.shape)
+        #     print(input_ids_gen.shape)
+        #     print(attention_mask_gen.shape)
         progress_bar.update(1)
 
         # print(gen_pixel_value.shape)
-        # print(gen_input_ids.shape)
-        # print(gen_attention_mask.shape)
+        # print(input_ids_gen.shape)
+        # print(attention_mask_gen.shape)
 
         # print("生成数据集 batch:")
 
