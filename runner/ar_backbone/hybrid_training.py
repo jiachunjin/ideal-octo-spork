@@ -37,20 +37,25 @@ def main(args):
 
     dataloader_und, dataloader_gen = accelerator.prepare(dataloader_und, dataloader_gen)
 
-    print(dataloader_und)
-    print(dataloader_gen)
+    for batch_und in dataloader_und:
+        print(batch_und)
+        break
+
+    for batch_gen in dataloader_gen:
+        print(batch_gen)
+        break
 
     # 分别从dataloader_und和dataloader_gen中load一个batch
-    batch_und = next(iter(dataloader_und))
-    batch_gen = next(iter(dataloader_gen))
+    # batch_und = next(iter(dataloader_und))
+    # batch_gen = next(iter(dataloader_gen))
 
-    print("理解数据集 batch:")
-    for k, v in batch_und.items():
-        print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
+    # print("理解数据集 batch:")
+    # for k, v in batch_und.items():
+    #     print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
 
-    print("生成数据集 batch:")
-    for k, v in batch_gen.items():
-        print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
+    # print("生成数据集 batch:")
+    # for k, v in batch_gen.items():
+    #     print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
 
     accelerator.end_training()
 
