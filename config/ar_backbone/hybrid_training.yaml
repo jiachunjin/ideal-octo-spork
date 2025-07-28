@@ -10,6 +10,12 @@ vae_aligner:
   siglip_feature_dim: 1024
   siglip_feature_dim_down: 16
 
+diffhead:
+  hidden_size: 1024
+  depth: 2
+  x_dim: 16
+  z_dim: 2048
+
 train:
   root:
   diffhead_resume_path:
