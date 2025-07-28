@@ -268,7 +268,7 @@ def get_dataloader_gen(config):
                 padding        = "max_length",
                 padding_side   = "left",
                 truncation     = True,
-                max_length     = 1024 - 576,
+                max_length     = config.max_seq_length - config.num_img_token,
             )
             input_ids = tokenizer_output["input_ids"]
             attention_mask = tokenizer_output["attention_mask"]
@@ -291,8 +291,8 @@ def get_dataloader_gen(config):
             # 如果没有有效数据，返回空batch
             return {
                 "pixel_value": torch.empty(0, 3, config.generation.img_size, config.generation.img_size),
-                "input_ids": torch.empty(0, 1024 - 576),
-                "attention_mask": torch.empty(0, 1024 - 576),
+                "input_ids": torch.empty(0, config.max_seq_length - config.num_img_token),
+                "attention_mask": torch.empty(0, config.max_seq_length - config.num_img_token),
             }
         
         # 分离图像和文本数据
