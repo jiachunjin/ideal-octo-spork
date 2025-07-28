@@ -215,7 +215,7 @@ def main(args):
             # 计算下一个 token 的预测损失（交叉熵损失）
             loss_und = torch.nn.functional.cross_entropy(
                 logits.view(-1, logits.size(-1)),
-                labels_und.view(-1),
+                labels_und[:, 1:].view(-1),
                 ignore_index=-100
             )
 
