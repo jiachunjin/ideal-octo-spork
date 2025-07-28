@@ -11,6 +11,7 @@ train:
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
   report_to: "no"
+  num_iter: 1000000
 
 
 data:
