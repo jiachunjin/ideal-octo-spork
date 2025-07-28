@@ -17,6 +17,8 @@ train:
   backbone_resume_path:
   global_step: 0
 
+  ar_backbone: "janus1b" # [janus1b, janus7b]
+
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
   output_dir: "0728_hybrid_dataloader_test"
