@@ -232,6 +232,7 @@ def get_dataloader_gen(config):
 
     gen_wds_dataset = (
         wds.WebDataset(urls, shardshuffle=True)
+        .split_by_node  # 添加节点分割器
         .shuffle(config.generation.buffer_size)
         .decode("pil")
         .map(process_sample)
