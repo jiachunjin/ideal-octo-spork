@@ -162,21 +162,30 @@ def main(args):
             img_mask_gen = torch.ones((B_gen, 576), dtype=torch.bool, device=accelerator.device)
             attention_mask_gen = torch.cat([attention_mask_gen, img_mask_gen], dim=1)
 
-            accelerator.print(f"joint_embedding_gen shape: {joint_embedding_gen.shape}")
-            accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
+            # accelerator.print(f"joint_embedding_gen shape: {joint_embedding_gen.shape}")
+            # accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
 
             # understanding input embedding
             text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
             img_embedding_und = janus.aligner(visual_und_feature)
-            text_embedding_und[:, 42:618, :] = img_embedding_und
-            accelerator.print(text_embedding_und[:, 42:618, :].shape)
-            accelerator.print(img_embedding_und.shape)
-            # TODO replace img_place_holder with img_embedding_und
-            accelerator.print(f"text_embedding_und shape: {text_embedding_und.shape}")
-            accelerator.print(f"img_embedding_und shape: {img_embedding_und.shape}")
-            accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
-            accelerator.print(f"labels_und shape: {labels_und.shape}")
+            text_embedding_und[:, 42:618, :] = img_embedding_und # replace img_place_holder with img_embedding_und
+            joint_embedding_und = text_embedding_und
 
+            # accelerator.print(f"text_embedding_und shape: {text_embedding_und.shape}")
+            # accelerator.print(f"img_embedding_und shape: {img_embedding_und.shape}")
+            # accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
+            # accelerator.print(f"labels_und shape: {labels_und.shape}")
+
+            joint_embedding = torch.cat([joint_embedding_gen, joint_embedding_und], dim=0)
+            attention_mask = torch.cat([attention_mask_gen, attention_mask_und], dim=0)
+
+            hidden_states = janus.module.language_model(
+                inputs_embeds        = joint_embedding,
+                attention_mask       = attention_mask,
+                output_hidden_states = True,
+            ).hidden_states[-1]
+
+            accelerator.print(f"hidden_states shape: {hidden_states.shape}")
 
 
         # 使用无限迭代器获取数据
