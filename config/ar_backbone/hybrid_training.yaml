@@ -16,6 +16,8 @@ diffhead:
   x_dim: 16
   z_dim: 2048
 
+tune_backbone: true
+
 train:
   root:
   diffhead_resume_path:
