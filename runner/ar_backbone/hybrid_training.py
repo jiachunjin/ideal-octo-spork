@@ -186,7 +186,7 @@ def main(args):
                 output_hidden_states = True,
             ).hidden_states[-1]
 
-            accelerator.print(f"hidden_states shape: {hidden_states.shape}")
+            # accelerator.print(f"hidden_states shape: {hidden_states.shape}")
 
             # ---------- compute gen loss ----------
             hidden_states_gen = hidden_states[:B_gen]
