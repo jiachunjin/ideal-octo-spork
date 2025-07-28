@@ -219,7 +219,7 @@ def main(args):
                 ignore_index=-100
             )
 
-            loss = 0.5 * loss_gen + 0.5 * loss_und
+            loss = 1 * loss_gen + 0. * loss_und
 
             accelerator.backward(loss)
             if accelerator.sync_gradients:
