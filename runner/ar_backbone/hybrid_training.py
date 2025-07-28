@@ -208,13 +208,15 @@ def main(args):
             # z_und = hidden_states_und[:, 1 + 576:-1, :] # skip boi, img
             # 使用 z_und 进行下一个 token 的预测
             logits = janus.language_model.lm_head(hidden_states_und)
+            accelerator.print(f"logits shape: {logits.shape}")
+            accelerator.print(f"labels_und shape: {labels_und.shape}")
             # print(logits.shape, input_ids_und.shape)
             # exit(0)
             # 计算下一个 token 的预测损失（交叉熵损失）
             loss_und = torch.nn.functional.cross_entropy(
                 logits.view(-1, logits.size(-1)),
                 labels_und.view(-1),
-                ignore_index=tokenizer.pad_token_id
+                ignore_index=-100
             )
 
             loss = 0.5 * loss_gen + 0.5 * loss_und
