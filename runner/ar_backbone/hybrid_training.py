@@ -61,25 +61,36 @@ def main(args):
     inf_iter_und = InfiniteIterator(dataloader_und, "理解数据集")
     inf_iter_gen = InfiniteIterator(dataloader_gen, "生成数据集")
 
-    # 使用无限迭代器获取数据
-    try:
+    while True:
+        # 使用无限迭代器获取数据
+        # try:
         batch_und = next(inf_iter_und)
-        print("理解数据集 batch:")
-        for k, v in batch_und.items():
-            print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
-    except Exception as e:
-        print(f"理解数据集错误: {e}")
+        und_pixel_values = batch_und["pixel_values"]
+        und_input_ids = batch_und["input_ids"]
+        und_attention_mask = batch_und["attention_mask"]
+        und_labels = batch_und["labels"]
 
-    try:
+        print(und_pixel_values.shape)
+        print(und_input_ids.shape)
+        print(und_attention_mask.shape)
+        print(und_labels.shape)
+        # print("理解数据集 batch:")
+        # for k, v in batch_und.items():
+        #     print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
+        # except Exception as e:
+        #     print(f"理解数据集错误: {e}")
+
+        # try:
         batch_gen = next(inf_iter_gen)
-        print("生成数据集 batch:")
-        print(f"batch_gen[0] keys: {batch_gen[0].keys()}")
-        print(f"batch_gen[1] keys: {batch_gen[1].keys()}")
-        print(f"pixel_value shape: {batch_gen[0]['pixel_value'].shape}")
-        print(f"input_ids shape: {batch_gen[1]['input_ids'].shape}")
-        print(f"attention_mask shape: {batch_gen[1]['attention_mask'].shape}")
-    except Exception as e:
-        print(f"生成数据集错误: {e}")
+        # print("生成数据集 batch:")
+
+        # print(f"batch_gen[0] keys: {batch_gen[0].keys()}")
+        # print(f"batch_gen[1] keys: {batch_gen[1].keys()}")
+        # print(f"pixel_value shape: {batch_gen[0]['pixel_value'].shape}")
+        # print(f"input_ids shape: {batch_gen[1]['input_ids'].shape}")
+        # print(f"attention_mask shape: {batch_gen[1]['attention_mask'].shape}")
+        # except Exception as e:
+        #     print(f"生成数据集错误: {e}")
 
     # 如果需要继续迭代更多数据（无限迭代）
     # try:
