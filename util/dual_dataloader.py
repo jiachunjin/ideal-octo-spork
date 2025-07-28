@@ -184,7 +184,7 @@ def get_dataloader_gen(config):
     for path in config.generation.wds_path:
         urls.extend(glob.glob(os.path.join(path, "*.tar")))
 
-    print(f"Found tar files: {urls}")
+    print(f"Found tar files: {len(urls)}")
 
     preprocess_gen = pth_transforms.Compose([
         pth_transforms.Resize(config.generation.img_size, max_size=None),

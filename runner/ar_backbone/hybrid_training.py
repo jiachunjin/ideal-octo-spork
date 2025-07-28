@@ -40,6 +40,18 @@ def main(args):
     print(dataloader_und)
     print(dataloader_gen)
 
+    # 分别从dataloader_und和dataloader_gen中load一个batch
+    batch_und = next(iter(dataloader_und))
+    batch_gen = next(iter(dataloader_gen))
+
+    print("理解数据集 batch:")
+    for k, v in batch_und.items():
+        print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
+
+    print("生成数据集 batch:")
+    for k, v in batch_gen.items():
+        print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
+
     accelerator.end_training()
 
     exit(0)
