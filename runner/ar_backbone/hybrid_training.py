@@ -120,31 +120,31 @@ def main(args):
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
 
     while not training_done:
-        # load und data and gen data
-        batch_gen = next(inf_iter_gen)
-        pixel_value_gen = batch_gen["pixel_values"].to(dtype)
-        pixel_value_gen = pixel_value_gen * 2 - 1
-        input_ids_gen = batch_gen["input_ids"]
-        attention_mask_gen = batch_gen["attention_mask"]
-        # accelerator.print(f"pixel_value_gen shape: {pixel_value_gen.shape}")
-        # accelerator.print(f"input_ids_gen shape: {input_ids_gen.shape}")
-        # accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
-
-        batch_und = next(inf_iter_und)
-        pixel_values_und = batch_und["pixel_values"].to(dtype)
-        input_ids_und = batch_und["input_ids"]
-        attention_mask_und = batch_und["attention_mask"]
-        labels_und = batch_und["labels"][:, 1:].contiguous()
-        # accelerator.print(f"pixel_values_und shape: {pixel_values_und.shape}")
-        # accelerator.print(f"input_ids_und shape: {input_ids_und.shape}")
-        # accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
-        # accelerator.print(f"labels_und shape: {labels_und.shape}")
-
-        if pixel_value_gen.shape[0] == 0 or pixel_values_und.shape[0] == 0:
-            continue
-    
         with accelerator.accumulate([janus]):
             janus.train()
+
+            # load und data and gen data
+            batch_gen = next(inf_iter_gen)
+            pixel_value_gen = batch_gen["pixel_values"].to(dtype)
+            pixel_value_gen = pixel_value_gen * 2 - 1
+            input_ids_gen = batch_gen["input_ids"]
+            attention_mask_gen = batch_gen["attention_mask"]
+            # accelerator.print(f"pixel_value_gen shape: {pixel_value_gen.shape}")
+            # accelerator.print(f"input_ids_gen shape: {input_ids_gen.shape}")
+            # accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
+
+            batch_und = next(inf_iter_und)
+            pixel_values_und = batch_und["pixel_values"].to(dtype)
+            input_ids_und = batch_und["input_ids"]
+            attention_mask_und = batch_und["attention_mask"]
+            labels_und = batch_und["labels"][:, 1:].contiguous()
+            # accelerator.print(f"pixel_values_und shape: {pixel_values_und.shape}")
+            # accelerator.print(f"input_ids_und shape: {input_ids_und.shape}")
+            # accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
+            # accelerator.print(f"labels_und shape: {labels_und.shape}")
+
+            if pixel_value_gen.shape[0] == 0 or pixel_values_und.shape[0] == 0:
+                continue
 
             with torch.no_grad():
                 x_siglip = siglip(pixel_value_gen)
@@ -231,7 +231,7 @@ def main(args):
                 progress_bar.update(1)
 
                 logs = dict(
-                    loss_gen_und = accelerator.gather(loss.detach()).mean().item(),
+                    # loss_gen_und = accelerator.gather(loss.detach()).mean().item(),
                     loss_gen     = accelerator.gather(loss_gen.detach()).mean().item(),
                     loss_und     = accelerator.gather(loss_und.detach()).mean().item(),
                 )
