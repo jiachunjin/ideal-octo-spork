@@ -74,12 +74,12 @@ def main(args):
     while True:
         # 使用无限迭代器获取数据
         # try:
-        batch_und = next(inf_iter_und)
-        und_pixel_values = batch_und["pixel_values"]
-        und_input_ids = batch_und["input_ids"]
-        und_attention_mask = batch_und["attention_mask"]
-        und_labels = batch_und["labels"]
-        und_samples += und_pixel_values.shape[0]
+        # batch_und = next(inf_iter_und)
+        # und_pixel_values = batch_und["pixel_values"]
+        # und_input_ids = batch_und["input_ids"]
+        # und_attention_mask = batch_und["attention_mask"]
+        # und_labels = batch_und["labels"]
+        # und_samples += und_pixel_values.shape[0]
 
         # print(und_pixel_values.shape)
         # print(und_input_ids.shape)
@@ -98,8 +98,8 @@ def main(args):
         gen_attention_mask = batch_gen_prompt["attention_mask"]
         gen_samples += gen_pixel_value.shape[0]
 
-        if und_samples % 10000 == 0:
-            print(f"理解数据集样本数: {und_samples}")
+        # if und_samples % 10000 == 0:
+        #     print(f"理解数据集样本数: {und_samples}")
         if gen_samples % 10000 == 0:
             print(f"生成数据集样本数: {gen_samples}")
         progress_bar.update(1)

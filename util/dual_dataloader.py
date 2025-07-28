@@ -270,7 +270,7 @@ def get_dataloader_gen(config):
     gen_wds_dataset = (
         wds.WebDataset(urls, resampled=True, shardshuffle=True, nodesplitter=None)
         .shuffle(config.generation.buffer_size)
-        .decode("pil")
+        .decode("pil", handler=wds.ignore_and_continue)
         .to_tuple("jpg", "txt")
         .map_tuple(process_img, process_prompt)
     )
