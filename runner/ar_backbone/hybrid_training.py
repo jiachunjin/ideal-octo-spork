@@ -219,7 +219,7 @@ def main(args):
                 ignore_index=-100
             )
 
-            loss = 1 * loss_gen + 0.25 * loss_und
+            loss = 1 * loss_gen + 0.5 * loss_und
 
             accelerator.backward(loss)
             if accelerator.sync_gradients:
@@ -238,79 +238,28 @@ def main(args):
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
 
-        # 使用无限迭代器获取数据
-        # try:
-        # batch_und = next(inf_iter_und)
-        # pixel_values_und = batch_und["pixel_values"]
-        # input_ids_und = batch_und["input_ids"]
-        # attention_mask_und = batch_und["attention_mask"]
-        # labels_und = batch_und["labels"]
-        # und_samples += pixel_values_und.shape[0]
+                if global_step > config.train.num_iter:
+                    training_done = True
+                    break
 
-        # print(pixel_values_und.shape)
-        # print(input_ids_und.shape)
-        # print(attention_mask_und.shape)
-        # print(labels_und.shape)
-        # print("理解数据集 batch:")
-        # for k, v in batch_und.items():
-        #     print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
-        # except Exception as e:
-        #     print(f"理解数据集错误: {e}")
+            if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process and accelerator.sync_gradients:
+                janus.eval()
+                state_dict = accelerator.unwrap_model(janus).diff_head.state_dict()
+                save_path = os.path.join(output_dir, f"diff_head-{config.train.exp_name}-{global_step}")
+                torch.save(state_dict, save_path)
+                print(f"diff_head saved to {save_path}")
 
-        # try:
-        # batch_gen_img, batch_gen_prompt = next(inf_iter_gen)
-        # pixel_value_gen = batch_gen_img["pixel_value"]
-        # input_ids_gen = batch_gen_prompt["input_ids"]
-        # attention_mask_gen = batch_gen_prompt["attention_mask"]
-        # gen_samples += gen_pixel_value.shape[0]
-        # batch_gen = next(inf_iter_gen)
-        # gen_pixel_value = batch_gen["pixel_value"]
-        # input_ids_gen = batch_gen["input_ids"]
-        # attention_mask_gen = batch_gen["attention_mask"]
-        # gen_samples += gen_pixel_value.shape[0]
+                state_dict = accelerator.unwrap_model(janus).siglip16_aligner.state_dict()
+                save_path = os.path.join(output_dir, f"siglip16_aligner-{config.train.exp_name}-{global_step}")
+                torch.save(state_dict, save_path)
+                print(f"siglip16_aligner saved to {save_path}")
 
-        # if und_samples % 10000 == 0:
-        #     print(f"理解数据集样本数: {und_samples}")
-        # if gen_samples % 10000 == 0:
-        #     print(f"生成数据集样本数: {gen_samples}")
-        #     print(gen_pixel_value.shape)
-        #     print(input_ids_gen.shape)
-        #     print(attention_mask_gen.shape)
-        progress_bar.update(1)
-
-        # print(gen_pixel_value.shape)
-        # print(input_ids_gen.shape)
-        # print(attention_mask_gen.shape)
-
-        # print("生成数据集 batch:")
-
-        # print(f"batch_gen[0] keys: {batch_gen[0].keys()}")
-        # print(f"batch_gen[1] keys: {batch_gen[1].keys()}")
-        # print(f"pixel_value shape: {batch_gen[0]['pixel_value'].shape}")
-        # print(f"input_ids shape: {batch_gen[1]['input_ids'].shape}")
-        # print(f"attention_mask shape: {batch_gen[1]['attention_mask'].shape}")
-        # except Exception as e:
-        #     print(f"生成数据集错误: {e}")
-
-    # 如果需要继续迭代更多数据（无限迭代）
-    # try:
-    #     batch_und_2 = next(inf_iter_und)
-    #     batch_gen_2 = next(inf_iter_gen)
-    #     print("获取了第二批数据")
-    #     
-    #     # 可以继续无限迭代
-    #     batch_und_3 = next(inf_iter_und)
-    #     batch_gen_3 = next(inf_iter_gen)
-    #     print("获取了第三批数据")
-    # except Exception as e:
-    #     print(f"获取更多数据时出错: {e}")
-
+                if config.tune_backbone:
+                    state_dict = accelerator.unwrap_model(janus).language_model.model.state_dict()
+                    save_path = os.path.join(output_dir, f"janus-backbone-{config.train.exp_name}-{global_step}")
+                    torch.save(state_dict, save_path)
+                    print(f"janus-backbone saved to {save_path}")
     accelerator.end_training()
-
-    exit(0)
-
-
-
 
 
 if __name__ == "__main__":
