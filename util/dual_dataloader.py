@@ -107,8 +107,12 @@ def get_dataloader_und(config):
             if "image" not in item:
                 continue
             # load image and convert to pixel values
-            image = [Image.open(item["image"]).convert("RGB")]
-            pixel_values.append(vl_chat_processor.image_processor(image).pixel_values)
+            try:
+                image = [Image.open(item["image"]).convert("RGB")]
+                pixel_values.append(vl_chat_processor.image_processor(image).pixel_values)
+            except Exception as e:
+                print(f"Error loading image: {e}")
+                continue
 
             # tokenize the conversation
             question = item["question"]
@@ -256,7 +260,7 @@ def get_dataloader_gen(config):
             padding        = "max_length",
             padding_side   = "left",
             truncation     = True,
-            max_length     = 1024 - 576,
+            max_length     = config.max_seq_length - config.num_img_token,
         )
         input_ids = tokenizer_output["input_ids"]
         attention_mask = tokenizer_output["attention_mask"]

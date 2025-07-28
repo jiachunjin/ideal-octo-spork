@@ -81,7 +81,7 @@ def main(args):
         und_labels = batch_und["labels"]
         und_samples += und_pixel_values.shape[0]
 
-        # print(und_pixel_values.shape)
+        print(und_pixel_values.shape)
         # print(und_input_ids.shape)
         # print(und_attention_mask.shape)
         # print(und_labels.shape)
