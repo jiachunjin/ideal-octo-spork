@@ -204,7 +204,7 @@ def main(args):
             loss_gen = torch.nn.functional.mse_loss(pred.to(dtype), target)
 
             # ---------- compute und loss ----------
-            hidden_states_und = hidden_states[B_gen:]
+            hidden_states_und = hidden_states[B_gen:, :-1, :]
             # z_und = hidden_states_und[:, 1 + 576:-1, :] # skip boi, img
             # 使用 z_und 进行下一个 token 的预测
             logits = janus.language_model.lm_head(hidden_states_und)
@@ -219,7 +219,7 @@ def main(args):
                 ignore_index=-100
             )
 
-            loss = 1 * loss_gen + 0. * loss_und
+            loss = 1 * loss_gen + 0.25 * loss_und
 
             accelerator.backward(loss)
             if accelerator.sync_gradients:
