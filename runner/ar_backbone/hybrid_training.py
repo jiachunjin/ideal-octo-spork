@@ -81,7 +81,7 @@ def main(args):
         und_labels = batch_und["labels"]
         und_samples += und_pixel_values.shape[0]
 
-        print(und_pixel_values.shape)
+        # print(und_pixel_values.shape)
         # print(und_input_ids.shape)
         # print(und_attention_mask.shape)
         # print(und_labels.shape)
@@ -98,7 +98,7 @@ def main(args):
         gen_attention_mask = batch_gen_prompt["attention_mask"]
         gen_samples += gen_pixel_value.shape[0]
 
-        if und_samples % 10000 == 0:
+        if und_samples % 2000 == 0:
             print(f"理解数据集样本数: {und_samples}")
         if gen_samples % 10000 == 0:
             print(f"生成数据集样本数: {gen_samples}")
