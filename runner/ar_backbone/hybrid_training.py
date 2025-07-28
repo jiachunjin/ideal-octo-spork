@@ -70,10 +70,10 @@ def main(args):
         und_attention_mask = batch_und["attention_mask"]
         und_labels = batch_und["labels"]
 
-        print(und_pixel_values.shape)
-        print(und_input_ids.shape)
-        print(und_attention_mask.shape)
-        print(und_labels.shape)
+        # print(und_pixel_values.shape)
+        # print(und_input_ids.shape)
+        # print(und_attention_mask.shape)
+        # print(und_labels.shape)
         # print("理解数据集 batch:")
         # for k, v in batch_und.items():
         #     print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
@@ -81,7 +81,15 @@ def main(args):
         #     print(f"理解数据集错误: {e}")
 
         # try:
-        batch_gen = next(inf_iter_gen)
+        batch_gen_img, batch_gen_prompt = next(inf_iter_gen)
+        gen_pixel_value = batch_gen_img["pixel_value"]
+        gen_input_ids = batch_gen_prompt["input_ids"]
+        gen_attention_mask = batch_gen_prompt["attention_mask"]
+
+        print(gen_pixel_value.shape)
+        print(gen_input_ids.shape)
+        print(gen_attention_mask.shape)
+
         # print("生成数据集 batch:")
 
         # print(f"batch_gen[0] keys: {batch_gen[0].keys()}")
