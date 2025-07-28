@@ -19,10 +19,10 @@ diffhead:
 tune_backbone: true
 
 train:
-  root:
-  diffhead_resume_path:
-  siglip16_aligner_resume_path:
-  backbone_resume_path:
+  root: null
+  diffhead_resume_path: null
+  siglip16_aligner_resume_path: null
+  backbone_resume_path: null
   global_step: 0
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
@@ -34,7 +34,12 @@ train:
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
   report_to: "no"
-  num_iter: 1000000
+
+  cfg_drop_rate: 0.1
+
+  lr: 1e-4
+  num_iter: 100000
+  save_every: 5000
 
 
 data:
