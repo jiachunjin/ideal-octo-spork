@@ -235,37 +235,80 @@ def get_dataloader_gen(config):
     #     }
 
     def process_img(image):
-        transformed_image = preprocess_gen(image)
-
-        return {"pixel_value": transformed_image}
+        try:
+            if image is None:
+                return None
+            transformed_image = preprocess_gen(image)
+            return {"pixel_value": transformed_image}
+        except Exception as e:
+            print(f"图像处理错误: {e}")
+            return None
 
     def process_prompt(prompt):
-        conversation = [
-            {
-                "role": "User",
-                "content": prompt,
-            },
-            {"role": "Assistant", "content": ""},
-        ]
-        sft_format = vl_chat_processor.apply_sft_template_for_multi_turn_prompts(
-            conversations=conversation,
-            sft_format=vl_chat_processor.sft_format,
-            system_prompt="",
-        )
-        prompt = sft_format + vl_chat_processor.image_start_tag
+        try:
+            if prompt is None or not isinstance(prompt, str):
+                return None
+            conversation = [
+                {
+                    "role": "User",
+                    "content": prompt,
+                },
+                {"role": "Assistant", "content": ""},
+            ]
+            sft_format = vl_chat_processor.apply_sft_template_for_multi_turn_prompts(
+                conversations=conversation,
+                sft_format=vl_chat_processor.sft_format,
+                system_prompt="",
+            )
+            prompt = sft_format + vl_chat_processor.image_start_tag
 
-        tokenizer_output = vl_chat_processor.tokenizer(
-            prompt,
-            return_tensors = "pt",
-            padding        = "max_length",
-            padding_side   = "left",
-            truncation     = True,
-            max_length     = config.max_seq_length - config.num_img_token,
-        )
-        input_ids = tokenizer_output["input_ids"]
-        attention_mask = tokenizer_output["attention_mask"]
+            tokenizer_output = vl_chat_processor.tokenizer(
+                prompt,
+                return_tensors = "pt",
+                padding        = "max_length",
+                padding_side   = "left",
+                truncation     = True,
+                max_length     = 1024 - 576,
+            )
+            input_ids = tokenizer_output["input_ids"]
+            attention_mask = tokenizer_output["attention_mask"]
 
-        return {"input_ids": input_ids, "attention_mask": attention_mask}
+            return {"input_ids": input_ids, "attention_mask": attention_mask}
+        except Exception as e:
+            print(f"文本处理错误: {e}")
+            return None
+
+    def collate_fn_gen(batch):
+        """处理batch，过滤掉None值"""
+        valid_batches = []
+        for item in batch:
+            if item is not None and len(item) == 2:
+                img_data, prompt_data = item
+                if img_data is not None and prompt_data is not None:
+                    valid_batches.append(item)
+        
+        if len(valid_batches) == 0:
+            # 如果没有有效数据，返回空batch
+            return {
+                "pixel_value": torch.empty(0, 3, config.generation.img_size, config.generation.img_size),
+                "input_ids": torch.empty(0, 1024 - 576),
+                "attention_mask": torch.empty(0, 1024 - 576),
+            }
+        
+        # 分离图像和文本数据
+        img_batches = [item[0] for item in valid_batches]
+        prompt_batches = [item[1] for item in valid_batches]
+        
+        # 堆叠数据
+        pixel_values = torch.stack([item["pixel_value"] for item in img_batches])
+        input_ids = torch.cat([item["input_ids"] for item in prompt_batches], dim=0)
+        attention_mask = torch.cat([item["attention_mask"] for item in prompt_batches], dim=0)
+        
+        return {
+            "pixel_value": pixel_values,
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+        }
 
     gen_wds_dataset = (
         wds.WebDataset(urls, resampled=True, shardshuffle=True, nodesplitter=None)
@@ -275,6 +318,11 @@ def get_dataloader_gen(config):
         .map_tuple(process_img, process_prompt)
     )
 
-    dataloader = DataLoader(gen_wds_dataset, batch_size=config.generation.batch_size, num_workers=config.generation.num_workers)
+    dataloader = DataLoader(
+        gen_wds_dataset, 
+        batch_size  = config.generation.batch_size,
+        num_workers = config.generation.num_workers,
+        collate_fn  = collate_fn_gen
+    )
 
     return dataloader

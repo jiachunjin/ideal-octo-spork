@@ -92,16 +92,24 @@ def main(args):
         #     print(f"理解数据集错误: {e}")
 
         # try:
-        batch_gen_img, batch_gen_prompt = next(inf_iter_gen)
-        gen_pixel_value = batch_gen_img["pixel_value"]
-        gen_input_ids = batch_gen_prompt["input_ids"]
-        gen_attention_mask = batch_gen_prompt["attention_mask"]
+        # batch_gen_img, batch_gen_prompt = next(inf_iter_gen)
+        # gen_pixel_value = batch_gen_img["pixel_value"]
+        # gen_input_ids = batch_gen_prompt["input_ids"]
+        # gen_attention_mask = batch_gen_prompt["attention_mask"]
+        # gen_samples += gen_pixel_value.shape[0]
+        batch_gen = next(inf_iter_gen)
+        gen_pixel_value = batch_gen["pixel_value"]
+        gen_input_ids = batch_gen["input_ids"]
+        gen_attention_mask = batch_gen["attention_mask"]
         gen_samples += gen_pixel_value.shape[0]
 
         # if und_samples % 10000 == 0:
         #     print(f"理解数据集样本数: {und_samples}")
         if gen_samples % 10000 == 0:
             print(f"生成数据集样本数: {gen_samples}")
+            print(gen_pixel_value.shape)
+            print(gen_input_ids.shape)
+            print(gen_attention_mask.shape)
         progress_bar.update(1)
 
         # print(gen_pixel_value.shape)
