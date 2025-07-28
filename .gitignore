@@ -6,3 +6,4 @@ study_multi_node.sh
 *.ckpt
 *.ipynb
 *.jpg
+*.json
