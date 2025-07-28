@@ -4,6 +4,7 @@ import pprint
 import argparse
 
 from tqdm import tqdm
+from einops import rearrange
 from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
@@ -187,6 +188,53 @@ def main(args):
 
             accelerator.print(f"hidden_states shape: {hidden_states.shape}")
 
+            # ---------- compute gen loss ----------
+            hidden_states_gen = hidden_states[:B_gen]
+            z_gen = hidden_states_gen[:, -576-1:-1, :]
+            gt_feature = visual_gen_feature
+            z_gen = rearrange(z_gen, "B L D -> (B L) D")
+            gt_feature = rearrange(gt_feature, "B L D -> (B L) D")
+            B = z_gen.shape[0]
+            timesteps = torch.randint(0, 1000, (B,), dtype=torch.int64, device=z_gen.device)
+            noise = torch.randn_like(gt_feature, device=z_gen.device, dtype=z_gen.dtype)
+            noisy_latents = train_scheduler.add_noise(gt_feature, noise, timesteps)
+            target = train_scheduler.get_velocity(gt_feature, noise, timesteps)
+            pred = janus.diff_head(noisy_latents, timesteps, z_gen)
+
+            loss_gen = torch.nn.functional.mse_loss(pred.to(dtype), target)
+
+            # ---------- compute und loss ----------
+            hidden_states_und = hidden_states[B_gen:]
+            # z_und = hidden_states_und[:, 1 + 576:-1, :] # skip boi, img
+            # 使用 z_und 进行下一个 token 的预测
+            logits = janus.language_model.lm_head(hidden_states_und)
+            # print(logits.shape, input_ids_und.shape)
+            # exit(0)
+            # 计算下一个 token 的预测损失（交叉熵损失）
+            loss_und = torch.nn.functional.cross_entropy(
+                logits.view(-1, logits.size(-1)),
+                labels_und.view(-1),
+                ignore_index=tokenizer.pad_token_id
+            )
+
+            loss = 0.5 * loss_gen + 0.5 * loss_und
+
+            accelerator.backward(loss)
+            if accelerator.sync_gradients:
+                accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                optimizer.step()
+                optimizer.zero_grad()
+
+                global_step += 1
+                progress_bar.update(1)
+
+                logs = dict(
+                    loss_gen_und = accelerator.gather(loss.detach()).mean().item(),
+                    loss_gen     = accelerator.gather(loss_gen.detach()).mean().item(),
+                    loss_und     = accelerator.gather(loss_und.detach()).mean().item(),
+                )
+                accelerator.log(logs, step=global_step)
+                progress_bar.set_postfix(**logs)
 
         # 使用无限迭代器获取数据
         # try:
