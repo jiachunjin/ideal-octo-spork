@@ -134,7 +134,7 @@ def main(args):
         pixel_values_und = batch_und["pixel_values"].to(dtype)
         input_ids_und = batch_und["input_ids"]
         attention_mask_und = batch_und["attention_mask"]
-        labels_und = batch_und["labels"][:, 1:]
+        labels_und = batch_und["labels"][:, 1:].contiguous()
         # accelerator.print(f"pixel_values_und shape: {pixel_values_und.shape}")
         # accelerator.print(f"input_ids_und shape: {input_ids_und.shape}")
         # accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
@@ -204,12 +204,12 @@ def main(args):
             loss_gen = torch.nn.functional.mse_loss(pred.to(dtype), target)
 
             # ---------- compute und loss ----------
-            hidden_states_und = hidden_states[B_gen:, :-1, :]
+            hidden_states_und = hidden_states[B_gen:, :-1, :].contiguous()
             # z_und = hidden_states_und[:, 1 + 576:-1, :] # skip boi, img
             # 使用 z_und 进行下一个 token 的预测
             logits = janus.language_model.lm_head(hidden_states_und)
-            accelerator.print(f"logits shape: {logits.shape}")
-            accelerator.print(f"labels_und shape: {labels_und.shape}")
+            # accelerator.print(f"logits shape: {logits.shape}")
+            # accelerator.print(f"labels_und shape: {labels_und.shape}")
             # print(logits.shape, input_ids_und.shape)
             # exit(0)
             # 计算下一个 token 的预测损失（交叉熵损失）
