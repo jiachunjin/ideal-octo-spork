@@ -98,7 +98,7 @@ def main(args):
         gen_attention_mask = batch_gen_prompt["attention_mask"]
         gen_samples += gen_pixel_value.shape[0]
 
-        if und_samples % 2000 == 0:
+        if und_samples % 10000 == 0:
             print(f"理解数据集样本数: {und_samples}")
         if gen_samples % 10000 == 0:
             print(f"生成数据集样本数: {gen_samples}")
