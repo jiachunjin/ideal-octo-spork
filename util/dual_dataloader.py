@@ -279,7 +279,7 @@ def get_dataloader_gen(config):
             return None
 
     def collate_fn_gen(batch):
-        """处理batch，过滤掉None值"""
+        """处理batch, 过滤掉None值"""
         valid_batches = []
         for item in batch:
             if item is not None and len(item) == 2:
@@ -305,7 +305,7 @@ def get_dataloader_gen(config):
         attention_mask = torch.cat([item["attention_mask"] for item in prompt_batches], dim=0)
         
         return {
-            "pixel_value": pixel_values,
+            "pixel_values": pixel_values,
             "input_ids": input_ids,
             "attention_mask": attention_mask,
         }
@@ -326,3 +326,24 @@ def get_dataloader_gen(config):
     )
 
     return dataloader
+
+
+class InfiniteIterator:
+    """无限迭代器，自动重新初始化"""
+    def __init__(self, dataloader, name):
+        self.dataloader = dataloader
+        self.name = name
+        self.iterator = iter(dataloader)
+        self.epoch_count = 0
+    
+    def __next__(self):
+        try:
+            return next(self.iterator)
+        except StopIteration:
+            self.epoch_count += 1
+            print(f"{self.name} 第 {self.epoch_count} 轮结束，重新初始化...")
+            self.iterator = iter(self.dataloader)
+            return next(self.iterator)
+    
+    def __iter__(self):
+        return self
