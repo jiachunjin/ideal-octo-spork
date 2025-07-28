@@ -193,10 +193,49 @@ def get_dataloader_gen(config):
         pth_transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x),
     ])
 
-    def process_sample(sample):
-        image = sample["jpg"]
-        prompt = sample["txt"]
+    # def process_sample(sample):
+    #     image = sample["jpg"]
+    #     prompt = sample["txt"]
 
+    #     conversation = [
+    #         {
+    #             "role": "User",
+    #             "content": prompt,
+    #         },
+    #         {"role": "Assistant", "content": ""},
+    #     ]
+    #     sft_format = vl_chat_processor.apply_sft_template_for_multi_turn_prompts(
+    #         conversations=conversation,
+    #         sft_format=vl_chat_processor.sft_format,
+    #         system_prompt="",
+    #     )
+    #     prompt = sft_format + vl_chat_processor.image_start_tag
+
+    #     tokenizer_output = vl_chat_processor.tokenizer(
+    #         prompt,
+    #         return_tensors = "pt",
+    #         padding        = "max_length",
+    #         padding_side   = "left",
+    #         truncation     = True,
+    #         max_length     = config.max_seq_length - config.num_img_token,
+    #     )
+    #     input_ids = tokenizer_output["input_ids"]
+    #     attention_mask = tokenizer_output["attention_mask"]
+
+    #     transformed_image = preprocess_gen(image)
+
+    #     return {
+    #         "pixel_value": transformed_image,
+    #         "input_ids": input_ids,
+    #         "attention_mask": attention_mask,
+    #     }
+
+    def process_img(image):
+        transformed_image = preprocess_gen(image)
+
+        return {"pixel_value": transformed_image}
+
+    def process_prompt(prompt):
         conversation = [
             {
                 "role": "User",
@@ -217,24 +256,19 @@ def get_dataloader_gen(config):
             padding        = "max_length",
             padding_side   = "left",
             truncation     = True,
-            max_length     = config.max_seq_length - config.num_img_token,
+            max_length     = 1024 - 576,
         )
         input_ids = tokenizer_output["input_ids"]
         attention_mask = tokenizer_output["attention_mask"]
 
-        transformed_image = preprocess_gen(image)
-
-        return {
-            "pixel_value": transformed_image,
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-        }
+        return {"input_ids": input_ids, "attention_mask": attention_mask}
 
     gen_wds_dataset = (
         wds.WebDataset(urls, resampled=True, shardshuffle=True, nodesplitter=None)
         .shuffle(config.generation.buffer_size)
         .decode("pil")
-        .map(process_sample)
+        .to_tuple("jpg", "txt")
+        .map_tuple(process_img, process_prompt)
     )
 
     dataloader = DataLoader(gen_wds_dataset, batch_size=config.generation.batch_size, num_workers=config.generation.num_workers)

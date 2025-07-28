@@ -42,7 +42,10 @@ def main(args):
         break
 
     for batch_gen in dataloader_gen:
-        print(batch_gen)
+        print(batch_gen[0].keys(), batch_gen[1].keys())
+        print(batch_gen[0]["pixel_value"].shape)
+        print(batch_gen[1]["input_ids"].shape)
+        print(batch_gen[1]["attention_mask"].shape)
         break
 
     # 分别从dataloader_und和dataloader_gen中load一个batch
