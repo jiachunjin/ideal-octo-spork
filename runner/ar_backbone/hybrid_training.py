@@ -37,28 +37,62 @@ def main(args):
 
     dataloader_und, dataloader_gen = accelerator.prepare(dataloader_und, dataloader_gen)
 
-    for batch_und in dataloader_und:
-        print(batch_und)
-        break
+    class InfiniteIterator:
+        """无限迭代器，自动重新初始化"""
+        def __init__(self, dataloader, name):
+            self.dataloader = dataloader
+            self.name = name
+            self.iterator = iter(dataloader)
+            self.epoch_count = 0
+        
+        def __next__(self):
+            try:
+                return next(self.iterator)
+            except StopIteration:
+                self.epoch_count += 1
+                print(f"{self.name} 第 {self.epoch_count} 轮结束，重新初始化...")
+                self.iterator = iter(self.dataloader)
+                return next(self.iterator)
+        
+        def __iter__(self):
+            return self
 
-    for batch_gen in dataloader_gen:
-        print(batch_gen[0].keys(), batch_gen[1].keys())
-        print(batch_gen[0]["pixel_value"].shape)
-        print(batch_gen[1]["input_ids"].shape)
-        print(batch_gen[1]["attention_mask"].shape)
-        break
+    # 创建无限迭代器
+    inf_iter_und = InfiniteIterator(dataloader_und, "理解数据集")
+    inf_iter_gen = InfiniteIterator(dataloader_gen, "生成数据集")
 
-    # 分别从dataloader_und和dataloader_gen中load一个batch
-    # batch_und = next(iter(dataloader_und))
-    # batch_gen = next(iter(dataloader_gen))
+    # 使用无限迭代器获取数据
+    try:
+        batch_und = next(inf_iter_und)
+        print("理解数据集 batch:")
+        for k, v in batch_und.items():
+            print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
+    except Exception as e:
+        print(f"理解数据集错误: {e}")
 
-    # print("理解数据集 batch:")
-    # for k, v in batch_und.items():
-    #     print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
+    try:
+        batch_gen = next(inf_iter_gen)
+        print("生成数据集 batch:")
+        print(f"batch_gen[0] keys: {batch_gen[0].keys()}")
+        print(f"batch_gen[1] keys: {batch_gen[1].keys()}")
+        print(f"pixel_value shape: {batch_gen[0]['pixel_value'].shape}")
+        print(f"input_ids shape: {batch_gen[1]['input_ids'].shape}")
+        print(f"attention_mask shape: {batch_gen[1]['attention_mask'].shape}")
+    except Exception as e:
+        print(f"生成数据集错误: {e}")
 
-    # print("生成数据集 batch:")
-    # for k, v in batch_gen.items():
-    #     print(f"{k}: {v.shape if hasattr(v, 'shape') else type(v)}")
+    # 如果需要继续迭代更多数据（无限迭代）
+    # try:
+    #     batch_und_2 = next(inf_iter_und)
+    #     batch_gen_2 = next(inf_iter_gen)
+    #     print("获取了第二批数据")
+    #     
+    #     # 可以继续无限迭代
+    #     batch_und_3 = next(inf_iter_und)
+    #     batch_gen_3 = next(inf_iter_gen)
+    #     print("获取了第三批数据")
+    # except Exception as e:
+    #     print(f"获取更多数据时出错: {e}")
 
     accelerator.end_training()
 
