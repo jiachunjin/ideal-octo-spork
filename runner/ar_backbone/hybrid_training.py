@@ -120,7 +120,7 @@ def main(args):
     while not training_done:
         # load und data and gen data
         batch_gen = next(inf_iter_gen)
-        gen_pixel_value = batch_gen["pixel_values"]
+        gen_pixel_value = batch_gen["pixel_values"].to(dtype)
         gen_pixel_value = gen_pixel_value * 2 - 1
         gen_input_ids = batch_gen["input_ids"]
         gen_attention_mask = batch_gen["attention_mask"]
@@ -129,7 +129,7 @@ def main(args):
         accelerator.print(f"gen_attention_mask shape: {gen_attention_mask.shape}")
 
         batch_und = next(inf_iter_und)
-        und_pixel_values = batch_und["pixel_values"]
+        und_pixel_values = batch_und["pixel_values"].to(dtype)
         und_input_ids = batch_und["input_ids"]
         und_attention_mask = batch_und["attention_mask"]
         und_labels = batch_und["labels"]
