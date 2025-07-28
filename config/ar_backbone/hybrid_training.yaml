@@ -25,7 +25,7 @@ data:
     wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption"]
     img_size: 384
     buffer_size: 10000
-    batch_size: 100
+    batch_size: 50
     num_workers: 32
   max_seq_length: 1024
   num_img_token: 576
