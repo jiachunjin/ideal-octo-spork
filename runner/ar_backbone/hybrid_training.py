@@ -148,6 +148,7 @@ def main(args):
             with torch.no_grad():
                 x_siglip = siglip(pixel_value_gen)
                 visual_gen_feature = vae_aligner_projector(x_siglip)
+                visual_und_feature = siglip(pixel_values_und)
 
             # generation input embedding
             B_gen, L_gen = input_ids_gen.shape
@@ -163,6 +164,17 @@ def main(args):
 
             accelerator.print(f"joint_embedding_gen shape: {joint_embedding_gen.shape}")
             accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
+
+            # understanding input embedding
+            text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
+            img_embedding_und = janus.aligner(visual_und_feature)
+            # TODO replace img_place_holder with img_embedding_und
+            accelerator.print(f"text_embedding_und shape: {text_embedding_und.shape}")
+            accelerator.print(f"img_embedding_und shape: {img_embedding_und.shape}")
+            accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
+            accelerator.print(f"labels_und shape: {labels_und.shape}")
+
+
 
         # 使用无限迭代器获取数据
         # try:
