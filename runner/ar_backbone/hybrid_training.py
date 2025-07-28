@@ -134,7 +134,7 @@ def main(args):
         pixel_values_und = batch_und["pixel_values"].to(dtype)
         input_ids_und = batch_und["input_ids"]
         attention_mask_und = batch_und["attention_mask"]
-        labels_und = batch_und["labels"]
+        labels_und = batch_und["labels"][:, 1:]
         # accelerator.print(f"pixel_values_und shape: {pixel_values_und.shape}")
         # accelerator.print(f"input_ids_und shape: {input_ids_und.shape}")
         # accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
@@ -215,7 +215,7 @@ def main(args):
             # 计算下一个 token 的预测损失（交叉熵损失）
             loss_und = torch.nn.functional.cross_entropy(
                 logits.view(-1, logits.size(-1)),
-                labels_und[:, 1:].view(-1),
+                labels_und.view(-1),
                 ignore_index=-100
             )
 
