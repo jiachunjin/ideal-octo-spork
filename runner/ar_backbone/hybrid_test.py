@@ -14,6 +14,206 @@ from model.janus.utils.io import load_pil_images
 from model.dit.diff_mlp import equip_diffhead_query_with_janus
 
 @torch.no_grad()
+def people_recognition():
+    device = "cuda:7"
+    dtype = torch.bfloat16
+    exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0728_hybrid_dataloader"
+    config_path = os.path.join(exp_dir, "config.yaml")
+    config = OmegaConf.load(config_path)
+
+    # ----- load models -----
+    vl_chat_processor = VLChatProcessor.from_pretrained(config.janus_1b_path)
+    tokenizer = vl_chat_processor.tokenizer
+
+    janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
+    janus = janus.to(device, dtype).eval()
+
+    question_1 = "Do you know the person in the image?"
+    questions = [question_1]
+    image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/messi.jpg"
+    for question in questions:
+        conversation = [
+            {
+                "role": "<|User|>",
+                "content": f"<image_placeholder>\n{question}",
+                "images": [image],
+            },
+            {"role": "<|Assistant|>", "content": ""},
+        ]
+
+        # load images and prepare for inputs
+        pil_images = load_pil_images(conversation)
+        prepare_inputs = vl_chat_processor(
+            conversations=conversation, images=pil_images, force_batchify=True
+        ).to(device, dtype)
+
+        # # run image encoder to get the image embeddings
+        inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
+
+        # # run the model to get the response
+        outputs = janus.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=prepare_inputs.attention_mask,
+            pad_token_id=tokenizer.eos_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            max_new_tokens=512,
+            do_sample=False,
+            use_cache=True,
+        )
+
+        answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+        print(f"{prepare_inputs['sft_format'][0]}", answer)
+
+    question_1 = "Do you know the person in the image?"
+    questions = [question_1]
+    image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/trump.jpg"
+    for question in questions:
+        conversation = [
+            {
+                "role": "<|User|>",
+                "content": f"<image_placeholder>\n{question}",
+                "images": [image],
+            },
+            {"role": "<|Assistant|>", "content": ""},
+        ]
+
+        # load images and prepare for inputs
+        pil_images = load_pil_images(conversation)
+        prepare_inputs = vl_chat_processor(
+            conversations=conversation, images=pil_images, force_batchify=True
+        ).to(device, dtype)
+
+        # # run image encoder to get the image embeddings
+        inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
+
+        # # run the model to get the response
+        outputs = janus.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=prepare_inputs.attention_mask,
+            pad_token_id=tokenizer.eos_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            max_new_tokens=512,
+            do_sample=False,
+            use_cache=True,
+        )
+
+        answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+        print(f"{prepare_inputs['sft_format'][0]}", answer)
+
+    question_1 = "Do you know the person in the image?"
+    questions = [question_1]
+    image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/einstein.jpg"
+    for question in questions:
+        conversation = [
+            {
+                "role": "<|User|>",
+                "content": f"<image_placeholder>\n{question}",
+                "images": [image],
+            },
+            {"role": "<|Assistant|>", "content": ""},
+        ]
+
+        # load images and prepare for inputs
+        pil_images = load_pil_images(conversation)
+        prepare_inputs = vl_chat_processor(
+            conversations=conversation, images=pil_images, force_batchify=True
+        ).to(device, dtype)
+
+        # # run image encoder to get the image embeddings
+        inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
+
+        # # run the model to get the response
+        outputs = janus.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=prepare_inputs.attention_mask,
+            pad_token_id=tokenizer.eos_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            max_new_tokens=512,
+            do_sample=False,
+            use_cache=True,
+        )
+
+        answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+        print(f"{prepare_inputs['sft_format'][0]}", answer)
+
+    question_1 = "Do you know the person in the image?"
+    questions = [question_1]
+    image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/ronaldo.jpg"
+    for question in questions:
+        conversation = [
+            {
+                "role": "<|User|>",
+                "content": f"<image_placeholder>\n{question}",
+                "images": [image],
+            },
+            {"role": "<|Assistant|>", "content": ""},
+        ]
+
+        # load images and prepare for inputs
+        pil_images = load_pil_images(conversation)
+        prepare_inputs = vl_chat_processor(
+            conversations=conversation, images=pil_images, force_batchify=True
+        ).to(device, dtype)
+
+        # # run image encoder to get the image embeddings
+        inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
+
+        # # run the model to get the response
+        outputs = janus.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=prepare_inputs.attention_mask,
+            pad_token_id=tokenizer.eos_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            max_new_tokens=512,
+            do_sample=False,
+            use_cache=True,
+        )
+
+        answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+        print(f"{prepare_inputs['sft_format'][0]}", answer)
+
+    question_1 = "Do you know the person in the image?"
+    questions = [question_1]
+    image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/jobs.jpg"
+    for question in questions:
+        conversation = [
+            {
+                "role": "<|User|>",
+                "content": f"<image_placeholder>\n{question}",
+                "images": [image],
+            },
+            {"role": "<|Assistant|>", "content": ""},
+        ]
+
+        # load images and prepare for inputs
+        pil_images = load_pil_images(conversation)
+        prepare_inputs = vl_chat_processor(
+            conversations=conversation, images=pil_images, force_batchify=True
+        ).to(device, dtype)
+
+        # # run image encoder to get the image embeddings
+        inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
+
+        # # run the model to get the response
+        outputs = janus.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=prepare_inputs.attention_mask,
+            pad_token_id=tokenizer.eos_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            max_new_tokens=512,
+            do_sample=False,
+            use_cache=True,
+        )
+
+        answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+        print(f"{prepare_inputs['sft_format'][0]}", answer)
+
+@torch.no_grad()
 def main():
     device = "cuda:7"
     dtype = torch.bfloat16
@@ -262,4 +462,5 @@ def main():
     #     print(f"Samples saved to {sample_path}")
 
 if __name__ == "__main__":
-    main()
+    # main()
+    people_recognition()
