@@ -38,41 +38,48 @@ def main():
     janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
 
     # ----- test understanding -----
-    janus = janus.to(dtype).to(device).eval()
-    question = "Describe the image in detail."
-    image = "/data/phd/jinjiachun/codebase/connector/asset/004.jpg"
-    conversation = [
-        {
-            "role": "<|User|>",
-            "content": f"<image_placeholder>\n{question}",
-            "images": [image],
-        },
-        {"role": "<|Assistant|>", "content": ""},
-    ]
+    janus = janus.to(device, dtype).eval()
+    question_1 = "Describe the image in detail."
+    question_2 = "What is the color of the scarf? Answer in one word."
+    question_3 = "图中的文字是什么？"
+    question_4 = "Is there any text in the image?"
+    questions = [question_1, question_2, question_3, question_4]
+    for question in questions:
+        image = "/data/phd/jinjiachun/codebase/connector/asset/004.jpg"
+        conversation = [
+            {
+                "role": "<|User|>",
+                "content": f"<image_placeholder>\n{question}",
+                "images": [image],
+            },
+            {"role": "<|Assistant|>", "content": ""},
+        ]
 
-    # load images and prepare for inputs
-    pil_images = load_pil_images(conversation)
-    prepare_inputs = vl_chat_processor(
-        conversations=conversation, images=pil_images, force_batchify=True
-    ).to(device).to(dtype)
+        # load images and prepare for inputs
+        pil_images = load_pil_images(conversation)
+        prepare_inputs = vl_chat_processor(
+            conversations=conversation, images=pil_images, force_batchify=True
+        ).to(device, dtype)
 
-    # # run image encoder to get the image embeddings
-    inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
+        # # run image encoder to get the image embeddings
+        inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
 
-    # # run the model to get the response
-    outputs = janus.language_model.generate(
-        inputs_embeds=inputs_embeds,
-        attention_mask=prepare_inputs.attention_mask,
-        pad_token_id=tokenizer.eos_token_id,
-        bos_token_id=tokenizer.bos_token_id,
-        eos_token_id=tokenizer.eos_token_id,
-        max_new_tokens=512,
-        do_sample=False,
-        use_cache=True,
-    )
+        # # run the model to get the response
+        outputs = janus.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=prepare_inputs.attention_mask,
+            pad_token_id=tokenizer.eos_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            max_new_tokens=512,
+            do_sample=False,
+            use_cache=True,
+        )
 
-    answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
-    print(f"{prepare_inputs['sft_format'][0]}", answer)
+        answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+        print(f"{prepare_inputs['sft_format'][0]}", answer)
+
+    # ----- test generation -----
 
 
 
