@@ -206,7 +206,7 @@ def main():
 
         if cfg_scale > 1:
             input_ids = input_ids.repeat(2, 1)
-            input_ids[1, :-1] = tokenizer.pad_token_id
+            input_ids[1, :] = tokenizer.pad_token_id
             text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device, dtype)
         else:
             text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device, dtype)
