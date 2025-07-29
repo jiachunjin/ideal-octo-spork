@@ -29,7 +29,7 @@ train:
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0728_hybrid_dataloader"
+  output_dir: "0729_hybrid_debug"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
@@ -53,7 +53,7 @@ data:
     wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
     img_size: 384
     buffer_size: 80000
-    batch_size: 20
+    batch_size: 25
     num_workers: 8
   max_seq_length: 768
   num_img_token: 576
