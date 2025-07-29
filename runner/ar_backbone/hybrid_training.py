@@ -144,7 +144,7 @@ def main(args):
                 visual_gen_feature = vae_aligner_projector(x_siglip)
                 visual_und_feature = siglip(pixel_values_und)
 
-            # generation input embedding
+            # ---------- generation input embedding ----------
             B_gen, L_gen = input_ids_gen.shape
             mask = (torch.rand(B_gen, 1) < config.train.cfg_drop_rate).repeat(1, L_gen)
             input_ids_gen[mask] = tokenizer.pad_token_id
@@ -156,7 +156,7 @@ def main(args):
             img_mask_gen = torch.ones((B_gen, 576), dtype=torch.bool, device=accelerator.device)
             attention_mask_gen = torch.cat([attention_mask_gen, img_mask_gen], dim=1)
 
-            # understanding input embedding
+            # ---------- understanding input embedding ----------
             text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
             img_embedding_und = janus.aligner(visual_und_feature)
             text_embedding_und[:, 42:618, :] = img_embedding_und # replace img_place_holder with img_embedding_und
@@ -165,6 +165,7 @@ def main(args):
             joint_embedding = torch.cat([joint_embedding_gen, joint_embedding_und], dim=0)
             attention_mask = torch.cat([attention_mask_gen, attention_mask_und], dim=0)
 
+            # ---------- forward together ----------
             hidden_states = janus.module.language_model(
                 inputs_embeds        = joint_embedding,
                 attention_mask       = attention_mask,
@@ -188,10 +189,7 @@ def main(args):
 
             # ---------- compute und loss ----------
             hidden_states_und = hidden_states[B_gen:, :-1, :].contiguous()
-            # z_und = hidden_states_und[:, 1 + 576:-1, :] # skip boi, img
-            # 使用 z_und 进行下一个 token 的预测
             logits = janus.language_model.lm_head(hidden_states_und)
-            # 计算下一个 token 的预测损失（交叉熵损失）
             loss_und = torch.nn.functional.cross_entropy(
                 logits.view(-1, logits.size(-1)),
                 labels_und.view(-1),
@@ -210,8 +208,8 @@ def main(args):
                 progress_bar.update(1)
 
                 logs = dict(
-                    loss_gen     = accelerator.gather(loss_gen.detach()).mean().item(),
-                    loss_und     = accelerator.gather(loss_und.detach()).mean().item(),
+                    loss_gen = accelerator.gather(loss_gen.detach()).mean().item(),
+                    loss_und = accelerator.gather(loss_und.detach()).mean().item(),
                 )
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
