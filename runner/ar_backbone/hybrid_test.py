@@ -169,13 +169,13 @@ def main():
         sample_scheduler.set_timesteps(50)
         B = feature.shape[0]
 
-        pred_latents = torch.randn((B, 16), device=feature.device)
+        pred_latents = torch.randn((B, 16), device=feature.device, dtype=dtype)
         pred_latents *= sample_scheduler.init_noise_sigma
 
         for t in sample_scheduler.timesteps:
             pred_latents = sample_scheduler.scale_model_input(pred_latents, t)
             with torch.no_grad():
-                t_sample = torch.as_tensor([t], device=feature.device)
+                t_sample = torch.as_tensor([t], device=feature.device, dtype=dtype)
                 noise_pred = diff_head(pred_latents, t_sample.repeat(B), feature)
                 pred_latents = sample_scheduler.step(noise_pred, t, pred_latents).prev_sample
 
