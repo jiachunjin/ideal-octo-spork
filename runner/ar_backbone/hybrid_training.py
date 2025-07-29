@@ -129,19 +129,12 @@ def main(args):
             pixel_value_gen = pixel_value_gen * 2 - 1
             input_ids_gen = batch_gen["input_ids"]
             attention_mask_gen = batch_gen["attention_mask"]
-            # accelerator.print(f"pixel_value_gen shape: {pixel_value_gen.shape}")
-            # accelerator.print(f"input_ids_gen shape: {input_ids_gen.shape}")
-            # accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
 
             batch_und = next(inf_iter_und)
             pixel_values_und = batch_und["pixel_values"].to(dtype)
             input_ids_und = batch_und["input_ids"]
             attention_mask_und = batch_und["attention_mask"]
             labels_und = batch_und["labels"][:, 1:].contiguous()
-            # accelerator.print(f"pixel_values_und shape: {pixel_values_und.shape}")
-            # accelerator.print(f"input_ids_und shape: {input_ids_und.shape}")
-            # accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
-            # accelerator.print(f"labels_und shape: {labels_und.shape}")
 
             if pixel_value_gen.shape[0] == 0 or pixel_values_und.shape[0] == 0:
                 continue
@@ -163,19 +156,11 @@ def main(args):
             img_mask_gen = torch.ones((B_gen, 576), dtype=torch.bool, device=accelerator.device)
             attention_mask_gen = torch.cat([attention_mask_gen, img_mask_gen], dim=1)
 
-            # accelerator.print(f"joint_embedding_gen shape: {joint_embedding_gen.shape}")
-            # accelerator.print(f"attention_mask_gen shape: {attention_mask_gen.shape}")
-
             # understanding input embedding
             text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
             img_embedding_und = janus.aligner(visual_und_feature)
             text_embedding_und[:, 42:618, :] = img_embedding_und # replace img_place_holder with img_embedding_und
             joint_embedding_und = text_embedding_und
-
-            # accelerator.print(f"text_embedding_und shape: {text_embedding_und.shape}")
-            # accelerator.print(f"img_embedding_und shape: {img_embedding_und.shape}")
-            # accelerator.print(f"attention_mask_und shape: {attention_mask_und.shape}")
-            # accelerator.print(f"labels_und shape: {labels_und.shape}")
 
             joint_embedding = torch.cat([joint_embedding_gen, joint_embedding_und], dim=0)
             attention_mask = torch.cat([attention_mask_gen, attention_mask_und], dim=0)
@@ -185,8 +170,6 @@ def main(args):
                 attention_mask       = attention_mask,
                 output_hidden_states = True,
             ).hidden_states[-1]
-
-            # accelerator.print(f"hidden_states shape: {hidden_states.shape}")
 
             # ---------- compute gen loss ----------
             hidden_states_gen = hidden_states[:B_gen]
@@ -208,10 +191,6 @@ def main(args):
             # z_und = hidden_states_und[:, 1 + 576:-1, :] # skip boi, img
             # 使用 z_und 进行下一个 token 的预测
             logits = janus.language_model.lm_head(hidden_states_und)
-            # accelerator.print(f"logits shape: {logits.shape}")
-            # accelerator.print(f"labels_und shape: {labels_und.shape}")
-            # print(logits.shape, input_ids_und.shape)
-            # exit(0)
             # 计算下一个 token 的预测损失（交叉熵损失）
             loss_und = torch.nn.functional.cross_entropy(
                 logits.view(-1, logits.size(-1)),
@@ -231,7 +210,6 @@ def main(args):
                 progress_bar.update(1)
 
                 logs = dict(
-                    # loss_gen_und = accelerator.gather(loss.detach()).mean().item(),
                     loss_gen     = accelerator.gather(loss_gen.detach()).mean().item(),
                     loss_und     = accelerator.gather(loss_und.detach()).mean().item(),
                 )
