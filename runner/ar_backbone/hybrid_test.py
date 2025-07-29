@@ -16,7 +16,7 @@ from model.dit.diff_mlp import equip_diffhead_query_with_janus
 @torch.no_grad()
 def main():
     device = "cuda:7"
-    dtype = torch.float32
+    dtype = torch.bfloat16
     exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0728_hybrid_dataloader"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
@@ -54,7 +54,7 @@ def main():
     pil_images = load_pil_images(conversation)
     prepare_inputs = vl_chat_processor(
         conversations=conversation, images=pil_images, force_batchify=True
-    ).to(device)
+    ).to(device).to(dtype)
 
     # # run image encoder to get the image embeddings
     inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
