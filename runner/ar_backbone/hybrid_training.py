@@ -147,7 +147,7 @@ def main(args):
             # ---------- generation input embedding ----------
             B_gen, L_gen = input_ids_gen.shape
             mask = (torch.rand(B_gen, 1) < config.train.cfg_drop_rate).repeat(1, L_gen - 1) # the boi token should not be dropped
-            input_ids_gen[mask] = tokenizer.pad_token_id
+            input_ids_gen[:, :-1][mask] = tokenizer.pad_token_id
 
             text_embedding_gen = janus.language_model.get_input_embeddings()(input_ids_gen)
             img_embedding_gen = janus.siglip16_aligner(visual_gen_feature)
