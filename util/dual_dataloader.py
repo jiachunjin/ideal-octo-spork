@@ -260,7 +260,8 @@ def get_dataloader_gen(config):
                 sft_format=vl_chat_processor.sft_format,
                 system_prompt="",
             )
-            prompt = sft_format + vl_chat_processor.image_start_tag
+            # prompt = sft_format + vl_chat_processor.image_start_tag
+            prompt = prompt + vl_chat_processor.image_start_tag
 
             tokenizer_output = vl_chat_processor.tokenizer(
                 prompt,
