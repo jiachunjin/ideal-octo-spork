@@ -146,7 +146,7 @@ def main(args):
 
             # ---------- generation input embedding ----------
             B_gen, L_gen = input_ids_gen.shape
-            mask = (torch.rand(B_gen, 1) < config.train.cfg_drop_rate).repeat(1, L_gen)
+            mask = (torch.rand(B_gen, 1) < config.train.cfg_drop_rate).repeat(1, L_gen - 1) # the boi token should not be dropped
             input_ids_gen[mask] = tokenizer.pad_token_id
 
             text_embedding_gen = janus.language_model.get_input_embeddings()(input_ids_gen)
@@ -178,7 +178,6 @@ def main(args):
             # ---------- compute gen loss ----------
             hidden_states_gen = hidden_states[:B_gen]
             z_gen = hidden_states_gen[:, -576-1:-1, :]
-            print(z_gen.shape)
             gt_feature = visual_gen_feature
             z_gen = rearrange(z_gen, "B L D -> (B L) D")
             gt_feature = rearrange(gt_feature, "B L D -> (B L) D")
