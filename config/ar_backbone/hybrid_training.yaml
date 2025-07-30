@@ -52,8 +52,8 @@ data:
   generation:
     wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
     img_size: 384
-    buffer_size: 80000
-    batch_size: 25
+    buffer_size: 250000
+    batch_size: 30
     num_workers: 8
   max_seq_length: 768
   num_img_token: 576
