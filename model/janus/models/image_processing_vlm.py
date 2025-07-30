@@ -43,22 +43,10 @@ def expand2square(pil_img, background_color):
     if width == height:
         return pil_img
     elif width > height:
-        # 确保 background_color 是有效的颜色值
-        if not isinstance(background_color, (tuple, list)) or len(background_color) != 3:
-            print(f"Invalid background_color: {background_color}, using default")
-            background_color = (127, 127, 127)
-        # 确保所有值都是整数
-        background_color = tuple(int(x) for x in background_color)
         result = Image.new(pil_img.mode, (width, width), background_color)
         result.paste(pil_img, (0, (width - height) // 2))
         return result
     else:
-        # 确保 background_color 是有效的颜色值
-        if not isinstance(background_color, (tuple, list)) or len(background_color) != 3:
-            print(f"Invalid background_color: {background_color}, using default")
-            background_color = (127, 127, 127)
-        # 确保所有值都是整数
-        background_color = tuple(int(x) for x in background_color)
         result = Image.new(pil_img.mode, (height, height), background_color)
         result.paste(pil_img, ((height - width) // 2, 0))
         return result
@@ -134,20 +122,7 @@ class VLMImageProcessor(BaseImageProcessor):
         if image_mean is None:
             self.background_color = (127, 127, 127)
         else:
-            # 确保 background_color 是有效的 RGB 颜色值
-            try:
-                # 确保 image_mean 是可迭代的
-                if hasattr(image_mean, '__iter__') and len(image_mean) == 3:
-                    self.background_color = tuple(int(x * 255) for x in image_mean)
-                    # 验证颜色值是否在有效范围内
-                    for color in self.background_color:
-                        if not (0 <= color <= 255):
-                            raise ValueError(f"Invalid color value: {color}")
-                else:
-                    raise ValueError(f"Invalid image_mean format: {image_mean}")
-            except Exception as e:
-                print(f"Error converting image_mean to background_color: {e}")
-                self.background_color = (127, 127, 127)
+            self.background_color = tuple([int(x * 255) for x in image_mean])
 
     def resize(self, pil_img: Image) -> np.ndarray:
         """

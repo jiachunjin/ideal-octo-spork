@@ -44,7 +44,7 @@ dataset = load_dataset("parquet", data_files=data_files)
 for data in dataset["test"]:
     img_name = data["question_id"].split("/")[-1]
     category = data["category"]
-    image = data["image"]
+    image = data["image"].convert("RGB")
     question = data["question"]
     gt_answer = data["answer"]
 
