@@ -16,7 +16,7 @@ from model.dit.diff_mlp import equip_diffhead_query_with_janus
 def main():
     device = "cuda:7"
     dtype = torch.float32
-    exp_dir = "/data/phd/jinjiachun/experiment/ar_backbone/0729_hybrid_debug"
+    exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0729_hybrid_debug"
     # exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0723_mix"
     # exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar"
     config_path = os.path.join(exp_dir, "config.yaml")
