@@ -46,7 +46,9 @@ for data in dataset["test"]:
     category = data["category"]
     image = data["image"]
     question = data["question"]
-    answer = data["answer"]
+    gt_answer = data["answer"]
+
+    print(category, img_name)
 
     conversation = [
         {
@@ -78,6 +80,4 @@ for data in dataset["test"]:
     )
 
     answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
-    print(category, img_name)
-    print(f"{prepare_inputs['sft_format'][0]}", answer)
-    break
+    print(category, img_name, answer, gt_answer)
