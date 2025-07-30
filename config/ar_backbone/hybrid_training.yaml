@@ -32,7 +32,7 @@ train:
   output_dir: "0730_hybrid_new_aligner_joint_training"
   logging_dir: "logs"
   mixed_precision: "bf16"
-  gradient_accumulation_steps: 4
+  gradient_accumulation_steps: 2
   report_to: "wandb"
 
   cfg_drop_rate: 0.1
