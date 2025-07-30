@@ -16,7 +16,8 @@ from model.dit.diff_mlp import equip_diffhead_query_with_janus
 def main():
     device = "cuda:7"
     dtype = torch.float32
-    exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0723_mix"
+    exp_dir = "/data/phd/jinjiachun/experiment/ar_backbone/0729_hybrid_debug"
+    # exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0723_mix"
     # exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0717_diff_head_fixbackbone_ar"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
@@ -31,13 +32,13 @@ def main():
     janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
     janus, _ = equip_diffhead_query_with_janus(janus, config)
 
-    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-15000"), map_location="cpu", weights_only=True)
+    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-20000"), map_location="cpu", weights_only=True)
     janus.diff_head.load_state_dict(diffhead_ckpt, strict=True)
 
-    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-15000"), map_location="cpu", weights_only=True)
+    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-20000"), map_location="cpu", weights_only=True)
     janus.siglip16_aligner.load_state_dict(siglip16_aligner_ckpt, strict=True)
     
-    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-15000"), map_location="cpu", weights_only=True)
+    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-20000"), map_location="cpu", weights_only=True)
     janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
 
     # the refiner
