@@ -52,14 +52,14 @@ for data in dataset["test"]:
         {
             "role": "<|User|>",
             "content": f"<image_placeholder>\n{question}",
-            "images": [image],
+            # "images": [image],
         },
         {"role": "<|Assistant|>", "content": ""},
     ]
 
-    pil_images = load_pil_images(conversation)
+    # pil_images = load_pil_images(conversation)
     prepare_inputs = vl_chat_processor(
-        conversations=conversation, images=pil_images, force_batchify=True
+        conversations=conversation, images=[image], force_batchify=True
     ).to(device, dtype)
 
     # # run image encoder to get the image embeddings
