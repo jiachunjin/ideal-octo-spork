@@ -43,10 +43,16 @@ def expand2square(pil_img, background_color):
     if width == height:
         return pil_img
     elif width > height:
+        # 确保 background_color 是有效的颜色值
+        if not isinstance(background_color, (tuple, list)) or len(background_color) != 3:
+            background_color = (127, 127, 127)
         result = Image.new(pil_img.mode, (width, width), background_color)
         result.paste(pil_img, (0, (width - height) // 2))
         return result
     else:
+        # 确保 background_color 是有效的颜色值
+        if not isinstance(background_color, (tuple, list)) or len(background_color) != 3:
+            background_color = (127, 127, 127)
         result = Image.new(pil_img.mode, (height, height), background_color)
         result.paste(pil_img, ((height - width) // 2, 0))
         return result
@@ -122,7 +128,16 @@ class VLMImageProcessor(BaseImageProcessor):
         if image_mean is None:
             self.background_color = (127, 127, 127)
         else:
-            self.background_color = tuple([int(x * 255) for x in image_mean])
+            # 确保 background_color 是有效的 RGB 颜色值
+            try:
+                self.background_color = tuple([int(x * 255) for x in image_mean])
+                # 验证颜色值是否在有效范围内
+                for color in self.background_color:
+                    if not (0 <= color <= 255):
+                        raise ValueError(f"Invalid color value: {color}")
+            except (ValueError, TypeError):
+                # 如果转换失败，使用默认的灰色
+                self.background_color = (127, 127, 127)
 
     def resize(self, pil_img: Image) -> np.ndarray:
         """
