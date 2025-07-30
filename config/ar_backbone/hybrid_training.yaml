@@ -1,7 +1,7 @@
 machine: "ks" # [g4, ks]
 
 vae_aligner:
-  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-51k"
+  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-215k"
   hidden_size: 1024
   depth: 16
   num_heads: 16
@@ -20,19 +20,19 @@ tune_backbone: true
 
 train:
   root: null
-  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0729_hybrid_debug/diff_head-query_dit-20000"
-  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0729_hybrid_debug/siglip16_aligner-query_dit-20000"
-  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0729_hybrid_debug/janus-backbone-query_dit-20000"
-  global_step: 20000
+  diffhead_resume_path: null
+  siglip16_aligner_resume_path: null
+  backbone_resume_path: null
+  global_step: 0
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0729_hybrid_debug"
+  output_dir: "0730_hybrid_new_aligner_joint_training"
   logging_dir: "logs"
   mixed_precision: "bf16"
-  gradient_accumulation_steps: 1
+  gradient_accumulation_steps: 4
   report_to: "wandb"
 
   cfg_drop_rate: 0.1
@@ -52,7 +52,7 @@ data:
   generation:
     wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
     img_size: 384
-    buffer_size: 250000
+    buffer_size: 500000
     batch_size: 30
     num_workers: 8
   max_seq_length: 768
