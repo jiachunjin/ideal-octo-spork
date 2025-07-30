@@ -217,7 +217,7 @@ def people_recognition():
 def main():
     device = "cuda:7"
     dtype = torch.bfloat16
-    exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0729_hybrid_debug"
+    exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0730_hybrid_new_aligner_joint_training"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -228,13 +228,13 @@ def main():
     janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
     janus, _ = equip_diffhead_query_with_janus(janus, config)
 
-    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-20000"), map_location="cpu", weights_only=True)
+    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-2000"), map_location="cpu", weights_only=True)
     janus.diff_head.load_state_dict(diffhead_ckpt, strict=True)
 
-    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-20000"), map_location="cpu", weights_only=True)
+    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-2000"), map_location="cpu", weights_only=True)
     janus.siglip16_aligner.load_state_dict(siglip16_aligner_ckpt, strict=True)
     
-    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-20000"), map_location="cpu", weights_only=True)
+    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-2000"), map_location="cpu", weights_only=True)
     janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
     janus = janus.to(device, dtype).eval()
 
@@ -243,7 +243,7 @@ def main():
     from diffusers import FlowMatchEulerDiscreteScheduler
     from einops import rearrange
 
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0722_mmdit_215k_aligner"
 
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
@@ -255,7 +255,7 @@ def main():
     vae_aligner.load_state_dict(ckpt, strict=True)
     vae_aligner_projector = vae_aligner.siglip_feature_proj
     transformer = load_pretrained_mmdit(config.sd3_5_path)
-    ckpt_path = os.path.join(exp_dir, "transformer-mmdit-30000")
+    ckpt_path = os.path.join(exp_dir, "transformer-mmdit-20000")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     transformer.load_state_dict(ckpt, strict=True)
 
@@ -268,85 +268,85 @@ def main():
     # ----------------------------------------
     # ---------- test understanding ----------
     # ----------------------------------------
-    # question_1 = "Describe this image in great detail, what is on this man's shirt?"
+    question_1 = "Describe this image in great detail, what is on this man's shirt?"
     # question_2 = "What is the color of the scarf? Answer in one word."
-    # question_3 = "图中的文字是什么？"
+    # question_3 = "图中的文字是什么？"/
     # question_4 = "Is there any text in the image?"
-    # questions = [question_1]
-    # image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/messi_1.jpg"
-    # for question in questions:
-    #     conversation = [
-    #         {
-    #             "role": "<|User|>",
-    #             "content": f"<image_placeholder>\n{question}",
-    #             "images": [image],
-    #         },
-    #         {"role": "<|Assistant|>", "content": ""},
-    #     ]
+    questions = [question_1]
+    image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/messi_1.jpg"
+    for question in questions:
+        conversation = [
+            {
+                "role": "<|User|>",
+                "content": f"<image_placeholder>\n{question}",
+                "images": [image],
+            },
+            {"role": "<|Assistant|>", "content": ""},
+        ]
 
-    #     # load images and prepare for inputs
-    #     pil_images = load_pil_images(conversation)
-    #     prepare_inputs = vl_chat_processor(
-    #         conversations=conversation, images=pil_images, force_batchify=True
-    #     ).to(device, dtype)
+        # load images and prepare for inputs
+        pil_images = load_pil_images(conversation)
+        prepare_inputs = vl_chat_processor(
+            conversations=conversation, images=pil_images, force_batchify=True
+        ).to(device, dtype)
 
-    #     # # run image encoder to get the image embeddings
-    #     inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
+        # # run image encoder to get the image embeddings
+        inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
 
-    #     # # run the model to get the response
-    #     outputs = janus.language_model.generate(
-    #         inputs_embeds=inputs_embeds,
-    #         attention_mask=prepare_inputs.attention_mask,
-    #         pad_token_id=tokenizer.eos_token_id,
-    #         bos_token_id=tokenizer.bos_token_id,
-    #         eos_token_id=tokenizer.eos_token_id,
-    #         max_new_tokens=512,
-    #         do_sample=False,
-    #         use_cache=True,
-    #     )
+        # # run the model to get the response
+        outputs = janus.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=prepare_inputs.attention_mask,
+            pad_token_id=tokenizer.eos_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            max_new_tokens=512,
+            do_sample=False,
+            use_cache=True,
+        )
 
-    #     answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
-    #     print(f"{prepare_inputs['sft_format'][0]}", answer)
+        answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+        print(f"{prepare_inputs['sft_format'][0]}", answer)
 
 
-    # question_1 = "Describe the image in detail."
-    # question_2 = "Do you know the person in the image?"
-    # question_3 = "Is there any text in the image?"
-    # questions = [question_1, question_2, question_3]
-    # image = "/data/phd/jinjiachun/codebase/connector/asset/kobe.png"
-    # for question in questions:
-    #     conversation = [
-    #         {
-    #             "role": "<|User|>",
-    #             "content": f"<image_placeholder>\n{question}",
-    #             "images": [image],
-    #         },
-    #         {"role": "<|Assistant|>", "content": ""},
-    #     ]
+    question_1 = "Describe the image in detail."
+    question_2 = "Do you know the person in the image?"
+    question_3 = "Is there any text in the image?"
+    questions = [question_1, question_2, question_3]
+    image = "/data/phd/jinjiachun/codebase/connector/asset/kobe.png"
+    for question in questions:
+        conversation = [
+            {
+                "role": "<|User|>",
+                "content": f"<image_placeholder>\n{question}",
+                "images": [image],
+            },
+            {"role": "<|Assistant|>", "content": ""},
+        ]
 
-    #     # load images and prepare for inputs
-    #     pil_images = load_pil_images(conversation)
-    #     prepare_inputs = vl_chat_processor(
-    #         conversations=conversation, images=pil_images, force_batchify=True
-    #     ).to(device, dtype)
+        # load images and prepare for inputs
+        pil_images = load_pil_images(conversation)
+        prepare_inputs = vl_chat_processor(
+            conversations=conversation, images=pil_images, force_batchify=True
+        ).to(device, dtype)
 
-    #     # # run image encoder to get the image embeddings
-    #     inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
+        # # run image encoder to get the image embeddings
+        inputs_embeds = janus.prepare_inputs_embeds(**prepare_inputs)
 
-    #     # # run the model to get the response
-    #     outputs = janus.language_model.generate(
-    #         inputs_embeds=inputs_embeds,
-    #         attention_mask=prepare_inputs.attention_mask,
-    #         pad_token_id=tokenizer.eos_token_id,
-    #         bos_token_id=tokenizer.bos_token_id,
-    #         eos_token_id=tokenizer.eos_token_id,
-    #         max_new_tokens=512,
-    #         do_sample=False,
-    #         use_cache=True,
-    #     )
+        # # run the model to get the response
+        outputs = janus.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=prepare_inputs.attention_mask,
+            pad_token_id=tokenizer.eos_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+            max_new_tokens=512,
+            do_sample=False,
+            use_cache=True,
+        )
 
-    #     answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
-    #     print(f"{prepare_inputs['sft_format'][0]}", answer)
+        answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+        print(f"{prepare_inputs['sft_format'][0]}", answer)
 
     # -------------------------------------
     # ---------- test generation ----------

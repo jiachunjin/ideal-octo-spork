@@ -20,10 +20,10 @@ tune_backbone: true
 
 train:
   root: null
-  diffhead_resume_path: null
-  siglip16_aligner_resume_path: null
-  backbone_resume_path: null
-  global_step: 0
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0730_hybrid_new_aligner_joint_training/diff_head-query_dit-2000"
+  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0730_hybrid_new_aligner_joint_training/siglip16_aligner-query_dit-2000"
+  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0730_hybrid_new_aligner_joint_training/janus-backbone-query_dit-2000"
+  global_step: 2000
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
 
@@ -32,13 +32,13 @@ train:
   output_dir: "0730_hybrid_new_aligner_joint_training"
   logging_dir: "logs"
   mixed_precision: "bf16"
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 4
   report_to: "wandb"
 
   cfg_drop_rate: 0.1
 
   lr: 1e-4
-  num_iter: 100000
+  num_iter: 50000
   save_every: 2000
 
 
