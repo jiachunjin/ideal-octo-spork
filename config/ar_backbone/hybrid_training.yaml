@@ -20,10 +20,10 @@ tune_backbone: true
 
 train:
   root: null
-  diffhead_resume_path: null
-  siglip16_aligner_resume_path: null
-  backbone_resume_path: null
-  global_step: 0
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0729_hybrid_debug/diff_head-query_dit-20000"
+  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0729_hybrid_debug/siglip16_aligner-query_dit-20000"
+  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0729_hybrid_debug/diff_head-query_dit-20000"
+  global_step: 20000
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
 
