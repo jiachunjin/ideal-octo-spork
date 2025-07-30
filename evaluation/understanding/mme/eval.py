@@ -41,14 +41,12 @@ data_files = {
 }
 dataset = load_dataset("parquet", data_files=data_files)
 
-for data in dataset["test"]:
+for i, data in enumerate(dataset["test"]):
     img_name = data["question_id"].split("/")[-1]
     category = data["category"]
     image = data["image"].convert("RGB")
     question = data["question"]
     gt_answer = data["answer"]
-
-    print(category, img_name)
 
     conversation = [
         {
@@ -80,4 +78,4 @@ for data in dataset["test"]:
     )
 
     answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
-    print(category, img_name, answer, gt_answer)
+    print(i, category, img_name, answer, gt_answer)
