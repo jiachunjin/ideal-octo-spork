@@ -2,6 +2,8 @@ __pycache__/
 wandb/
 asset/
 sd3.5/
+LaVIN/
+Your_Results/
 study_multi_node.sh
 *.ckpt
 *.ipynb
