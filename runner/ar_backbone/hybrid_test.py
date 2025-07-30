@@ -409,7 +409,7 @@ def main():
         else:
             text_embedding = janus.language_model.get_input_embeddings()(input_ids).to(device)
 
-        generated_tokens = torch.zeros((1, 576, 16)).to(device)
+        generated_tokens = torch.zeros((1, 576, 16)).to(device, dtype)
 
         for i in trange(576):
             outputs = janus.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
