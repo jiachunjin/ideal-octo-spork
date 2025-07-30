@@ -79,3 +79,8 @@ for i, data in enumerate(dataset["test"]):
 
     answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
     print(i, category, img_name, answer, gt_answer)
+
+    os.makedirs("evaluation/understanding/mme/Your_Results", exist_ok=True)
+    with open(f"evaluation/understanding/mme/Your_Results/{category}.txt", "a") as f:
+        line = f"{img_name}\t{question}\t{gt_answer}\t{answer}\n"
+        f.write(line)
