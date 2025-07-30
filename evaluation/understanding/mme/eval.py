@@ -42,7 +42,7 @@ data_files = {
 dataset = load_dataset("parquet", data_files=data_files)
 
 for data in dataset["test"]:
-    img_name = data["question_id"].split("/")[-1] + ".png"
+    img_name = data["question_id"].split("/")[-1]
     category = data["category"]
     image = data["image"]
     question = data["question"]
@@ -78,5 +78,6 @@ for data in dataset["test"]:
     )
 
     answer = tokenizer.decode(outputs[0].cpu().tolist(), skip_special_tokens=True)
+    print(category, img_name)
     print(f"{prepare_inputs['sft_format'][0]}", answer)
     break
