@@ -12,7 +12,7 @@ from accelerate.utils import ProjectConfiguration
 from model.vae_aligner import get_vae_aligner
 from model.janus.models import MultiModalityCausalLM, VLChatProcessor
 from model.dit.diff_mlp import equip_diffhead_query_with_janus
-from util.dual_dataloader import get_dataloader_und, get_dataloader_gen, InfiniteIterator
+from util.dual_dataloader import get_dataloader_und, get_dataloader_gen
 from util.misc import process_pretrained_model_path, flatten_dict
 
 
@@ -96,8 +96,6 @@ def main(args):
     siglip = siglip.to(accelerator.device, dtype).eval()
     vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
 
-    # inf_iter_und = InfiniteIterator(dataloader_und, "understanding")
-    # inf_iter_gen = InfiniteIterator(dataloader_gen, "generation")
     training_done = False
 
     progress_bar = tqdm(
@@ -126,31 +124,31 @@ def main(args):
                 janus.train()
 
                 # load und data and gen data
-                # batch_gen = next(inf_iter_gen)
                 pixel_value_gen = batch_gen["pixel_values"].to(dtype)
                 pixel_value_gen = pixel_value_gen * 2 - 1
                 input_ids_gen = batch_gen["input_ids"]
                 attention_mask_gen = batch_gen["attention_mask"]
 
-                try:
-                    batch_und = next(iter_und)
-                except StopIteration:
-                    iter_und = iter(dataloader_und)
-                    batch_und = next(iter_und)
+                # try:
+                #     batch_und = next(iter_und)
+                # except StopIteration:
+                #     iter_und = iter(dataloader_und)
+                #     batch_und = next(iter_und)
 
-                # batch_und = next(inf_iter_und)
-                pixel_values_und = batch_und["pixel_values"].to(dtype)
-                input_ids_und = batch_und["input_ids"]
-                attention_mask_und = batch_und["attention_mask"]
-                labels_und = batch_und["labels"][:, 1:].contiguous()
+                # pixel_values_und = batch_und["pixel_values"].to(dtype)
+                # input_ids_und = batch_und["input_ids"]
+                # attention_mask_und = batch_und["attention_mask"]
+                # labels_und = batch_und["labels"][:, 1:].contiguous()
 
-                if pixel_value_gen.shape[0] == 0 or pixel_values_und.shape[0] == 0:
+                # if pixel_value_gen.shape[0] == 0 or pixel_values_und.shape[0] == 0:
+                #     continue
+                if pixel_value_gen.shape[0] == 0:
                     continue
 
                 with torch.no_grad():
                     x_siglip = siglip(pixel_value_gen)
                     visual_gen_feature = vae_aligner_projector(x_siglip)
-                    visual_und_feature = siglip(pixel_values_und)
+                    # visual_und_feature = siglip(pixel_values_und)
 
                 # ---------- generation input embedding ----------
                 B_gen, L_gen = input_ids_gen.shape
@@ -165,16 +163,16 @@ def main(args):
                 attention_mask_gen = torch.cat([attention_mask_gen, img_mask_gen], dim=1)
 
                 # ---------- understanding input embedding ----------
-                text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
-                img_embedding_und = janus.aligner(visual_und_feature)
-                text_embedding_und[:, 42:618, :] = img_embedding_und # replace img_place_holder with img_embedding_und
-                joint_embedding_und = text_embedding_und
+                # text_embedding_und = janus.language_model.get_input_embeddings()(input_ids_und)
+                # img_embedding_und = janus.aligner(visual_und_feature)
+                # text_embedding_und[:, 42:618, :] = img_embedding_und # replace img_place_holder with img_embedding_und
+                # joint_embedding_und = text_embedding_und
 
-                joint_embedding = torch.cat([joint_embedding_gen, joint_embedding_und], dim=0)
-                attention_mask = torch.cat([attention_mask_gen, attention_mask_und], dim=0)
+                # joint_embedding = torch.cat([joint_embedding_gen, joint_embedding_und], dim=0)
+                # attention_mask = torch.cat([attention_mask_gen, attention_mask_und], dim=0)
 
-                # joint_embedding = joint_embedding_gen
-                # attention_mask = attention_mask_gen
+                joint_embedding = joint_embedding_gen
+                attention_mask = attention_mask_gen
 
                 # ---------- forward together ----------
                 hidden_states = janus.module.language_model(
@@ -199,16 +197,16 @@ def main(args):
                 loss_gen = torch.nn.functional.mse_loss(pred.to(dtype), target)
 
                 # ---------- compute und loss ----------
-                hidden_states_und = hidden_states[B_gen:, :-1, :].contiguous()
-                logits = janus.language_model.lm_head(hidden_states_und)
-                loss_und = torch.nn.functional.cross_entropy(
-                    logits.view(-1, logits.size(-1)),
-                    labels_und.view(-1),
-                    ignore_index=-100
-                )
+                # hidden_states_und = hidden_states[B_gen:, :-1, :].contiguous()
+                # logits = janus.language_model.lm_head(hidden_states_und)
+                # loss_und = torch.nn.functional.cross_entropy(
+                #     logits.view(-1, logits.size(-1)),
+                #     labels_und.view(-1),
+                #     ignore_index=-100
+                # )
 
-                loss = 1 * loss_gen + 0.1 * loss_und
-                # loss = loss_gen
+                # loss = 1 * loss_gen + 0.1 * loss_und
+                loss = loss_gen
 
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
@@ -221,7 +219,7 @@ def main(args):
 
                     logs = dict(
                         loss_gen = accelerator.gather(loss_gen.detach()).mean().item(),
-                        loss_und = accelerator.gather(loss_und.detach()).mean().item(),
+                        # loss_und = accelerator.gather(loss_und.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)

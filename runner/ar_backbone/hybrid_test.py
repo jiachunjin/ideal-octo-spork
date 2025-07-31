@@ -215,7 +215,7 @@ def people_recognition():
 
 @torch.no_grad()
 def main():
-    device = "cuda:7"
+    device = "cuda:0"
     dtype = torch.bfloat16
     exp_dir = "/data/phd/jinjiachun/experiment/query_dit/0730_hybrid_new_aligner_joint_training"
     config_path = os.path.join(exp_dir, "config.yaml")
@@ -228,13 +228,13 @@ def main():
     janus = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True)
     janus, _ = equip_diffhead_query_with_janus(janus, config)
 
-    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-2000"), map_location="cpu", weights_only=True)
+    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-query_dit-20000"), map_location="cpu", weights_only=True)
     janus.diff_head.load_state_dict(diffhead_ckpt, strict=True)
 
-    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-2000"), map_location="cpu", weights_only=True)
+    siglip16_aligner_ckpt = torch.load(os.path.join(exp_dir, "siglip16_aligner-query_dit-20000"), map_location="cpu", weights_only=True)
     janus.siglip16_aligner.load_state_dict(siglip16_aligner_ckpt, strict=True)
     
-    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-2000"), map_location="cpu", weights_only=True)
+    llm_ckpt = torch.load(os.path.join(exp_dir, "janus-backbone-query_dit-20000"), map_location="cpu", weights_only=True)
     janus.language_model.model.load_state_dict(llm_ckpt, strict=True)
     janus = janus.to(device, dtype).eval()
 
@@ -268,7 +268,7 @@ def main():
     # ----------------------------------------
     # ---------- test understanding ----------
     # ----------------------------------------
-    question_1 = "Describe this image in great detail, what is on this man's shirt?"
+    question_1 = "Describe this image in great detail."
     # question_2 = "What is the color of the scarf? Answer in one word."
     # question_3 = "图中的文字是什么？"/
     # question_4 = "Is there any text in the image?"
