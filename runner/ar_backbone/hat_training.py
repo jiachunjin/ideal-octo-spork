@@ -117,8 +117,6 @@ def main(args):
     accelerator.print(f"janus dtype: {next(janus.parameters()).dtype}")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
 
-    accelerator.end_training()
-    exit(0)
 
     while not training_done:
         iter_und = iter(dataloader_und)
