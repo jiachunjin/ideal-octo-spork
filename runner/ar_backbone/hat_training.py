@@ -241,7 +241,7 @@ def main(args):
                     torch.save(state_dict, save_path)
                     print(f"siglip16_aligner saved to {save_path}")
 
-                    if config.tune_backbone:
+                    if config.tune_backbone or getattr(config, "tune_backbone", None) is not None:
                         state_dict = accelerator.unwrap_model(janus).language_model.model.state_dict()
                         save_path = os.path.join(output_dir, f"janus-backbone-{config.train.exp_name}-{global_step}")
                         torch.save(state_dict, save_path)
