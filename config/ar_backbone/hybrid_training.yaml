@@ -16,20 +16,20 @@ diffhead:
   x_dim: 16
   z_dim: 2048
 
-tune_backbone: false
+tune_backbone: true
 
 train:
   root: null
-  diffhead_resume_path: null
-  siglip16_aligner_resume_path: null
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hybrid_fixbackbone/diff_head-query_dit-6000"
+  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hybrid_fixbackbone/siglip16_aligner-query_dit-6000"
   backbone_resume_path: null
-  global_step: 0
+  global_step: 6000
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
 
   exp_name: &exp_name "query_dit"
   wandb_proj: *exp_name
-  output_dir: "0731_hybrid_fixbackbone"
+  output_dir: "0731_tune_backbone_gen_only"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
@@ -53,7 +53,7 @@ data:
     wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
     img_size: 384
     buffer_size: 80000
-    batch_size: 40
+    batch_size: 30
     num_workers: 8
   max_seq_length: 768
   num_img_token: 576
