@@ -220,6 +220,16 @@ def equip_diffhead_query_with_janus(janus, config):
     janus.requires_grad_(False)
     if config.tune_backbone:
         janus.language_model.model.requires_grad_(True)
+    
+    if getattr(config, "num_new_layers", None) is not None:
+        janus.language_model.model, new_layer_indices = add_layers_with_initialization(
+            janus.language_model.model,
+            config.num_new_layers,
+            initialization_method="copy_last",
+        )
+        for idx in new_layer_indices:
+            layer = janus.language_model.model.layers[idx]
+            layer.requires_grad_(True)
 
     janus.diff_head = diff_head
     janus.diff_head.requires_grad_(True)
@@ -241,3 +251,83 @@ def equip_diffhead_query_with_janus(janus, config):
     )
 
     return janus, train_scheduler
+
+# ----------------------------------------------------------------------------------
+# ------------------------ add new layers to janus backbone ------------------------
+# ----------------------------------------------------------------------------------
+
+import torch
+import torch.nn as nn
+from transformers import LlamaModel, LlamaConfig
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer
+from typing import Optional
+
+
+def add_layers_to_llama_model(
+    model: LlamaModel, 
+    num_new_layers: int, 
+    config: Optional[LlamaConfig] = None,
+    insert_position: Optional[int] = None
+) -> LlamaModel:
+    if config is None:
+        config = model.config
+
+    current_num_layers = len(model.layers)
+    
+    new_layers = []
+    for i in range(num_new_layers):
+        if insert_position is None:
+            layer_idx = current_num_layers + i
+        else:
+            layer_idx = insert_position + i
+        
+        new_layer = LlamaDecoderLayer(config, layer_idx)
+        new_layers.append(new_layer)
+    
+    if insert_position is None:
+        model.layers.extend(new_layers)
+    else:
+        before_layers = model.layers[:insert_position]
+        after_layers = model.layers[insert_position:]
+
+        model.layers = nn.ModuleList(list(before_layers) + new_layers + list(after_layers))
+    
+    model.config.num_hidden_layers = len(model.layers)
+    
+    return model
+
+def add_layers_with_initialization(
+    model: LlamaModel,
+    num_new_layers: int,
+    initialization_method: str = "random",
+    insert_position: Optional[int] = None
+) -> LlamaModel:
+
+    model = add_layers_to_llama_model(model, num_new_layers, insert_position=insert_position)
+    
+    current_num_layers = len(model.layers)
+    if insert_position is None:
+        new_layer_indices = range(current_num_layers - num_new_layers, current_num_layers)
+    else:
+        new_layer_indices = range(insert_position, insert_position + num_new_layers)
+    
+    if initialization_method == "random":
+        pass
+    
+    elif initialization_method == "zeros":
+        for idx in new_layer_indices:
+            layer = model.layers[idx]
+            for param in layer.parameters():
+                if param.dim() > 1:  # weight
+                    nn.init.zeros_(param)
+                else:  # bias
+                    nn.init.zeros_(param)
+    
+    elif initialization_method == "copy_last":
+        if len(model.layers) > num_new_layers:
+            last_layer_state = model.layers[-num_new_layers-1].state_dict()
+            for idx in new_layer_indices:
+                layer = model.layers[idx]
+                layer.load_state_dict(last_layer_state)
+    
+    return model, new_layer_indices
