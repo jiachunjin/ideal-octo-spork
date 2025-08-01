@@ -22,10 +22,10 @@ num_new_layers: 12
 
 train:
   root: null
-  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/diff_head-query_dit-20000"
-  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/siglip16_aligner-query_dit-20000"
-  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/janus-backbone-query_dit-20000"
-  global_step: 20000
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/diff_head-query_dit-25000"
+  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/siglip16_aligner-query_dit-25000"
+  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/janus-backbone-query_dit-25000"
+  global_step: 25000
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
 
@@ -34,12 +34,12 @@ train:
   output_dir: "0731_hat_training"
   logging_dir: "logs"
   mixed_precision: "bf16"
-  gradient_accumulation_steps: 3
+  gradient_accumulation_steps: 1
   report_to: "wandb"
 
   cfg_drop_rate: 0.1
 
-  lr: 2e-5
+  lr: 5e-6
   num_iter: 100000
   save_every: 5000
 
@@ -55,7 +55,7 @@ data:
     wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
     img_size: 384
     buffer_size: 80000
-    batch_size: 20
+    batch_size: 25
     num_workers: 8
   max_seq_length: 768
   num_img_token: 576
