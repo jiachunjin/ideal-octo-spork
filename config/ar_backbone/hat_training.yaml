@@ -18,14 +18,14 @@ diffhead:
 
 tune_backbone: false
 
-num_new_layers: 8
+num_new_layers: 12
 
 train:
   root: null
-  diffhead_resume_path: null
-  siglip16_aligner_resume_path: null
-  backbone_resume_path: null
-  global_step: 0
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/diff_head-query_dit-20000"
+  siglip16_aligner_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/siglip16_aligner-query_dit-20000"
+  backbone_resume_path: "/data/phd/jinjiachun/experiment/query_dit/0731_hat_training/janus-backbone-query_dit-20000"
+  global_step: 20000
 
   ar_backbone: "janus1b" # [janus1b, janus7b]
 
@@ -39,8 +39,8 @@ train:
 
   cfg_drop_rate: 0.1
 
-  lr: 1e-4
-  num_iter: 20000
+  lr: 2e-5
+  num_iter: 100000
   save_every: 5000
 
 

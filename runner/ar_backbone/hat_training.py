@@ -63,8 +63,10 @@ def main(args):
     
     if config.train.backbone_resume_path is not None:
         backbone_ckpt = torch.load(config.train.backbone_resume_path, map_location="cpu", weights_only=True)
-        janus.language_model.model.load_state_dict(backbone_ckpt, strict=True)
+        m, u = janus.language_model.model.load_state_dict(backbone_ckpt, strict=False)
         accelerator.print(f"Backbone model loaded from {config.train.backbone_resume_path}")
+        accelerator.print(f"Backbone model missing: {m}")
+        accelerator.print(f"Backbone model unexpected: {u}")
 
     siglip = janus.vision_model
     vae_aligner_projector.requires_grad_(False)
@@ -88,10 +90,11 @@ def main(args):
     else:
         dtype = torch.float32
 
-    dataloader_und = get_dataloader_und(config)
+    # dataloader_und = get_dataloader_und(config)
     dataloader_gen = get_dataloader_gen(config)
 
-    janus, optimizer, dataloader_gen, dataloader_und = accelerator.prepare(janus, optimizer, dataloader_gen, dataloader_und)
+    # janus, optimizer, dataloader_gen, dataloader_und = accelerator.prepare(janus, optimizer, dataloader_gen, dataloader_und)
+    janus, optimizer, dataloader_gen = accelerator.prepare(janus, optimizer, dataloader_gen)
 
     siglip = siglip.to(accelerator.device, dtype).eval()
     vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
@@ -119,7 +122,7 @@ def main(args):
 
 
     while not training_done:
-        iter_und = iter(dataloader_und)
+        # iter_und = iter(dataloader_und)
         for batch_gen in dataloader_gen:
             with accelerator.accumulate([janus]):
                 janus.train()
