@@ -25,8 +25,10 @@ def get_imagenet_dataloader(config, accelerator):
     wds_dataset = (
         wds.WebDataset(urls, resampled=True)
         .shuffle(config.buffer_size, initial=config.buffer_size)
-        .split_by_node(rank=accelerator.process_index, world_size=accelerator.num_processes)
-        .split_by_worker(worker_info=wds.worker_info)
+        .pipe(wds.split_by_node, rank=accelerator.process_index, world_size=accelerator.num_processes)
+        .pipe(wds.split_by_worker, worker_info=wds.worker_info)
+        # .split_by_node(rank=accelerator.process_index, world_size=accelerator.num_processes)
+        # .split_by_worker(worker_info=wds.worker_info)
         .decode("pil", handler=wds.ignore_and_continue)
         .to_tuple("jpg", "cls")
         .map_tuple(preprocess_image, None)
