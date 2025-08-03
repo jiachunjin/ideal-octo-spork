@@ -7,6 +7,7 @@ def process_pretrained_model_path(config):
         config.janus_7b_path = "/data/phd/jinjiachun/ckpt/deepseek-ai/Janus-Pro-7B"
         config.sd3_5_path = "/data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium"
         config.vae_path = "/data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium/vae"
+        config.qwen_vl_path = "/data/phd/jinjiachun/ckpt/Qwen/Qwen2.5-VL-3B-Instruct"
     else:
         raise ValueError(f"Invalid machine: {config.machine}")
     return config

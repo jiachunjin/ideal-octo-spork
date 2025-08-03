@@ -1,0 +1,36 @@
+machine: "ks" # [g4, ks]
+
+vae_aligner:
+  pretrained_path: "/data/phd/jinjiachun/experiment/vae_aligner/0714_sd3_vae_aligner_hybrid/vae_aligner-vae_aligner-215k"
+  hidden_size: 1024
+  depth: 16
+  num_heads: 16
+  grid_size: 24
+
+  siglip_feature_dim: 1024
+  siglip_feature_dim_down: 16
+
+diffhead:
+  hidden_size: 1024
+  depth: 2
+  x_dim: 16
+  z_dim: 2048
+
+modify_qwen_vl:
+  mode: "hat" # [hat, metaquery]
+  tune_backbone: false
+  num_new_layers: 12
+
+train:
+  root: null
+  diffhead_resume_path: null
+  siglip16_aligner_resume_path: null
+  global_step: 0
+
+  # exp_name: &exp_name "qwen_fix"
+  # wandb_proj: *exp_name
+  # output_dir: "0731_hat_training"
+  # logging_dir: "logs"
+  # mixed_precision: "bf16"
+  # gradient_accumulation_steps: 1
+  # report_to: "wandb"
