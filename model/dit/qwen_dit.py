@@ -23,6 +23,7 @@ def modify_qwen_vl(qwen_vl, config):
     )
 
     if config.mode == "metaquery":
+        qwen_vl.requires_grad_(False)
         query = nn.Parameter(torch.randn(config.query.num_queries, config.query.query_dim))
         query_dit = QueryDiT(config.query_dit)
         qwen_vl.query = query
