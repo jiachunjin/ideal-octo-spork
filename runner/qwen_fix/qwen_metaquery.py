@@ -133,8 +133,31 @@ def main(args):
                     attention_mask       = attention_mask,
                     output_hidden_states = True,
                 ).hidden_states[-1]
-                print(hidden_states.shape)
-                exit(0)
+
+                z = hidden_states[:, -576:, :]
+
+                timesteps = torch.randint(0, 1000, (B,), dtype=torch.int64, device=accelerator.device)
+                noise = torch.randn_like(x_0, device=accelerator.device, dtype=z.dtype)
+                noisy_latents = train_scheduler.add_noise(x_0, noise, timesteps)
+                target = train_scheduler.get_velocity(x_0, noise, timesteps)
+                pred = qwen_vl_plus.query_dit(noisy_latents, z, timesteps)
+                loss = torch.nn.functional.mse_loss(pred, target)
+
+                optimizer.zero_grad()
+                accelerator.backward(loss)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+
+            if accelerator.sync_gradients:
+                global_step += 1
+                progress_bar.update(1)
+
+                logs = dict(
+                    query_dit_loss  = accelerator.gather(loss.detach()).mean().item(),
+                )
+                accelerator.log(logs, step=global_step)
+                progress_bar.set_postfix(**logs)
 
     # for i, batch in enumerate(dataloader):
     #     x, y = batch
