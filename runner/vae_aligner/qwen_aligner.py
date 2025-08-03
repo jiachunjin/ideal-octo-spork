@@ -106,10 +106,11 @@ def main(args):
             with accelerator.accumulate([vae_aligner]):
                 vae_aligner.train()
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
+                B = pixel_values.shape[0]
                 # TODO do mean and std normalization for pixel_values
 
                 with torch.no_grad():
-                    x_siglip = qwen_clip(pixel_values)
+                    x_siglip = qwen_clip(pixel_values, grid_thw=torch.tensor([B, 16, 16], dtype=torch.int32, device=accelerator.device))
                     vae_latent = vae.encode(x).latent_dist.sample().to(dtype)
                 print(x_siglip.shape, vae_latent.shape)
                 exit(0)
