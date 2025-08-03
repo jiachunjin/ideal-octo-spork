@@ -91,7 +91,7 @@ if __name__ == "__main__":
     for i, batch in enumerate(dataloader):
         x, y = batch
         if i % 100 == 0:
-            print(x.shape, y.shape, num_sample)
-        num_sample += x.shape[0]
+            print(x["pixel_value"].shape, y.shape, num_sample)
+        num_sample += x["pixel_value"].shape[0]
 
     print(f"Total number of samples: {num_sample}")
