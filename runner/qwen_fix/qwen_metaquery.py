@@ -42,6 +42,7 @@ def main(args):
     accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
 
     AcceleratorState().deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = config.data.batch_size
+    accelerator.print(AcceleratorState().deepspeed_plugin.deepspeed_config)
 
 
     # load models
@@ -108,7 +109,7 @@ def main(args):
                 qwen_vl_plus.train()
                 input_ids = y["input_ids"]
                 attention_mask = y["attention_mask"]
-                pixel_values = x["pixel_values"].to(dtype)
+                pixel_values = x["pixel_values"].to(accelerator.device, dtype)
                 pixel_values = pixel_values * 2 - 1
 
                 with torch.no_grad():
