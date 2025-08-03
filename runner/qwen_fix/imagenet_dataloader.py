@@ -50,8 +50,8 @@ def get_imagenet_dataloader(config, accelerator):
             max_length     = 40,
         )
 
-        input_ids = tokenizer_output["input_ids"]
-        attention_mask = tokenizer_output["attention_mask"]
+        input_ids = tokenizer_output["input_ids"][0]
+        attention_mask = tokenizer_output["attention_mask"][0]
 
         return {"input_ids": input_ids, "attention_mask": attention_mask}
 
