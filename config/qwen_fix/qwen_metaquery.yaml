@@ -18,7 +18,9 @@ diffhead:
 
 modify_qwen_vl:
   mode: "metaquery" # [hat, metaquery]
-  tune_backbone: false
+  query:
+    num_queries: 576
+    query_dim: 2048
 
 train:
   root: null
