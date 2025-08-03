@@ -4,8 +4,10 @@ import math
 import webdataset as wds
 import torchvision.transforms as pth_transforms
 from torch.utils.data import default_collate
+from transformers import AutoProcessor
 
 def get_imagenet_dataloader(config, accelerator):
+    processor = AutoProcessor.from_pretrained("/data/phd/jinjiachun/ckpt/Qwen/Qwen2.5-VL-3B-Instruct")
     urls = []
     for path in config.wds_path:
         urls.extend(glob.glob(os.path.join(path, "*.tar")))
@@ -24,9 +26,34 @@ def get_imagenet_dataloader(config, accelerator):
         return {"pixel_value": transformed_image}
     
     def preprocess_label(label):
-        text = label_dict[label]
+        prompt = label_dict[label]
 
-        return text
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Generate an image: " + prompt},
+                ],
+            }
+        ]
+
+        text = processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )+"<|vision_start|>"
+
+        tokenizer_output = processor.tokenizer(
+            text,
+            return_tensors = "pt",
+            padding        = "max_length",
+            padding_side   = "left",
+            truncation     = True,
+            max_length     = 16,
+        )
+
+        input_ids = tokenizer_output["input_ids"]
+        attention_mask = tokenizer_output["attention_mask"]
+
+        return {"input_ids": input_ids, "attention_mask": attention_mask}
 
     pipeline = [
         wds.ResampledShards(urls),
