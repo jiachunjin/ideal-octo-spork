@@ -9,6 +9,7 @@ import argparse
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from accelerate import Accelerator
+from accelerate.state import AcceleratorState
 from accelerate.utils import ProjectConfiguration
 
 from model.vae_aligner import get_vae_aligner
@@ -39,6 +40,9 @@ def main(args):
     accelerator, output_dir = get_accelerator(config.train)
     accelerator.print("Configuration:")
     accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
+
+    AcceleratorState().deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = config.data.batch_size
+
 
     # load models
     pad_token_id = 151643
@@ -74,7 +78,7 @@ def main(args):
 
     dataloader = get_imagenet_dataloader(config.data, accelerator)
 
-    qwen_vl_plus, dataloader, optimizer = accelerator.prepare(qwen_vl_plus, dataloader, optimizer)
+    qwen_vl_plus, optimizer = accelerator.prepare(qwen_vl_plus, optimizer)
     siglip = siglip.to(accelerator.device, dtype).eval()
     vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
 
