@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     config = OmegaConf.load("../../config/qwen_fix/qwen_metaquery.yaml")
     accelerator = Accelerator()
-    dataloader = get_imagenet_dataloader(config, accelerator)
+    dataloader = get_imagenet_dataloader(config.data, accelerator)
 
     for batch in dataloader:
         print(batch)
