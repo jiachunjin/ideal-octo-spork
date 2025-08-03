@@ -159,15 +159,23 @@ def main(args):
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
 
-    # for i, batch in enumerate(dataloader):
-    #     x, y = batch
-    #     print(y)
-    #     break
-        # if i % 100 == 0 and accelerator.is_main_process:
-        #     print(x["pixel_value"].shape, y.shape, num_sample)
-        # num_sample += x["pixel_value"].shape[0]
+            if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                qwen_vl_plus.eval()
+                state_dict = accelerator.unwrap_model(qwen_vl_plus).query_dit.state_dict()
+                save_path = os.path.join(output_dir, f"query_dit-{config.train.exp_name}-{global_step}")
+                torch.save(state_dict, save_path)
+                print(f"DiT model saved to {save_path}")
 
+                state_dict = accelerator.unwrap_model(qwen_vl_plus).query.detach().cpu()
+                save_path = os.path.join(output_dir, f"query-{config.train.exp_name}-{global_step}")
+                torch.save({"query": state_dict}, save_path)
+                print(f"Query saved to {save_path}")
 
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config/qwen_fix/qwen_metaquery.yaml")
