@@ -61,7 +61,7 @@ def main(args):
     num_sample = 0
     for i, batch in enumerate(dataloader):
         x, y = batch
-        if i % 100 == 0:
+        if i % 100 == 0 and accelerator.is_main_process:
             print(x["pixel_value"].shape, y.shape, num_sample)
         num_sample += x["pixel_value"].shape[0]
 
