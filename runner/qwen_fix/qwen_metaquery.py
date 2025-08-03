@@ -6,6 +6,7 @@ import torch
 import pprint
 import argparse
 
+from tqdm import tqdm
 from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration
@@ -47,27 +48,86 @@ def main(args):
     vae_aligner_projector = vae_aligner.siglip_feature_proj
 
     siglip = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True).vision_model
-    # qwen_vl = Qwen2_5_VLForConditionalGeneration.from_pretrained(config.qwen_vl_path)
+    qwen_vl = Qwen2_5_VLForConditionalGeneration.from_pretrained(config.qwen_vl_path)
 
     vae_aligner_projector.requires_grad_(False)
     siglip.requires_grad_(False)
 
-    # qwen_vl_plus, train_scheduler = modify_qwen_vl(qwen_vl, config.modify_qwen_vl)
+    qwen_vl_plus, train_scheduler = modify_qwen_vl(qwen_vl, config.modify_qwen_vl)
+
+    global_step = config.train.global_step if config.train.global_step is not None else 0
+    params_to_learn = list(p for p in qwen_vl_plus.parameters() if p.requires_grad)
+
+    optimizer = torch.optim.AdamW(
+        params_to_learn,
+        lr           = config.train.lr,
+        betas        = (0.9, 0.95),
+        weight_decay = 5e-2,
+        eps          = 1e-8,
+    )
+    if accelerator.mixed_precision == "bf16":
+        dtype = torch.bfloat16
+    elif accelerator.mixed_precision == "fp16":
+        dtype = torch.float16
+    else:
+        dtype = torch.float32
 
     dataloader = get_imagenet_dataloader(config.data, accelerator)
 
-    # print(qwen_vl_plus)
+    qwen_vl_plus, optimizer = accelerator.prepare(qwen_vl_plus, optimizer)
+    siglip = siglip.to(accelerator.device, dtype).eval()
+    vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
 
-    num_sample = 0
-    for i, batch in enumerate(dataloader):
-        x, y = batch
-        print(y)
-        break
+    training_done = False
+    epoch = 0
+    progress_bar = tqdm(
+        total   = config.train.num_iter,
+        initial = global_step,
+        desc    = "Steps",
+        disable = not accelerator.is_local_main_process,
+    )
+
+    config.device_count = accelerator.num_processes
+    if accelerator.is_main_process:
+        accelerator.init_trackers(config.train.wandb_proj, config=flatten_dict(config))
+        with open(os.path.join(output_dir, "config.yaml"), "w") as f:
+            OmegaConf.save(config, f)
+
+    accelerator.print(f"Learnable parameters: {sum(p.numel() for p in params_to_learn if p.requires_grad) / 1e6} M")
+
+    accelerator.print(f"vae_aligner dtype: {next(vae_aligner.parameters()).dtype}")
+    accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
+
+    while not training_done:
+        for x, y in dataloader:
+            with accelerator.accumulate([qwen_vl_plus]):
+                qwen_vl_plus.train()
+                input_ids = y["input_ids"]
+                attention_mask = y["attention_mask"]
+                pixel_values = x["pixel_values"].to(dtype)
+                pixel_values = pixel_values * 2 - 1
+
+                with torch.no_grad():
+                    x_siglip = siglip(pixel_values)
+                    x_siglip_dimdown = vae_aligner_projector(x_siglip)
+                    x_0 = x_siglip_dimdown
+
+                # cfg dropout
+                B, L = input_ids.shape
+                mask = (torch.rand(B, 1) < config.train.cfg_drop_rate).repeat(1, L)
+                input_ids[mask] = pad_token_id
+
+                print(pixel_values.shape)
+                print(input_ids)
+
+    # for i, batch in enumerate(dataloader):
+    #     x, y = batch
+    #     print(y)
+    #     break
         # if i % 100 == 0 and accelerator.is_main_process:
         #     print(x["pixel_value"].shape, y.shape, num_sample)
-        num_sample += x["pixel_value"].shape[0]
+        # num_sample += x["pixel_value"].shape[0]
 
-    print(f"Total number of samples: {num_sample}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

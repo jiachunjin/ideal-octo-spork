@@ -23,7 +23,7 @@ def get_imagenet_dataloader(config, accelerator):
     def preprocess_image(image):
         transformed_image = preprocess_gen(image)
 
-        return {"pixel_value": transformed_image}
+        return {"pixel_values": transformed_image}
     
     def preprocess_label(label):
         prompt = label_dict[label]
@@ -58,7 +58,7 @@ def get_imagenet_dataloader(config, accelerator):
     pipeline = [
         wds.ResampledShards(urls),
         wds.tarfile_to_samples(handler=wds.warn_and_continue),
-        wds.shuffle(bufsize=5000, initial=1000),
+        wds.shuffle(bufsize=config.buffer_size, initial=config.buffer_size),
         wds.decode("pil", handler=wds.ignore_and_continue),
         wds.to_tuple("jpg", "cls"),
         wds.map_tuple(preprocess_image, preprocess_label),
@@ -75,31 +75,6 @@ def get_imagenet_dataloader(config, accelerator):
     accelerator.print(f"num_worker_batches: {num_worker_batches}")
 
     train_dataset = wds.DataPipeline(*pipeline).with_epoch(num_worker_batches)
-
-
-    # dataset = (
-    #     wds.WebDataset(urls, resampled=True)
-    #     .shuffle(1000)
-    # )
-    # # dataset = wds.split_by_node(dataset, rank=accelerator.process_index, world_size=accelerator.num_processes)
-    # dataset = wds.split_by_worker(dataset, worker_info=wds.worker_info)
-    # dataset = (
-    #     dataset.decode("pil", handler=wds.warn_and_continue)
-    #     .to_tuple("jpg", "cls")
-    #     .map_tuple(preprocess_image, None)
-    #     .batched(config.batch_size)
-    # )
-    # wds_dataset = (
-    #     wds.WebDataset(urls, resampled=True)
-    #     .shuffle(config.buffer_size, initial=config.buffer_size)
-    #     .pipe(wds.split_by_node, rank=accelerator.process_index, world_size=accelerator.num_processes)
-    #     .pipe(wds.split_by_worker, worker_info=wds.worker_info)
-    #     # .split_by_node(rank=accelerator.process_index, world_size=accelerator.num_processes)
-    #     # .split_by_worker(worker_info=wds.worker_info)
-    #     .decode("pil", handler=wds.ignore_and_continue)
-    #     .to_tuple("jpg", "cls")
-    #     .map_tuple(preprocess_image, None)
-    # )
 
     dataloader = wds.WebLoader(
         train_dataset,
