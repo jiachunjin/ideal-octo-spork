@@ -107,8 +107,8 @@ def main(args):
         for x, y in dataloader:
             with accelerator.accumulate([qwen_vl_plus]):
                 qwen_vl_plus.train()
-                input_ids = y["input_ids"]
-                attention_mask = y["attention_mask"]
+                input_ids = y["input_ids"].to(accelerator.device)
+                attention_mask = y["attention_mask"].to(accelerator.device)
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
                 pixel_values = pixel_values * 2 - 1
 
