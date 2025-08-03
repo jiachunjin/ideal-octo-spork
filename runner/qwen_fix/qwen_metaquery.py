@@ -61,8 +61,10 @@ def main(args):
     num_sample = 0
     for i, batch in enumerate(dataloader):
         x, y = batch
-        if i % 100 == 0 and accelerator.is_main_process:
-            print(x["pixel_value"].shape, y.shape, num_sample)
+        print(y)
+        break
+        # if i % 100 == 0 and accelerator.is_main_process:
+        #     print(x["pixel_value"].shape, y.shape, num_sample)
         num_sample += x["pixel_value"].shape[0]
 
     print(f"Total number of samples: {num_sample}")
