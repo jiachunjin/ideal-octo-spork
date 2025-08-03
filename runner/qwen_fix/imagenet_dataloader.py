@@ -47,7 +47,7 @@ def get_imagenet_dataloader(config, accelerator):
             padding        = "max_length",
             padding_side   = "left",
             truncation     = True,
-            max_length     = 16,
+            max_length     = 40,
         )
 
         input_ids = tokenizer_output["input_ids"]
