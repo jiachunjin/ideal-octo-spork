@@ -11,8 +11,8 @@ def get_imagenet_dataloader(config, accelerator):
     accelerator.print(f"Found tar files: {len(urls)}")
 
     preprocess_gen = pth_transforms.Compose([
-        pth_transforms.Resize(config.generation.img_size, max_size=None),
-        pth_transforms.CenterCrop(config.generation.img_size),
+        pth_transforms.Resize(config.img_size, max_size=None),
+        pth_transforms.CenterCrop(config.img_size),
         pth_transforms.ToTensor(),
         pth_transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x),
     ])
@@ -24,7 +24,7 @@ def get_imagenet_dataloader(config, accelerator):
 
     wds_dataset = (
         wds.WebDataset(urls, resampled=True)
-        .shuffle(config.generation.buffer_size, initial=config.generation.buffer_size)
+        .shuffle(config.buffer_size, initial=config.buffer_size)
         .split_by_node(rank=accelerator.process_index, world_size=accelerator.num_processes)
         .split_by_worker(worker_info=wds.worker_info)
         .decode("pil", handler=wds.ignore_and_continue)
