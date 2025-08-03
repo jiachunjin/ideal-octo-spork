@@ -40,6 +40,8 @@ def get_imagenet_dataloader(config, accelerator):
         prefetch_factor = 8
     )
 
+    return dataloader
+
 
 if __name__ == "__main__":
     from omegaconf import OmegaConf
