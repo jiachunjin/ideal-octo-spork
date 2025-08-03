@@ -22,24 +22,35 @@ def get_imagenet_dataloader(config, accelerator):
 
         return {"pixel_value": transformed_image}
 
-    wds_dataset = (
+    dataset = (
         wds.WebDataset(urls, resampled=True)
-        .shuffle(config.buffer_size, initial=config.buffer_size)
-        .pipe(wds.split_by_node, rank=accelerator.process_index, world_size=accelerator.num_processes)
-        .pipe(wds.split_by_worker, worker_info=wds.worker_info)
-        # .split_by_node(rank=accelerator.process_index, world_size=accelerator.num_processes)
-        # .split_by_worker(worker_info=wds.worker_info)
-        .decode("pil", handler=wds.ignore_and_continue)
+        .shuffle(1000)
+    )
+    dataset = wds.split_by_node(dataset, rank=accelerator.process_index, world_size=accelerator.num_processes)
+    dataset = wds.split_by_worker(dataset, worker_info=wds.worker_info)
+    dataset = (
+        dataset.decode("pil", handler=wds.warn_and_continue)
         .to_tuple("jpg", "cls")
         .map_tuple(preprocess_image, None)
+        .batched(config.batch_size)
     )
+    # wds_dataset = (
+    #     wds.WebDataset(urls, resampled=True)
+    #     .shuffle(config.buffer_size, initial=config.buffer_size)
+    #     .pipe(wds.split_by_node, rank=accelerator.process_index, world_size=accelerator.num_processes)
+    #     .pipe(wds.split_by_worker, worker_info=wds.worker_info)
+    #     # .split_by_node(rank=accelerator.process_index, world_size=accelerator.num_processes)
+    #     # .split_by_worker(worker_info=wds.worker_info)
+    #     .decode("pil", handler=wds.ignore_and_continue)
+    #     .to_tuple("jpg", "cls")
+    #     .map_tuple(preprocess_image, None)
+    # )
 
     dataloader = wds.WebLoader(
-        wds_dataset,
-        batch_size      = config.batch_size,
+        dataset,
+        batch_size      = None,
         num_workers     = config.num_workers,
         pin_memory      = True,
-        prefetch_factor = 8
     )
 
     return dataloader
