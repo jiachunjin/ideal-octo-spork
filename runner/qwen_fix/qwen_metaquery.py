@@ -118,9 +118,9 @@ def main(args):
                     x_0 = x_siglip_dimdown
 
                 # cfg dropout
-                B, L = input_ids.shape
-                mask = (torch.rand(B, 1) < config.train.cfg_drop_rate).repeat(1, L)
-                input_ids[mask] = pad_token_id
+                # B, L = input_ids.shape
+                # mask = (torch.rand(B, 1) < config.train.cfg_drop_rate).repeat(1, L)
+                # input_ids[mask] = pad_token_id
 
                 print(pixel_values.shape)
                 print(input_ids)
