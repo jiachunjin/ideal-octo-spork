@@ -2,7 +2,7 @@ import os
 import glob
 import webdataset as wds
 import torchvision.transforms as pth_transforms
-
+from torch.utils.data import default_collate
 
 def get_imagenet_dataloader(config, accelerator):
     urls = []
@@ -22,18 +22,31 @@ def get_imagenet_dataloader(config, accelerator):
 
         return {"pixel_value": transformed_image}
 
-    dataset = (
-        wds.WebDataset(urls, resampled=True)
-        .shuffle(1000)
-    )
-    dataset = wds.split_by_node(dataset, rank=accelerator.process_index, world_size=accelerator.num_processes)
-    dataset = wds.split_by_worker(dataset, worker_info=wds.worker_info)
-    dataset = (
-        dataset.decode("pil", handler=wds.warn_and_continue)
-        .to_tuple("jpg", "cls")
-        .map_tuple(preprocess_image, None)
-        .batched(config.batch_size)
-    )
+    pipeline = [
+        wds.ResampledShards(urls),
+        wds.tarfile_to_samples(handler=wds.warn_and_continue),
+        wds.shuffle(bufsize=5000, initial=1000),
+        wds.decode("pil", handler=wds.ignore_and_continue),
+        wds.to_tuple("jpg", "cls"),
+        wds.map_tuple(preprocess_image, None),
+        wds.batched(config.batch_size, partial=False, collation_fn=default_collate),
+    ]
+
+    train_dataset = wds.DataPipeline(*pipeline)
+
+
+    # dataset = (
+    #     wds.WebDataset(urls, resampled=True)
+    #     .shuffle(1000)
+    # )
+    # # dataset = wds.split_by_node(dataset, rank=accelerator.process_index, world_size=accelerator.num_processes)
+    # dataset = wds.split_by_worker(dataset, worker_info=wds.worker_info)
+    # dataset = (
+    #     dataset.decode("pil", handler=wds.warn_and_continue)
+    #     .to_tuple("jpg", "cls")
+    #     .map_tuple(preprocess_image, None)
+    #     .batched(config.batch_size)
+    # )
     # wds_dataset = (
     #     wds.WebDataset(urls, resampled=True)
     #     .shuffle(config.buffer_size, initial=config.buffer_size)
@@ -47,7 +60,7 @@ def get_imagenet_dataloader(config, accelerator):
     # )
 
     dataloader = wds.WebLoader(
-        dataset,
+        train_dataset,
         batch_size      = None,
         num_workers     = config.num_workers,
         pin_memory      = True,
