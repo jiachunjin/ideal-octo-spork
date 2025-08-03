@@ -113,3 +113,10 @@ def main(args):
                     vae_latent = vae.encode(x).latent_dist.sample().to(dtype)
                 print(x_siglip.shape, vae_latent.shape)
                 exit(0)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/vae_aligner/qwen_clip.yaml")
+    args = parser.parse_args()
+    main(args)
