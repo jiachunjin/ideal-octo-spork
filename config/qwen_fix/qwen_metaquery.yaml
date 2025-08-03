@@ -21,6 +21,12 @@ modify_qwen_vl:
   query:
     num_queries: 576
     query_dim: 2048
+  query_dit:
+    hidden_size: 1024
+    num_heads: 16
+    depth: 16
+    x_dim: 16
+    z_dim: 2048
 
 train:
   root: null
