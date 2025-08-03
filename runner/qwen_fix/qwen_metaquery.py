@@ -66,3 +66,9 @@ def main(args):
         num_sample += x["pixel_value"].shape[0]
 
     print(f"Total number of samples: {num_sample}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/qwen_fix/qwen_metaquery.yaml")
+    args = parser.parse_args()
+    main(args)
