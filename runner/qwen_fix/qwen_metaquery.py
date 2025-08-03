@@ -108,7 +108,7 @@ def main(args):
             with accelerator.accumulate([qwen_vl_plus]):
                 qwen_vl_plus.train()
                 input_ids = y["input_ids"].to(accelerator.device)
-                attention_mask = y["attention_mask"]
+                attention_mask = y["attention_mask"].to(accelerator.device)
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
                 pixel_values = pixel_values * 2 - 1
 
