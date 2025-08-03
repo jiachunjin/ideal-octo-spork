@@ -1,5 +1,6 @@
 import os
 import glob
+import math
 import webdataset as wds
 import torchvision.transforms as pth_transforms
 from torch.utils.data import default_collate
@@ -32,7 +33,16 @@ def get_imagenet_dataloader(config, accelerator):
         wds.batched(config.batch_size, partial=False, collation_fn=default_collate),
     ]
 
-    train_dataset = wds.DataPipeline(*pipeline)
+    num_train_examples = 1281167
+    global_batch_size = config.batch_size
+    num_workers_per_gpu = config.num_workers
+
+    num_worker_batches = math.ceil(num_train_examples / 
+        (global_batch_size * num_workers_per_gpu))
+    
+    print(f"num_worker_batches: {num_worker_batches}")
+
+    train_dataset = wds.DataPipeline(*pipeline).with_epoch(num_worker_batches)
 
 
     # dataset = (
@@ -61,9 +71,9 @@ def get_imagenet_dataloader(config, accelerator):
 
     dataloader = wds.WebLoader(
         train_dataset,
-        batch_size      = None,
-        num_workers     = config.num_workers,
-        pin_memory      = True,
+        batch_size  = None,
+        num_workers = config.num_workers,
+        pin_memory  = True,
     )
 
     return dataloader
@@ -77,6 +87,11 @@ if __name__ == "__main__":
     accelerator = Accelerator()
     dataloader = get_imagenet_dataloader(config.data, accelerator)
 
-    for batch in dataloader:
-        print(batch)
-        break
+    num_sample = 0
+    for i, batch in enumerate(dataloader):
+        x, y = batch
+        if i % 100 == 0:
+            print(x.shape, y.shape, num_sample)
+        num_sample += x.shape[0]
+
+    print(f"Total number of samples: {num_sample}")
