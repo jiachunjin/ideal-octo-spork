@@ -47,16 +47,16 @@ def main(args):
     vae_aligner_projector = vae_aligner.siglip_feature_proj
 
     siglip = MultiModalityCausalLM.from_pretrained(config.janus_1b_path, trust_remote_code=True).vision_model
-    qwen_vl = Qwen2_5_VLForConditionalGeneration.from_pretrained(config.qwen_vl_path)
+    # qwen_vl = Qwen2_5_VLForConditionalGeneration.from_pretrained(config.qwen_vl_path)
 
     vae_aligner_projector.requires_grad_(False)
     siglip.requires_grad_(False)
 
-    qwen_vl_plus, train_scheduler = modify_qwen_vl(qwen_vl, config)
+    # qwen_vl_plus, train_scheduler = modify_qwen_vl(qwen_vl, config.modify_qwen_vl)
 
     dataloader = get_imagenet_dataloader(config.data, accelerator)
 
-    print(qwen_vl_plus)
+    # print(qwen_vl_plus)
 
     num_sample = 0
     for i, batch in enumerate(dataloader):
