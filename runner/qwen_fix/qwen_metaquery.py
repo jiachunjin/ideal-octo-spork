@@ -74,7 +74,7 @@ def main(args):
 
     dataloader = get_imagenet_dataloader(config.data, accelerator)
 
-    qwen_vl_plus, optimizer = accelerator.prepare(qwen_vl_plus, optimizer)
+    qwen_vl_plus, dataloader, optimizer = accelerator.prepare(qwen_vl_plus, dataloader, optimizer)
     siglip = siglip.to(accelerator.device, dtype).eval()
     vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
 
