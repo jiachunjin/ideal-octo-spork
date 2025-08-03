@@ -163,4 +163,4 @@ def main(args):
     vae_aligner_projector.requires_grad_(False)
     siglip.requires_grad_(False)
 
-    qwen_vl_plus, train_scheduler = modify_qwen_vl(qwen_vl, config)
+    # qwen_vl_plus, train_scheduler = modify_qwen_vl(qwen_vl, config)

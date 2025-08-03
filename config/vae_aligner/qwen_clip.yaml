@@ -1,0 +1,36 @@
+machine: "ks"
+
+vae_aligner:
+  hidden_size: 1024
+  depth: 16
+  num_heads: 16
+  grid_size: 8
+  scale_factor: 0.875
+
+  siglip_feature_dim: 2048
+  siglip_feature_dim_down: 4
+
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name "vae_aligner"
+  wandb_proj: *exp_name
+  output_dir: "0803_qwen_clip_dim_4"
+  logging_dir: "logs"
+  mixed_precision: "bf16"
+  gradient_accumulation_steps: 1
+  report_to: "no"
+
+  lr: 1e-4
+  num_iter: 100000
+  save_every: 5000
+
+
+data:
+  wds_path: ["/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds"]
+  img_size: 224
+  buffer_size: 80000
+  batch_size: 30
+  num_workers: 8

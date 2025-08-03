@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
 
-from .vit_basic import precompute_freqs_cis_2d, Block
+from model.vae_aligner.vit_basic import precompute_freqs_cis_2d, Block
 
 class ViTVAEAligner(nn.Module):
     def __init__(self, config):
@@ -22,8 +22,9 @@ class ViTVAEAligner(nn.Module):
         self.blocks = nn.ModuleList([Block(config.hidden_size, config.num_heads) for _ in range(config.depth)])
         self.norm2 = nn.LayerNorm(config.hidden_size)
         self.output_proj = nn.Sequential(
-            nn.Conv2d(self.hidden_size, 64, 1, padding=0, bias=True),
-            Rearrange("b (p1 p2 c) h w -> b c (h p1) (w p2)", p1=2, p2=2)
+            nn.Conv2d(self.hidden_size, 2 * 2 * self.siglip_feature_dim_down, 1, padding=0, bias=True),
+            Rearrange("b (p1 p2 c) h w -> b c (h p1) (w p2)", p1=2, p2=2),
+            nn.Upsample(scale_factor=getattr(config, "scale_factor", 1), mode="bilinear", align_corners=False),
         )
 
     def forward(self, x_siglip):
@@ -68,8 +69,8 @@ class ViTVAEAligner(nn.Module):
 
 if __name__ == "__main__":
     from omegaconf import OmegaConf
-    config = OmegaConf.load("config/vae_aligner/siglip_flux.yaml")
+    config = OmegaConf.load("config/vae_aligner/qwen_clip.yaml")
     model = ViTVAEAligner(config.vae_aligner)
-    x_siglip = torch.randn(1, 576, 1024)
+    x_siglip = torch.randn(1, 64, 2048)
     rec_vae_feature = model(x_siglip)
     print(rec_vae_feature.shape)
