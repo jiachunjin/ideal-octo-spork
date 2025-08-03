@@ -108,11 +108,14 @@ def main(args):
             with accelerator.accumulate([qwen_vl_plus]):
                 qwen_vl_plus.train()
                 input_ids = y["input_ids"].to(accelerator.device)
-                attention_mask = y["attention_mask"].to(accelerator.device)
+                attention_mask = y["attention_mask"]
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
                 pixel_values = pixel_values * 2 - 1
 
+                # cfg dropout
                 B, L = input_ids.shape
+                mask = (torch.rand(B, 1) < config.train.cfg_drop_rate).repeat(1, L - 1)
+                input_ids[:, :-1][mask] = pad_token_id
 
                 with torch.no_grad():
                     x_siglip = siglip(pixel_values)
@@ -122,14 +125,16 @@ def main(args):
                 text_embedding = qwen_vl_plus.get_input_embeddings()(input_ids)
                 joint_embedding = torch.cat((text_embedding, qwen_vl_plus.query.unsqueeze(0).repeat(B, 1, 1)), dim=1)
 
-                print(input_ids.shape, attention_mask.shape, pixel_values.shape, joint_embedding.shape)
-                exit(0)
-                # # cfg dropout
-                # # B, L = input_ids.shape
-                # # mask = (torch.rand(B, 1) < config.train.cfg_drop_rate).repeat(1, L)
-                # # input_ids[mask] = pad_token_id
+                img_mask = torch.ones((B, 576), dtype=torch.bool, device=accelerator.device)
+                attention_mask = torch.cat([attention_mask, img_mask], dim=1)
 
-                # print(joint_embedding.shape)
+                hidden_states = qwen_vl_plus.model(
+                    inputs_embeds        = joint_embedding,
+                    attention_mask       = attention_mask,
+                    output_hidden_states = True,
+                ).hidden_states[-1]
+                print(hidden_states.shape)
+                exit(0)
 
     # for i, batch in enumerate(dataloader):
     #     x, y = batch
