@@ -1,4 +1,7 @@
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 import torch
 import pprint
 import argparse
@@ -13,6 +16,7 @@ from model.janus.models import MultiModalityCausalLM, VLChatProcessor
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
 from util.misc import process_pretrained_model_path, flatten_dict
+from runner.qwen_fix.imagenet_dataloader import get_imagenet_dataloader
 
 def get_accelerator(config):
     output_dir = os.path.join(config.root, config.exp_name, config.output_dir)
@@ -50,4 +54,15 @@ def main(args):
 
     qwen_vl_plus, train_scheduler = modify_qwen_vl(qwen_vl, config)
 
+    dataloader = get_imagenet_dataloader(config.data, accelerator)
+
     print(qwen_vl_plus)
+
+    num_sample = 0
+    for i, batch in enumerate(dataloader):
+        x, y = batch
+        if i % 100 == 0:
+            print(x["pixel_value"].shape, y.shape, num_sample)
+        num_sample += x["pixel_value"].shape[0]
+
+    print(f"Total number of samples: {num_sample}")

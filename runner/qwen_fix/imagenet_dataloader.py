@@ -34,13 +34,13 @@ def get_imagenet_dataloader(config, accelerator):
     ]
 
     num_train_examples = 1281167
-    global_batch_size = config.batch_size
+    global_batch_size = config.batch_size * accelerator.num_processes
     num_workers_per_gpu = config.num_workers
 
     num_worker_batches = math.ceil(num_train_examples / 
         (global_batch_size * num_workers_per_gpu))
     
-    print(f"num_worker_batches: {num_worker_batches}")
+    accelerator.print(f"num_worker_batches: {num_worker_batches}")
 
     train_dataset = wds.DataPipeline(*pipeline).with_epoch(num_worker_batches)
 
