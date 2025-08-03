@@ -47,7 +47,7 @@ if __name__ == "__main__":
     from omegaconf import OmegaConf
     from accelerate import Accelerator
 
-    config = OmegaConf.load("config/qwen_fix/qwen_metaquery.yaml")
+    config = OmegaConf.load("../../config/qwen_fix/qwen_metaquery.yaml")
     accelerator = Accelerator()
     dataloader = get_imagenet_dataloader(config, accelerator)
 
