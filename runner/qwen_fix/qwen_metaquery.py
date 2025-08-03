@@ -112,22 +112,25 @@ def main(args):
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
                 pixel_values = pixel_values * 2 - 1
 
-                B, L = input_ids.shape
+                print(input_ids.shape, attention_mask.shape, pixel_values.shape)
+                exit(0)
 
-                with torch.no_grad():
-                    x_siglip = siglip(pixel_values)
-                    x_siglip_dimdown = vae_aligner_projector(x_siglip)
-                    x_0 = x_siglip_dimdown
-
-                text_embedding = qwen_vl_plus.get_input_embeddings()(input_ids)
-                joint_embedding = torch.cat((text_embedding, qwen_vl_plus.query.unsqueeze(0).repeat(B, 1, 1)), dim=1)
-
-                # cfg dropout
                 # B, L = input_ids.shape
-                # mask = (torch.rand(B, 1) < config.train.cfg_drop_rate).repeat(1, L)
-                # input_ids[mask] = pad_token_id
 
-                print(joint_embedding.shape)
+                # with torch.no_grad():
+                #     x_siglip = siglip(pixel_values)
+                #     x_siglip_dimdown = vae_aligner_projector(x_siglip)
+                #     x_0 = x_siglip_dimdown
+
+                # text_embedding = qwen_vl_plus.get_input_embeddings()(input_ids)
+                # joint_embedding = torch.cat((text_embedding, qwen_vl_plus.query.unsqueeze(0).repeat(B, 1, 1)), dim=1)
+
+                # # cfg dropout
+                # # B, L = input_ids.shape
+                # # mask = (torch.rand(B, 1) < config.train.cfg_drop_rate).repeat(1, L)
+                # # input_ids[mask] = pad_token_id
+
+                # print(joint_embedding.shape)
 
     # for i, batch in enumerate(dataloader):
     #     x, y = batch
