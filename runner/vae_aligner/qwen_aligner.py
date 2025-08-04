@@ -117,6 +117,17 @@ def main(args):
                     x_clip = rearrange(x_clip, "(B L) D -> B L D", B=B)
                     vae_latent = vae.encode(pixel_values).latent_dist.sample().to(dtype)
 
+                rec_latent = vae_aligner(x_clip).to(dtype)
+                loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
+
+                print(loss_mse.item())
+
+                optimizer.zero_grad()
+                accelerator.backward(loss_mse)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                optimizer.step()
+
                 print(x_clip.shape, vae_latent.shape)
                 exit(0)
 
