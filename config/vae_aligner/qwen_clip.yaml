@@ -8,7 +8,7 @@ vae_aligner:
   scale_factor: 1.75
 
   siglip_feature_dim: 2048
-  siglip_feature_dim_down: 4
+  siglip_feature_dim_down: 8
 
 train:
   root: null
@@ -21,7 +21,7 @@ train:
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "wandb"
+  report_to: "no"
 
   lr: 1e-4
   num_iter: 100000
