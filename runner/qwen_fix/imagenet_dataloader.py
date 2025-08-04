@@ -33,6 +33,10 @@ def get_imagenet_dataloader(config, accelerator):
         image_mean = torch.tensor([0.48145466, 0.4578275, 0.40821073])
         image_std = torch.tensor([0.26862954, 0.26130258, 0.27577711])
 
+        # 确保维度匹配，将mean和std调整为正确的形状
+        image_mean = image_mean.view(3, 1, 1)
+        image_std = image_std.view(3, 1, 1)
+        
         pixel_values = (pixel_values - image_mean) / image_std
         grid_thw = np.array([[1, 16, 16]])
 
