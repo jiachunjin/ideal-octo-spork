@@ -110,7 +110,7 @@ def main(args):
                 print(pixel_values.shape)
                 B, L, D = pixel_values.shape
                 pixel_values = rearrange(pixel_values, "B L D -> (B L) D")
-                grid_thw = torch.tensor([1, 16, 16]).repeat(B, 1, 1).to(accelerator.device)
+                grid_thw = torch.tensor([1, 16, 16]).repeat(B, 1).to(accelerator.device)
                 # exit(0)
                 # B = pixel_values.shape[0]
                 print(pixel_values.shape, grid_thw.shape)
