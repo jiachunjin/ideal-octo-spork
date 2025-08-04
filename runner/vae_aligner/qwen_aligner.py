@@ -106,7 +106,10 @@ def main(args):
             with accelerator.accumulate([vae_aligner]):
                 vae_aligner.train()
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
-                grid_thw = x["grid_thw"].to(accelerator.device)
+                print(pixel_values.shape)
+                exit(0)
+                # B = pixel_values.shape[0]
+                # grid_thw = torch.tensor([1, 16, 16]).repeat(B, 1, 1).to(accelerator.device)
 
                 with torch.no_grad():
                     x_siglip = qwen_clip(pixel_values, grid_thw=torch.tensor([B, 16, 16], dtype=torch.int32, device=accelerator.device))
