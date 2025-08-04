@@ -52,7 +52,7 @@ data:
   wds_path: ["/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds"]
   img_size: 384
   buffer_size: 80000
-  batch_size: 30
+  batch_size: 5
   num_workers: 8
   # exp_name: &exp_name "qwen_fix"
   # wandb_proj: *exp_name

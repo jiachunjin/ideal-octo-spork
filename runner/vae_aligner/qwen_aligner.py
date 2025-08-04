@@ -113,7 +113,7 @@ def main(args):
                 grid_thw = torch.tensor([1, 16, 16]).repeat(B, 1, 1).to(accelerator.device)
                 # exit(0)
                 # B = pixel_values.shape[0]
-                # 
+                print(pixel_values.shape, grid_thw.shape)
 
                 with torch.no_grad():
                     x_siglip = qwen_clip(pixel_values, grid_thw=grid_thw)
