@@ -143,8 +143,9 @@ def main(args):
                     if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
                         vae_aligner.eval()
                         state_dict = accelerator.unwrap_model(vae_aligner).state_dict()
-                        torch.save(state_dict, os.path.join(output_dir, f"vae_aligner-{config.train.exp_name}-{global_step}"))
-                        accelerator.print(f"vae_aligner saved to {os.path.join(output_dir, f"vae_aligner-{config.train.exp_name}-{global_step}")}")
+                        save_path = os.path.join(output_dir, f"vae_aligner-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        accelerator.print(f"vae_aligner saved to {save_path}")
 
         epoch += 1
         accelerator.print(f"epoch {epoch}: finished")
