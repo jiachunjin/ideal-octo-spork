@@ -9,6 +9,7 @@ import argparse
 from tqdm import tqdm
 from diffusers import AutoencoderKL
 from omegaconf import OmegaConf
+from einops import rearrange
 from accelerate import Accelerator
 from accelerate.state import AcceleratorState
 from accelerate.utils import ProjectConfiguration
@@ -107,12 +108,15 @@ def main(args):
                 vae_aligner.train()
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
                 print(pixel_values.shape)
-                exit(0)
+                B, L, D = pixel_values.shape
+                pixel_values = rearrange(pixel_values, "B L D -> (B L) D")
+                grid_thw = torch.tensor([1, 16, 16]).repeat(B, 1, 1).to(accelerator.device)
+                # exit(0)
                 # B = pixel_values.shape[0]
-                # grid_thw = torch.tensor([1, 16, 16]).repeat(B, 1, 1).to(accelerator.device)
+                # 
 
                 with torch.no_grad():
-                    x_siglip = qwen_clip(pixel_values, grid_thw=torch.tensor([B, 16, 16], dtype=torch.int32, device=accelerator.device))
+                    x_siglip = qwen_clip(pixel_values, grid_thw=grid_thw)
                     vae_latent = vae.encode(x).latent_dist.sample().to(dtype)
                 print(x_siglip.shape, vae_latent.shape)
                 exit(0)
