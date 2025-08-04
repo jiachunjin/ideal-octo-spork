@@ -115,9 +115,11 @@ def main(args):
                 with torch.no_grad():
                     x_clip = []
                     for b in range(B):
-                        x_clip_b = qwen_clip(qwen_pixel_values[b], grid_thw=torch.tensor([1, 16, 16]).to(accelerator.device))
+                        # print(qwen_pixel_values[b].shape)
+                        x_clip_b = qwen_clip(qwen_pixel_values[b], grid_thw=torch.tensor([1, 16, 16]).repeat(1, 1).to(accelerator.device))
                         x_clip.append(x_clip_b)
                     x_clip = torch.cat(x_clip, dim=0)
+                    print(x_clip.shape)
                     # x_clip = qwen_clip(qwen_pixel_values, grid_thw=grid_thw)
                     # x_clip = rearrange(x_clip, "(B L) D -> B L D", B=B)
                     vae_latent = vae.encode(pixel_values).latent_dist.sample().to(dtype)
