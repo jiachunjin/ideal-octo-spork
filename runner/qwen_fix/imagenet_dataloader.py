@@ -23,22 +23,21 @@ def get_imagenet_dataloader(config, accelerator):
         pth_transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x),
     ])
 
+    preprocess_resize = pth_transforms.Compose([
+        pth_transforms.Resize(config.img_size, max_size=None),
+        pth_transforms.CenterCrop(config.img_size),
+    ])
+
     def preprocess_image_deprecated(image):
         transformed_image = preprocess_gen(image)
 
         return {"pixel_values": transformed_image}
 
     def preprocess_image(image):
-        pixel_values = preprocess_gen(image)
-        image_mean = torch.tensor([0.48145466, 0.4578275, 0.40821073])
-        image_std = torch.tensor([0.26862954, 0.26130258, 0.27577711])
-
-        # 确保维度匹配，将mean和std调整为正确的形状
-        image_mean = image_mean.view(3, 1, 1)
-        image_std = image_std.view(3, 1, 1)
-        
-        pixel_values = (pixel_values - image_mean) / image_std
-        grid_thw = np.array([[1, 16, 16]])
+        resize_image = preprocess_resize(image)
+        preprocessed = processor.image_processor(resize_image)
+        pixel_values = preprocessed.pixel_values
+        grid_thw = preprocessed.image_grid_thw
 
         return {"pixel_values": pixel_values, "grid_thw": grid_thw}
     
