@@ -117,6 +117,8 @@ def main(args):
 
                 with torch.no_grad():
                     x_siglip = qwen_clip(pixel_values, grid_thw=grid_thw)
+                    print(x_siglip.shape)
+                    exit(0)
                     vae_latent = vae.encode(x).latent_dist.sample().to(dtype)
                 print(x_siglip.shape, vae_latent.shape)
                 exit(0)
