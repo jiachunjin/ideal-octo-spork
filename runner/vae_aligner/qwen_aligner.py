@@ -109,18 +109,18 @@ def main(args):
                 qwen_pixel_values = x["qwen_pixel_values"].to(accelerator.device, dtype)
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
                 B, L, D = qwen_pixel_values.shape
-                # qwen_pixel_values = rearrange(qwen_pixel_values, "B L D -> (B L) D")
-                # grid_thw = 
+                qwen_pixel_values = rearrange(qwen_pixel_values, "B L D -> (B L) D")
+                grid_thw = torch.tensor([1, 16, 16]).repeat(B, 1).to(accelerator.device)
 
                 with torch.no_grad():
-                    x_clip = []
-                    for b in range(B):
-                        # print(qwen_pixel_values[b].shape)
-                        x_clip_b = qwen_clip(qwen_pixel_values[b], grid_thw=torch.tensor([1, 16, 16]).repeat(1, 1).to(accelerator.device))
-                        x_clip.append(x_clip_b)
-                    x_clip = torch.stack(x_clip, dim=0)
-                    # x_clip = qwen_clip(qwen_pixel_values, grid_thw=grid_thw)
-                    # x_clip = rearrange(x_clip, "(B L) D -> B L D", B=B)
+                    # x_clip = []
+                    # for b in range(B):
+                    #     # print(qwen_pixel_values[b].shape)
+                    #     x_clip_b = qwen_clip(qwen_pixel_values[b], grid_thw=torch.tensor([1, 16, 16]).repeat(1, 1).to(accelerator.device))
+                    #     x_clip.append(x_clip_b)
+                    # x_clip = torch.stack(x_clip, dim=0)
+                    x_clip = qwen_clip(qwen_pixel_values, grid_thw=grid_thw)
+                    x_clip = rearrange(x_clip, "(B L) D -> B L D", B=B)
                     vae_latent = vae.encode(pixel_values).latent_dist.sample().to(dtype)
 
                 rec_latent = vae_aligner(x_clip).to(dtype)
