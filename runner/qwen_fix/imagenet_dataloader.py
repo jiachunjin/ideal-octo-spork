@@ -1,11 +1,13 @@
 import os
 import glob
 import math
+import torch
 import numpy as np
 import webdataset as wds
 import torchvision.transforms as pth_transforms
 from torch.utils.data import default_collate
 from transformers import AutoProcessor
+
 
 def get_imagenet_dataloader(config, accelerator):
     processor = AutoProcessor.from_pretrained("/data/phd/jinjiachun/ckpt/Qwen/Qwen2.5-VL-3B-Instruct")
@@ -28,8 +30,8 @@ def get_imagenet_dataloader(config, accelerator):
 
     def preprocess_image(image):
         pixel_values = preprocess_gen(image)
-        image_mean = [0.48145466, 0.4578275, 0.40821073]
-        image_std = [0.26862954, 0.26130258, 0.27577711]
+        image_mean = torch.tensor([0.48145466, 0.4578275, 0.40821073])
+        image_std = torch.tensor([0.26862954, 0.26130258, 0.27577711])
 
         pixel_values = (pixel_values - image_mean) / image_std
         grid_thw = np.array([[1, 16, 16]])
