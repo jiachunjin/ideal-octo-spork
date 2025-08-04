@@ -106,20 +106,21 @@ def main(args):
         for x, _ in dataloader:
             with accelerator.accumulate([vae_aligner]):
                 vae_aligner.train()
+                qwen_pixel_values = x["qwen_pixel_values"].to(accelerator.device, dtype)
                 pixel_values = x["pixel_values"].to(accelerator.device, dtype)
-                print(pixel_values.shape)
-                B, L, D = pixel_values.shape
-                pixel_values = rearrange(pixel_values, "B L D -> (B L) D")
+                # print(pixel_values.shape)
+                B, L, D = qwen_pixel_values.shape
+                qwen_pixel_values = rearrange(qwen_pixel_values, "B L D -> (B L) D")
                 grid_thw = torch.tensor([1, 16, 16]).repeat(B, 1).to(accelerator.device)
                 # exit(0)
                 # B = pixel_values.shape[0]
-                print(pixel_values.shape, grid_thw.shape)
+                # print(pixel_vaslues.shape, grid_thw.shape)
 
                 with torch.no_grad():
-                    x_siglip = qwen_clip(pixel_values, grid_thw=grid_thw)
-                    print(x_siglip.shape)
-                    exit(0)
-                    vae_latent = vae.encode(x).latent_dist.sample().to(dtype)
+                    x_siglip = qwen_clip(qwen_pixel_values, grid_thw=grid_thw)
+                    # print(x_siglip.shape)
+                    # exit(0)
+                    vae_latent = vae.encode(pixel_values).latent_dist.sample().to(dtype)
                 print(x_siglip.shape, vae_latent.shape)
                 exit(0)
 

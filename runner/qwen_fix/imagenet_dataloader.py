@@ -34,12 +34,17 @@ def get_imagenet_dataloader(config, accelerator):
         return {"pixel_values": transformed_image}
 
     def preprocess_image(image):
+        transformed_image = preprocess_gen(image)
         resize_image = preprocess_resize(image)
         preprocessed = processor.image_processor(resize_image)
         pixel_values = preprocessed.pixel_values
         grid_thw = preprocessed.image_grid_thw
 
-        return {"pixel_values": pixel_values, "grid_thw": grid_thw}
+        return {
+            "pixel_values": transformed_image,
+            "qwen_pixel_values": pixel_values,
+            "grid_thw": grid_thw,
+        }
     
     def preprocess_label(label):
         prompt = label_dict[label]
