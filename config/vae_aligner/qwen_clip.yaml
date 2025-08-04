@@ -5,7 +5,7 @@ vae_aligner:
   depth: 16
   num_heads: 16
   grid_size: 8
-  scale_factor: 0.875
+  scale_factor: 1.75
 
   siglip_feature_dim: 2048
   siglip_feature_dim_down: 4

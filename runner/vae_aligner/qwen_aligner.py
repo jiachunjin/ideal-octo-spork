@@ -120,10 +120,10 @@ def main(args):
                 rec_latent = vae_aligner(x_clip).to(dtype)
 
                 print(x_clip.shape, rec_latent.shape, vae_latent.shape)
-                exit(0)
-                # loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
+                # exit(0)
+                loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
 
-                # print(loss_mse.item)
+                print(loss_mse.item())
 
                 optimizer.zero_grad()
                 accelerator.backward(loss_mse)

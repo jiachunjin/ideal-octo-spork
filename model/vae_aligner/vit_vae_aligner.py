@@ -22,7 +22,7 @@ class ViTVAEAligner(nn.Module):
         self.blocks = nn.ModuleList([Block(config.hidden_size, config.num_heads) for _ in range(config.depth)])
         self.norm2 = nn.LayerNorm(config.hidden_size)
         self.output_proj = nn.Sequential(
-            nn.Conv2d(self.hidden_size, 2 * 2 * self.siglip_feature_dim_down, 1, padding=0, bias=True),
+            nn.Conv2d(self.hidden_size, 2 * 2 * 16, 1, padding=0, bias=True),
             Rearrange("b (p1 p2 c) h w -> b c (h p1) (w p2)", p1=2, p2=2),
             nn.Upsample(scale_factor=getattr(config, "scale_factor", 1), mode="bilinear", align_corners=False),
         )
