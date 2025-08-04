@@ -20,10 +20,17 @@ def get_imagenet_dataloader(config, accelerator):
         pth_transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x),
     ])
 
-    def preprocess_image(image):
+    def preprocess_image_deprecated(image):
         transformed_image = preprocess_gen(image)
 
         return {"pixel_values": transformed_image}
+
+    def preprocess_image(image):
+        processed = processor.image_processor(image)
+        grid_thw = processed.image_grid_thw
+        pixel_values = processed.pixel_values
+
+        return {"pixel_values": pixel_values, "grid_thw": grid_thw}
     
     def preprocess_label(label):
         prompt = label_dict[label]
