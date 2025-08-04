@@ -31,6 +31,6 @@ train:
 data:
   wds_path: ["/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds"]
   img_size: 224
-  buffer_size: 80000
+  buffer_size: 100
   batch_size: 30
   num_workers: 8

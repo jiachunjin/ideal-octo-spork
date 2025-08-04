@@ -1,6 +1,7 @@
 import os
 import glob
 import math
+import numpy as np
 import webdataset as wds
 import torchvision.transforms as pth_transforms
 from torch.utils.data import default_collate
@@ -26,9 +27,12 @@ def get_imagenet_dataloader(config, accelerator):
         return {"pixel_values": transformed_image}
 
     def preprocess_image(image):
-        processed = processor.image_processor(image)
-        grid_thw = processed.image_grid_thw
-        pixel_values = processed.pixel_values
+        pixel_values = preprocess_gen(image)
+        image_mean = [0.48145466, 0.4578275, 0.40821073]
+        image_std = [0.26862954, 0.26130258, 0.27577711]
+
+        pixel_values = (pixel_values - image_mean) / image_std
+        grid_thw = np.array([[1, 16, 16]])
 
         return {"pixel_values": pixel_values, "grid_thw": grid_thw}
     
