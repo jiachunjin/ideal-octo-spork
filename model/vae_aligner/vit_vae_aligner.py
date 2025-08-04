@@ -14,8 +14,16 @@ class ViTVAEAligner(nn.Module):
         self.grid_size = config.grid_size
 
         self.siglip_feature_dim_down = config.siglip_feature_dim_down
-        self.siglip_feature_proj = nn.Linear(config.siglip_feature_dim, config.siglip_feature_dim_down)
-        
+        # self.siglip_feature_proj = nn.Linear(config.siglip_feature_dim, config.siglip_feature_dim_down)
+
+        self.siglip_feature_proj = nn.Sequential(
+            nn.Linear(config.siglip_feature_dim, config.siglip_feature_dim),
+            nn.GELU(),
+            nn.Linear(config.siglip_feature_dim, 2 * config.siglip_feature_dim),
+            nn.GELU(),
+            nn.Linear(2 * config.siglip_feature_dim, config.siglip_feature_dim_down),
+        )
+
         self.precompute_pos = dict()
         self.input_proj = nn.Linear(config.siglip_feature_dim_down, config.hidden_size)
         self.norm1 = nn.LayerNorm(config.hidden_size)
