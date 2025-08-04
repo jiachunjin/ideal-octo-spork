@@ -118,9 +118,12 @@ def main(args):
                     vae_latent = vae.encode(pixel_values).latent_dist.sample().to(dtype)
 
                 rec_latent = vae_aligner(x_clip).to(dtype)
-                loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
 
-                print(loss_mse.item())
+                print(x_clip.shape, rec_latent.shape, vae_latent.shape)
+                exit(0)
+                # loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
+
+                # print(loss_mse.item)
 
                 optimizer.zero_grad()
                 accelerator.backward(loss_mse)
