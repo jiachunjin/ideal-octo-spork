@@ -25,7 +25,7 @@ def get_intern_dataloader(config, accelerator):
     def preprocess_image(image):
         pixel_values = preprocess_gen(image)
 
-        return {"pixel_values": pixel_values}
+        return pixel_values
 
     pipeline = [
         wds.ResampledShards(urls),
@@ -66,6 +66,6 @@ if __name__ == "__main__":
     accelerator = Accelerator()
     dataloader = get_intern_dataloader(config.data, accelerator)
     
-    for x in dataloader:
-        print(x.shape)
+    for x, y in dataloader:
+        print(x)
         break
