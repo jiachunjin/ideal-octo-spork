@@ -1,3 +1,32 @@
+machine: "ks"
+
+vae_aligner:
+  hidden_size: 1536
+  depth: 24
+  num_heads: 24
+  grid_size: 8
+  scale_factor: 1.75
+
+  siglip_feature_dim: 2048
+  siglip_feature_dim_down: 16
+
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name "intern_clip"
+  wandb_proj: *exp_name
+  output_dir: "0805_intern_dev"
+  logging_dir: "logs"
+  mixed_precision: "bf16"
+  gradient_accumulation_steps: 1
+  report_to: "no"
+
+  lr: 1e-4
+  num_iter: 100000
+  save_every: 2000
+
 data:
   wds_path: ["/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds/"]
   img_size: 448
