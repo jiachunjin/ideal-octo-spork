@@ -2,7 +2,7 @@ machine: "ks"
 
 vae_aligner:
   hidden_size: 1536
-  depth: 24
+  depth: 16
   num_heads: 24
   grid_size: 16
   scale_factor: 1.75
@@ -31,5 +31,5 @@ data:
   wds_path: ["/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds/"]
   img_size: 448
   buffer_size: 1000
-  batch_size: 25
+  batch_size: 120
   num_workers: 8
