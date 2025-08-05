@@ -16,13 +16,15 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 imagenet_mean = torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1)
 imagenet_std = torch.tensor(IMAGENET_STD).view(1, 3, 1, 1)
 
-config = OmegaConf.load("config/vae_aligner/intern_clip.yaml")
+exp_dir = "/data/phd/jinjiachun/experiment/intern_clip/0805_intern_aligner"
+
+config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
 config.vae_path = "/data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium/vae"
 vae_aligner = get_vae_aligner(config.vae_aligner)
 intern_vl_1b = AutoModel.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True)
 vae = AutoencoderKL.from_pretrained(config.vae_path)
 
-ckpt_path = "/data/phd/jinjiachun/experiment/intern_clip/0805_intern_aligner/vae_aligner-intern_clip-2333"
+ckpt_path = os.path.join(exp_dir, "vae_aligner-intern_clip-2333")
 print("current ckpt: ", ckpt_path)
 ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
 vae_aligner.load_state_dict(ckpt, strict=True)
