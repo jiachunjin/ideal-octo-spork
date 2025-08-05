@@ -25,7 +25,7 @@ def get_intern_dataloader(config, accelerator):
     def preprocess_image(image):
         pixel_values = preprocess_gen(image)
 
-        return pixel_values
+        return {"pixel_values": pixel_values}
 
     pipeline = [
         wds.ResampledShards(urls),
