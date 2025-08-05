@@ -46,7 +46,7 @@ def main(args):
     AcceleratorState().deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = config.data.batch_size
     accelerator.print(AcceleratorState().deepspeed_plugin.deepspeed_config)
 
-    intern_vl_1b = AutoModel.from_pretrained(config.intern_vl_1b_path)
+    intern_vl_1b = AutoModel.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True)
     vae_aligner = get_vae_aligner(config.vae_aligner)
     vae = AutoencoderKL.from_pretrained(config.vae_path)
 
