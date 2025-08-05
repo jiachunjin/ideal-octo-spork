@@ -18,8 +18,10 @@ from transformers import AutoModel
 from model.vae_aligner import get_vae_aligner
 
 from util.misc import process_pretrained_model_path, flatten_dict
-from runner.qwen_fix.imagenet_dataloader import get_imagenet_dataloader
+from util.intern_dataloader import get_intern_dataloader_imagenet
 
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
 
 def get_accelerator(config):
     output_dir = os.path.join(config.root, config.exp_name, config.output_dir)
@@ -76,7 +78,7 @@ def main(args):
     else:
         dtype = torch.float32
     
-    dataloader = get_imagenet_dataloader(config.data, accelerator)
+    dataloader = get_intern_dataloader_imagenet(config.data, accelerator)
 
     vae_aligner, optimizer = accelerator.prepare(vae_aligner, optimizer)
     intern_vl_1b = intern_vl_1b.to(accelerator.device, dtype).eval()
@@ -100,3 +102,24 @@ def main(args):
     accelerator.print(f"Learnable parameters: {sum(p.numel() for p in params_to_learn if p.requires_grad) / 1e6} M")
     accelerator.print(f"vae_aligner dtype: {next(vae_aligner.parameters()).dtype}")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
+
+    while not training_done:
+        for x, _ in dataloader:
+            with accelerator.accumulate([vae_aligner]):
+                vae_aligner.train()
+                x = x.to(accelerator.device, dtype)
+                x_intern = (x - IMAGENET_MEAN) / IMAGENET_STD
+                x_vae = x * 2 - 1
+
+                with torch.no_grad():
+                    x_clip = intern_vl_1b.extract_feature(x_intern)
+                    vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
+                    print(x_clip.shape)
+                    print(vae_latent.shape)
+                    exit(0)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/vae_aligner/intern_clip.yaml")
+    args = parser.parse_args()
+    main(args)
