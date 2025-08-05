@@ -117,8 +117,6 @@ def main(args):
                 with torch.no_grad():
                     x_clip = intern_vl_1b.extract_feature(x_intern)
                     vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
-                    print(x_clip.shape)
-                    print(vae_latent.shape)
 
                 rec_latent = vae_aligner(x_clip).to(dtype)
                 loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
