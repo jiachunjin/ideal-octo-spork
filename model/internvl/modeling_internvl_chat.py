@@ -286,6 +286,8 @@ class InternVLChatModel(PreTrainedModel):
 
         model_inputs = tokenizer(query, return_tensors='pt')
         input_ids = model_inputs['input_ids'].to(self.device)
+        print(tokenizer.decode(input_ids[0], skip_special_tokens=False))
+        exit(0)
         attention_mask = model_inputs['attention_mask'].to(self.device)
         generation_config['eos_token_id'] = eos_token_id
         generation_output = self.generate(
