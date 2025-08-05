@@ -32,12 +32,14 @@ def get_intern_dataloader_imagenet(config, accelerator):
         wds.tarfile_to_samples(handler=wds.warn_and_continue),
         wds.shuffle(bufsize=config.buffer_size, initial=config.buffer_size),
         wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg", "cls"),
+        # wds.to_tuple("jpg", "cls"),
+        wds.to_tuple("jpg", "txt"),
         wds.map_tuple(preprocess_image, None),
         wds.batched(config.batch_size, partial=False, collation_fn=default_collate),
     ]
 
-    num_train_examples = 1281167 + 50000
+    # num_train_examples = 1281167 + 50000
+    num_train_examples = 35000000
     global_batch_size = config.batch_size * accelerator.num_processes
     num_workers_per_gpu = config.num_workers
 

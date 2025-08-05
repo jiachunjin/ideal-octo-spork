@@ -12,8 +12,8 @@ vae_aligner:
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: "/data/phd/jinjiachun/experiment/intern_clip/0805_intern_aligner/vae_aligner-intern_clip-4666"
+  global_step: 4666
 
   exp_name: &exp_name "intern_clip"
   wandb_proj: *exp_name
@@ -28,8 +28,9 @@ train:
   save_every: 2000
 
 data:
-  wds_path: ["/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds/"]
+  # wds_path: ["/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds/"]
+  wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
   img_size: 448
-  buffer_size: 1000
-  batch_size: 150
+  buffer_size: 30000
+  batch_size: 100
   num_workers: 8

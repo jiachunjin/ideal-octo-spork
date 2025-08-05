@@ -51,7 +51,7 @@ reconstructed_img = pth_transforms.ToPILImage()(reconstructed.squeeze(0))
 original_img = pth_transforms.ToPILImage()(x.squeeze(0))
 
 import matplotlib.pyplot as plt
-fig, axes = plt.subplots(1, 2, figsize=(24, 6))
+fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
 axes[0].imshow(original_img)
 axes[0].set_title('original', fontsize=14)
