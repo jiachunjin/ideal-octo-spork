@@ -55,8 +55,8 @@ def main(args):
 
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
-        if config.train.skipped_keys:
-            ckpt = {k: v for k, v in ckpt.items() if k not in config.train.skipped_keys}
+        # if config.train.skipped_keys:
+        #     ckpt = {k: v for k, v in ckpt.items() if k not in config.train.skipped_keys}
         m, u = vae_aligner.load_state_dict(ckpt, strict=False)
         accelerator.print(f"Missing modules: {m}, unmatched modules: {u}")
 
