@@ -15,7 +15,7 @@ def get_intern_dataloader(config, accelerator):
     accelerator.print(f"Found tar files: {len(urls)}")
 
     preprocess_gen = pth_transforms.Compose([
-        pth_transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x),
+        pth_transforms.Lambda(lambda img: img.convert('RGB') if img.mode != 'RGB' else img),
         pth_transforms.Resize(config.img_size, max_size=None),
         pth_transforms.CenterCrop(config.img_size),
         pth_transforms.ToTensor(),
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     from omegaconf import OmegaConf
     from accelerate import Accelerator
 
-    config = OmegaConf.load("../../config/vae_aligner/intern_clip.yaml")
+    config = OmegaConf.load("../config/vae_aligner/intern_clip.yaml")
     accelerator = Accelerator()
     dataloader = get_intern_dataloader(config.data, accelerator)
     
