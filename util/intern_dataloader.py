@@ -8,7 +8,7 @@ from torch.utils.data import default_collate
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
-def get_intern_dataloader_imagenet(config, accelerator):
+def get_intern_dataloader(config, accelerator):
     urls = []
     for path in config.wds_path:
         urls.extend(glob.glob(os.path.join(path, "*.tar")))
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     config = OmegaConf.load("../config/vae_aligner/intern_clip.yaml")
     accelerator = Accelerator()
-    dataloader = get_intern_dataloader_imagenet(config.data, accelerator)
+    dataloader = get_intern_dataloader(config.data, accelerator)
     
     for x, y in dataloader:
         print(x)

@@ -18,7 +18,7 @@ from transformers import AutoModel
 from model.vae_aligner import get_vae_aligner
 
 from util.misc import process_pretrained_model_path, flatten_dict
-from util.intern_dataloader import get_intern_dataloader_imagenet
+from util.intern_dataloader import get_intern_dataloader
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -78,7 +78,7 @@ def main(args):
     else:
         dtype = torch.float32
     
-    dataloader = get_intern_dataloader_imagenet(config.data, accelerator)
+    dataloader = get_intern_dataloader(config.data, accelerator)
 
     vae_aligner, optimizer = accelerator.prepare(vae_aligner, optimizer)
     intern_vl_1b = intern_vl_1b.to(accelerator.device, dtype).eval()
