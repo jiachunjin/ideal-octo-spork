@@ -119,7 +119,41 @@ def main(args):
                     vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
                     print(x_clip.shape)
                     print(vae_latent.shape)
-                    exit(0)
+
+                rec_latent = vae_aligner(x_clip).to(dtype)
+                loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
+
+                accelerator.backward(loss_mse)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        loss_mse  = accelerator.gather(loss_mse.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+
+                    if global_step > config.train.num_iter:
+                        training_done = True
+                        break
+
+                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                        vae_aligner.eval()
+                        state_dict = accelerator.unwrap_model(vae_aligner).state_dict()
+                        save_path = os.path.join(output_dir, f"vae_aligner-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        accelerator.print(f"vae_aligner saved to {save_path}")
+
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

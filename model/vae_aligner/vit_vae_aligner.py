@@ -77,8 +77,8 @@ class ViTVAEAligner(nn.Module):
 
 if __name__ == "__main__":
     from omegaconf import OmegaConf
-    config = OmegaConf.load("config/vae_aligner/qwen_clip.yaml")
+    config = OmegaConf.load("config/vae_aligner/intern_clip.yaml")
     model = ViTVAEAligner(config.vae_aligner)
-    x_siglip = torch.randn(1, 64, 2048)
+    x_siglip = torch.randn(2, 256, 896)
     rec_vae_feature = model(x_siglip)
     print(rec_vae_feature.shape)

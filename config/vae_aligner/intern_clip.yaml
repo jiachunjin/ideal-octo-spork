@@ -4,11 +4,11 @@ vae_aligner:
   hidden_size: 1536
   depth: 24
   num_heads: 24
-  grid_size: 8
+  grid_size: 16
   scale_factor: 1.75
 
-  siglip_feature_dim: 2048
-  siglip_feature_dim_down: 16
+  siglip_feature_dim: 896
+  siglip_feature_dim_down: 8
 
 train:
   root: null
