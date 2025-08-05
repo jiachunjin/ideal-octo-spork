@@ -103,12 +103,15 @@ def main(args):
     accelerator.print(f"vae_aligner dtype: {next(vae_aligner.parameters()).dtype}")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
 
+    imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
+    imagenet_std = torch.tensor(IMAGENET_STD, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
+
     while not training_done:
         for x, _ in dataloader:
             with accelerator.accumulate([vae_aligner]):
                 vae_aligner.train()
                 x = x.to(accelerator.device, dtype)
-                x_intern = (x - IMAGENET_MEAN) / IMAGENET_STD
+                x_intern = (x - imagenet_mean) / imagenet_std
                 x_vae = x * 2 - 1
 
                 with torch.no_grad():
