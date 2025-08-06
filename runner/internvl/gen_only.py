@@ -7,6 +7,7 @@ import pprint
 import argparse
 
 from tqdm import tqdm
+from einops import rearrange
 from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.state import AcceleratorState
@@ -112,8 +113,8 @@ def main(args):
             with accelerator.accumulate([ar_model]):
                 ar_model.train()
                 pixel_values = batch["pixel_values"].to(accelerator.device, dtype)
-                input_ids = batch["input_ids"]
-                attention_mask = batch["attention_mask"]
+                input_ids = batch["input_ids"].to(accelerator.device)
+                attention_mask = batch["attention_mask"].to(accelerator.device)
 
                 pixel_values = (pixel_values - imagenet_mean) / imagenet_std
 
@@ -122,9 +123,44 @@ def main(args):
                     x_siglip_dimdown = vae_aligner_projector(x_clip)
                     visual_gen_feature = x_siglip_dimdown
 
-                print(pixel_values.shape, input_ids.shape, attention_mask.shape, visual_gen_feature.shape)
+                B, L = input_ids.shape
+                text_embedding = ar_model.language_model.get_input_embeddings()(input_ids).clone()
+                img_embedding = ar_model.clip_projector(visual_gen_feature)
+                joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+                img_mask = torch.ones((B, config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
+                attention_mask = torch.cat([attention_mask, img_mask], dim=1)
 
-                exit(0)
+                hidden_states = ar_model.language_model(
+                    inputs_embeds        = joint_embedding,
+                    attention_mask       = attention_mask,
+                    output_hidden_states = True,
+                ).hidden_states[-1]
+                hidden_state = hidden_states[:, -config.data.num_img_token-1:-1, :]
+
+                z = rearrange(hidden_state, "B L D -> (B L) D")
+                gt_feature = rearrange(visual_gen_feature, "B L D -> (B L) D")
+                timesteps = torch.randint(0, 1000, (z.shape[0],), dtype=torch.int64, device=z.device)
+                noise = torch.randn_like(gt_feature, device=z.device, dtype=z.dtype)
+                noisy_latents = train_scheduler.add_noise(gt_feature, noise, timesteps)
+                target = train_scheduler.get_velocity(gt_feature, noise, timesteps)
+                pred = ar_model.diff_head(noisy_latents, timesteps, z)
+
+                loss = torch.nn.functional.mse_loss(pred.to(dtype), target)
+                accelerator.backward(loss)
+
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        loss_diff_head = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
 
 
 if __name__ == "__main__":

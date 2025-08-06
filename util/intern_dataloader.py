@@ -54,7 +54,7 @@ def get_intern_dataloader(config, accelerator):
     def preprocess_image(image):
         width, height = image.size
         max_size = max(width, height)
-        if max_size < config.img_size:
+        if max_size < config.img_size * 0.75:
             return None
         pixel_values = preprocess_gen(image)
 
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     intern_vl_1b_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-1B"
     tokenizer = AutoTokenizer.from_pretrained(intern_vl_1b_path, trust_remote_code=True, use_fast=False)
 
-    config = OmegaConf.load("/data/phd/jinjiachun/codebase/ideal-octo-spork/config/vae_aligner/intern_clip.yaml")
+    config = OmegaConf.load("/data/phd/jinjiachun/codebase/ideal-octo-spork/config/internvl/gen_only.yaml")
     config = process_pretrained_model_path(config)
     accelerator = Accelerator()
     config.data.batch_size = 4

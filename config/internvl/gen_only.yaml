@@ -47,4 +47,4 @@ data:
   num_workers: 8
   num_img_token: 256
   max_seq_length: 512
-  cfg_drop_rate: 0.8
+  cfg_drop_rate: 0.1
