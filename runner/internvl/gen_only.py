@@ -174,7 +174,7 @@ def main(args):
                         torch.save(state_dict, save_path)
                         print(f"clip_projector saved to {save_path}")
 
-                        if config.tune_backbone:
+                        if config.model.tune_backbone:
                             state_dict = accelerator.unwrap_model(ar_model).language_model.model.state_dict()
                             save_path = os.path.join(output_dir, f"backbone-{config.train.exp_name}-{global_step}")
                             torch.save(state_dict, save_path)

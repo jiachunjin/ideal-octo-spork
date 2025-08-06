@@ -92,7 +92,6 @@ def get_intern_dataloader(config, accelerator):
         for sample in batch:
             pixel_value, (input_ids, attention_mask) = sample
             if pixel_value == None:
-                print("image too small, skip")
                 continue
             else:
                 pixel_values.append(pixel_value)
