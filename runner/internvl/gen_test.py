@@ -107,10 +107,15 @@ def generate_image():
         generated_tokens = torch.zeros((1, config.data.num_img_token, 8)).to(device, dtype)
 
         for i in trange(config.data.num_img_token):
-            ...
+            outputs = ar_model.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
+            hidden_states = outputs.last_hidden_state
 
+            cond_z = hidden_states[0, -1, :]
+            uncond_z = hidden_states[1, -1, :]
+            z = uncond_z + cfg_scale * (cond_z - uncond_z)
+            z = z.unsqueeze(0)
 
-        
+            print(z.shape)
 
     
 
