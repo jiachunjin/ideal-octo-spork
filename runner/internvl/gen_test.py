@@ -3,6 +3,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
+from tqdm import trange
 from omegaconf import OmegaConf
 from diffusers import DDIMScheduler
 from transformers import AutoTokenizer
@@ -103,7 +104,10 @@ def generate_image():
         text_embedding = ar_model.language_model.get_input_embeddings()(input_ids).to(device)
         print(text_embedding.shape)
 
-        generated_tokens = torch.zeros((1, 256, 8)).to(device, dtype)
+        generated_tokens = torch.zeros((1, config.data.num_img_token, 8)).to(device, dtype)
+
+        for i in trange(config.data.num_img_token):
+            ...
 
 
         
