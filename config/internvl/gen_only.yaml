@@ -22,7 +22,9 @@ model:
 
 train:
   root: null
-  resume_path: null
+  diffhead_resume_path: null
+  clip_projector_resume_path: null
+  backbone_resume_path: null
   global_step: 0
 
   exp_name: &exp_name "intern_gen"

@@ -9,8 +9,9 @@ import argparse
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from accelerate import Accelerator
+from accelerate.state import AcceleratorState
 from accelerate.utils import ProjectConfiguration
-from util.misc import process_path_for_different_machine, flatten_dict
+from util.misc import process_pretrained_model_path, flatten_dict
 
 from model.vae_aligner import get_vae_aligner
 from model.dit.diff_mlp import add_diffhead_to_ar_model
@@ -36,10 +37,12 @@ def get_accelerator(config):
 
 def main(args):
     config = OmegaConf.load(args.config)
-    config = process_path_for_different_machine(config)
+    config = process_pretrained_model_path(config)
     accelerator, output_dir = get_accelerator(config.train)
     accelerator.print("Configuration:")
     accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
+    AcceleratorState().deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = config.data.batch_size
+    accelerator.print(AcceleratorState().deepspeed_plugin.deepspeed_config)
 
     # load models
     vae_aligner = get_vae_aligner(config.vae_aligner)
@@ -48,12 +51,12 @@ def main(args):
     vae_aligner_projector = vae_aligner.siglip_feature_proj
 
     ar_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path)
-    ar_model, train_scheduler = add_diffhead_to_ar_model(ar_model, config)
+    ar_model, train_scheduler = add_diffhead_to_ar_model(ar_model, config.model)
     # clip = ar_model.vision_model
 
     if config.train.diffhead_resume_path is not None:
         raise NotImplementedError
-    if config.train.clip_projector is not None:
+    if config.train.clip_projector_resume_path is not None:
         raise NotImplementedError
     if config.train.backbone_resume_path is not None:
         raise NotImplementedError
@@ -114,6 +117,18 @@ def main(args):
 
                 pixel_values = (pixel_values - imagenet_mean) / imagenet_std
 
-                print(pixel_values.shape, input_ids.shape, attention_mask.shape)
+                with torch.no_grad():
+                    x_clip = ar_model.extract_feature(pixel_values)
+                    x_siglip_dimdown = vae_aligner_projector(x_clip)
+                    visual_gen_feature = x_siglip_dimdown
+
+                print(pixel_values.shape, input_ids.shape, attention_mask.shape, visual_gen_feature.shape)
 
                 exit(0)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/internvl/gen_only.yaml")
+    args = parser.parse_args()
+    main(args)
