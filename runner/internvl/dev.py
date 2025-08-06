@@ -91,17 +91,22 @@ def load_image(image_file, input_size=448):
 
     return pixel_values
 
-pixel_values = load_image("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/einstein.jpg")
-print(pixel_values.shape)
-question = '<image>\nPlease describe the image shortly.'
-response = model.chat(tokenizer, pixel_values, question, generation_config)
-print(f'User: {question}\nAssistant: {response}')
+# pixel_values = load_image("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/einstein.jpg")
+# print(pixel_values.shape)
+# question = '<image>\nPlease describe the image shortly.'
+# response = model.chat(tokenizer, pixel_values, question, generation_config)
+# print(f'User: {question}\nAssistant: {response}')
 
 # construct generation template
 from model.internvl.conversation import get_conv_template
+IMG_START_TOKEN='<img>'
+
+question = "Generate an image: "
+template = get_conv_template(model.template)
+# eos_token_id = tokenizer.convert_tokens_to_ids(template.sep.strip())
+template.append_message(template.roles[0], question)
+template.append_message(template.roles[1], None)
+query = template.get_prompt()
 print("="*20)
-
-conv_template = get_conv_template(model.template)
-system_message = conv_template.system_message
-
-print(conv_template)
+print(query + IMG_START_TOKEN)
+print("="*20)
