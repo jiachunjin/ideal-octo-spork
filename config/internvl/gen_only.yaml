@@ -1,6 +1,7 @@
 machine: "ks"
 
 vae_aligner:
+  pretrained_path: "/data/phd/jinjiachun/experiment/intern_clip/0805_intern_aligner/vae_aligner-intern_clip-56000"
   hidden_size: 1536
   depth: 16
   num_heads: 24
