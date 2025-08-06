@@ -1,6 +1,7 @@
 import os
 import glob
 import math
+import random
 import torch
 import webdataset as wds
 import torchvision.transforms as pth_transforms
@@ -13,9 +14,30 @@ IMG_START_TOKEN="<img>"
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
+intern_vl_1b_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-1B"
+tokenizer = AutoTokenizer.from_pretrained(intern_vl_1b_path, trust_remote_code=True, use_fast=False)
+
+# def get_null_prompt():
+#     template = get_conv_template("internvl2_5")
+#     prompt = "Generate an image: "
+#     template.append_message(template.roles[0], prompt)
+#     template.append_message(template.roles[1], None)
+#     prompt = template.get_prompt() + IMG_START_TOKEN
+
+#     tokenizer_output = tokenizer(
+#         prompt,
+#         return_tensors = "pt",
+#         padding        = "max_length",
+#         padding_side   = "left",
+#         truncation     = True,
+#         max_length     = config.max_seq_length - config.num_img_token,
+#     )
+#     input_ids = tokenizer_output["input_ids"]
+#     attention_mask = tokenizer_output["attention_mask"]
+
+#     return input_ids, attention_mask
+
 def get_intern_dataloader(config, accelerator):
-    intern_vl_1b_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-1B"
-    tokenizer = AutoTokenizer.from_pretrained(intern_vl_1b_path, trust_remote_code=True, use_fast=False)
     urls = []
     for path in config.wds_path:
         urls.extend(glob.glob(os.path.join(path, "*.tar")))
@@ -39,6 +61,9 @@ def get_intern_dataloader(config, accelerator):
         return pixel_values
     
     def preprocess_text(text):
+        if random.random() < config.cfg_drop_rate:
+            text = ""
+
         template = get_conv_template("internvl2_5")
         prompt = f"Generate an image: {text}"
 
@@ -127,7 +152,7 @@ if __name__ == "__main__":
     config = OmegaConf.load("/data/phd/jinjiachun/codebase/ideal-octo-spork/config/vae_aligner/intern_clip.yaml")
     config = process_pretrained_model_path(config)
     accelerator = Accelerator()
-    config.data.batch_size = 3
+    config.data.batch_size = 4
     config.data.max_seq_length = 512
     config.data.num_img_token = 256
     config.data.buffer_size = 100

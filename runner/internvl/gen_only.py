@@ -11,8 +11,8 @@ from omegaconf import OmegaConf
 from accelerate import Accelerator
 from accelerate.state import AcceleratorState
 from accelerate.utils import ProjectConfiguration
-from util.misc import process_pretrained_model_path, flatten_dict
 
+from util.misc import process_pretrained_model_path, flatten_dict
 from model.vae_aligner import get_vae_aligner
 from model.dit.diff_mlp import add_diffhead_to_ar_model
 from model.internvl.modeling_internvl_chat import InternVLChatModel
