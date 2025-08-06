@@ -56,11 +56,17 @@ def main(args):
     # clip = ar_model.vision_model
 
     if config.train.diffhead_resume_path is not None:
-        raise NotImplementedError
+        diffhead_ckpt = torch.load(config.train.diffhead_resume_path, map_location="cpu", weights_only=True)
+        ar_model.diff_head.load_state_dict(diffhead_ckpt, strict=True)
+        accelerator.print(f"diff_head loaded from {config.train.diffhead_resume_path}")
     if config.train.clip_projector_resume_path is not None:
-        raise NotImplementedError
+        clip_projector_ckpt = torch.load(config.train.clip_projector_resume_path, map_location="cpu", weights_only=True)
+        ar_model.clip_projector.load_state_dict(clip_projector_ckpt, strict=True)
+        accelerator.print(f"clip_projector loaded from {config.train.clip_projector_resume_path}")
     if config.train.backbone_resume_path is not None:
-        raise NotImplementedError
+        backbone_ckpt = torch.load(config.train.backbone_resume_path, map_location="cpu", weights_only=True)
+        ar_model.language_model.model.load_state_dict(backbone_ckpt, strict=True)
+        accelerator.print(f"backbone loaded from {config.train.backbone_resume_path}")
 
     global_step = config.train.global_step if config.train.global_step is not None else 0
     params_to_learn = list(p for p in ar_model.parameters() if p.requires_grad)
