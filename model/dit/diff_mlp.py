@@ -252,6 +252,45 @@ def equip_diffhead_query_with_janus(janus, config):
 
     return janus, train_scheduler
 
+def add_diffhead_to_ar_model(ar_model, config):
+    diff_head = SimpleMLPAdaLN(
+        in_channels    = config.diffhead.x_dim,
+        model_channels = config.diffhead.hidden_size,
+        out_channels   = config.diffhead.x_dim,
+        z_channels     = config.diffhead.z_dim,
+        num_res_blocks = config.diffhead.depth,
+    )
+
+    clip_projector = nn.Sequential(
+        nn.Linear(config.diffhead.x_dim, config.diffhead.z_dim),
+        nn.GELU(),
+        nn.Linear(config.diffhead.z_dim, config.diffhead.z_dim),
+    )
+
+    ar_model.requires_grad_(False)
+    if config.tune_backbone:
+        ar_model.language_model.model.requires_grad_(True)
+
+    ar_model.diff_head = diff_head
+    ar_model.diff_head.requires_grad_(True)
+
+    ar_model.clip_projector = clip_projector
+    ar_model.clip_projector.requires_grad_(True)
+
+    train_scheduler = DDPMScheduler(
+        beta_schedule          = "scaled_linear",
+        beta_start             = 0.00085,
+        beta_end               = 0.012,
+        num_train_timesteps    = 1000,
+        clip_sample            = False,
+        prediction_type        = "v_prediction",
+        steps_offset           = 1,
+        trained_betas          = None,
+        timestep_spacing       = "trailing",
+        rescale_betas_zero_snr = True
+    )
+
+    return ar_model, train_scheduler
 # ----------------------------------------------------------------------------------
 # ------------------------ add new layers to janus backbone ------------------------
 # ----------------------------------------------------------------------------------

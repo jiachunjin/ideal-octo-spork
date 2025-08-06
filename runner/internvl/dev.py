@@ -91,11 +91,11 @@ def load_image(image_file, input_size=448):
 
     return pixel_values
 
-# pixel_values = load_image("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/einstein.jpg")
-# print(pixel_values.shape)
-# question = '<image>\nPlease describe the image shortly.'
-# response = model.chat(tokenizer, pixel_values, question, generation_config)
-# print(f'User: {question}\nAssistant: {response}')
+pixel_values = load_image("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/einstein.jpg")
+print(pixel_values.shape)
+question = '<image>\nPlease describe the image shortly.'
+response = model.chat(tokenizer, pixel_values, question, generation_config)
+print(f'User: {question}\nAssistant: {response}')
 
 # construct generation template
 from model.internvl.conversation import get_conv_template
