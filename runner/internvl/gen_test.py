@@ -3,10 +3,13 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
+import torchvision
 from tqdm import trange
 from omegaconf import OmegaConf
-from diffusers import DDIMScheduler
+from diffusers import DDIMScheduler, AutoencoderKL
 from transformers import AutoTokenizer
+
+from model.vae_aligner import get_vae_aligner
 from model.dit.diff_mlp import add_diffhead_to_ar_model
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.internvl.conversation import get_conv_template
@@ -39,6 +42,14 @@ def generate_image():
     ar_model.language_model.model.load_state_dict(llm_ckpt, strict=True)
     ar_model = ar_model.to(device, dtype).eval()
 
+    vae_aligner = get_vae_aligner(config.vae_aligner)
+    ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
+    vae_aligner.load_state_dict(ckpt, strict=True)
+    vae_aligner = vae_aligner.to(device, dtype).eval()
+    
+    vae = AutoencoderKL.from_pretrained(config.vae_path)
+    vae = vae.to(device, dtype).eval()
+
     #######################################
     ########### test generation ###########
     #######################################
@@ -60,7 +71,7 @@ def generate_image():
         sample_scheduler.set_timesteps(50)
         B = feature.shape[0]
 
-        pred_latents = torch.randn((B, 16), device=feature.device, dtype=dtype)
+        pred_latents = torch.randn((B, config.vae_aligner.siglip_feature_dim_down), device=feature.device, dtype=dtype)
         pred_latents *= sample_scheduler.init_noise_sigma
 
         for t in sample_scheduler.timesteps:
@@ -107,7 +118,7 @@ def generate_image():
         generated_tokens = torch.zeros((1, config.data.num_img_token, 8)).to(device, dtype)
 
         for i in trange(config.data.num_img_token):
-            outputs = ar_model.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
+            outputs = ar_model.language_model.model(inputs_embeds=text_embedding, attention_mask=attention_mask, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
 
             cond_z = hidden_states[0, -1, :]
@@ -115,9 +126,25 @@ def generate_image():
             z = uncond_z + cfg_scale * (cond_z - uncond_z)
             z = z.unsqueeze(0)
 
-            print(z.shape)
+            next_token = diff_generate(z, ar_model.diff_head)
+            generated_tokens[:, i] = next_token.squeeze()
+            img_embeds = ar_model.clip_projector(next_token.unsqueeze(0))
 
-    
+            text_embedding = img_embeds.repeat(2, 1, 1)
+
+            img_mask = torch.ones((2, 1), dtype=torch.bool, device=device)
+            attention_mask = torch.cat([attention_mask, img_mask], dim=1)
+
+        print(generated_tokens.shape)
+        rec = vae_aligner.forward_with_low_dim(generated_tokens)
+        print(rec.shape)
+
+        reconstructed = vae.decode(rec).sample
+        reconstructed = (reconstructed + 1) / 2
+        reconstructed = torch.clamp(reconstructed, 0, 1)
+        grid = torchvision.utils.make_grid(reconstructed, nrow=4)
+        os.makedirs("asset/intern_gen", exist_ok=True)
+        torchvision.utils.save_image(grid, f"asset/intern_gen/coarse_{img_idx:02d}.png")
 
 if __name__ == "__main__":
     generate_image()
