@@ -1,7 +1,7 @@
 machine: "ks"
 
 vae_aligner:
-  pretrained_path: "/data/phd/jinjiachun/experiment/intern_clip/0805_intern_aligner/vae_aligner-intern_clip-60000"
+  pretrained_path: "/data/phd/jinjiachun/experiment/intern_clip/0805_intern_aligner/vae_aligner-intern_clip-70000"
   hidden_size: 1536
   depth: 16
   num_heads: 24
@@ -22,10 +22,10 @@ model:
 
 train:
   root: null
-  diffhead_resume_path: null
-  clip_projector_resume_path: null
-  backbone_resume_path: null
-  global_step: 0
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/diff_head-intern_gen-10000"
+  clip_projector_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/clip_projector-intern_gen-10000"
+  backbone_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/backbone-intern_gen-10000"
+  global_step: 10000
 
   exp_name: &exp_name "intern_gen"
   wandb_proj: *exp_name
@@ -37,7 +37,7 @@ train:
 
   lr: 1e-4
   num_iter: 100000
-  save_every: 2000
+  save_every: 5000
 
 data:
   wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
