@@ -37,7 +37,7 @@ train:
 
   lr: 1e-4
   num_iter: 100000
-  save_every: 2000
+  save_every: 100
 
 data:
   wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
