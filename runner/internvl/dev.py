@@ -96,3 +96,12 @@ print(pixel_values.shape)
 question = '<image>\nPlease describe the image shortly.'
 response = model.chat(tokenizer, pixel_values, question, generation_config)
 print(f'User: {question}\nAssistant: {response}')
+
+# construct generation template
+from model.internvl.conversation import get_conv_template
+print("="*20)
+
+conv_template = get_conv_template(model.template)
+system_message = conv_template.system_message
+
+print(conv_template)

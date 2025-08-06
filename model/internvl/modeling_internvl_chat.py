@@ -275,6 +275,9 @@ class InternVLChatModel(PreTrainedModel):
         template.append_message(template.roles[0], question)
         template.append_message(template.roles[1], None)
         query = template.get_prompt()
+        print("="*20)
+        print(query)
+        print("="*20)
 
         if verbose and pixel_values is not None:
             image_bs = pixel_values.shape[0]
