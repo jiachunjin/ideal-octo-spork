@@ -9,7 +9,8 @@ from omegaconf import OmegaConf
 from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
 
 
-from model.mmdit import load_mmdit, sample_sd3_5
+from model.mmdit import load_mmdit
+from runner.mmdit.train_basic_sd3 import sample_sd3_5
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -17,7 +18,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 @torch.no_grad()
 def run():
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0714_mmdit_dev"
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0807_aligner_free_intern"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -27,7 +28,7 @@ def run():
     vae.requires_grad_(False)
 
     mmdit = load_mmdit(config)
-    ckpt_path = os.path.join(exp_dir, "")
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-10000")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     mmdit.load_state_dict(ckpt, strict=True)
 
@@ -38,17 +39,27 @@ def run():
     ar_model = ar_model.to(device, dtype).eval()
 
     vae_transform = pth_transforms.Compose([
-        pth_transforms.Resize(384, max_size=None),
-        pth_transforms.CenterCrop(384),
+        pth_transforms.Resize(448, max_size=None),
+        pth_transforms.CenterCrop(448),
         pth_transforms.ToTensor(),
     ])
 
-    img_1 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/kobe.png").convert("RGB")
-    img_2 = Image.open("/data/phd/jinjiachun/codebase/connector/asset/004.jpg").convert("RGB")
-
-    x_1 = vae_transform(img_1).unsqueeze(0).to(device, dtype)
-    x_2 = vae_transform(img_2).unsqueeze(0).to(device, dtype)
-    x = torch.cat([x_1, x_2], dim=0)
+    images = [
+        Image.open("/data/phd/jinjiachun/codebase/connector/asset/kobe.png").convert("RGB"),
+        Image.open("/data/phd/jinjiachun/codebase/connector/asset/004.jpg").convert("RGB"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/einstein.jpg"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/jobs.jpg"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/mcdonald.jpg"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/messi_1.jpg"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/messi_2.webp"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/messi.jpg"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/ronaldo.jpg"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/trump.jpg"),
+    ]
+    x_list = []
+    for img in images:
+        x_list.append(vae_transform(img).unsqueeze(0).to(device, dtype))
+    x = torch.cat(x_list, dim=0)
 
     imagenet_mean = torch.tensor(IMAGENET_MEAN, device=device, dtype=dtype).view(1, 3, 1, 1)
     imagenet_std = torch.tensor(IMAGENET_STD, device=device, dtype=dtype).view(1, 3, 1, 1)
@@ -66,14 +77,18 @@ def run():
         dtype               = dtype,
         context             = context,
         batch_size          = context.shape[0],
-        height              = 384,
-        width               = 384,
+        height              = 448,
+        width               = 448,
         num_inference_steps = 20,
-        guidance_scale      = 5.0,
+        guidance_scale      = 1.0,
         seed                = 42
     )
-
     print(samples.shape)
+
+    import torchvision.utils as vutils
+    sample_path = f"asset/mmdit/aligner_free/dim8_10000.png"
+    vutils.save_image(samples, sample_path, nrow=2, normalize=False)
+    print(f"Samples saved to {sample_path}")    
 
 if __name__ == "__main__":
     run()

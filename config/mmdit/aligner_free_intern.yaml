@@ -6,8 +6,8 @@ feature_down_projector:
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: "/data/phd/jinjiachun/experiment/mmdit/0807_aligner_free_intern/mmdit-mmdit-10000"
+  global_step: 10000
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
@@ -15,7 +15,7 @@ train:
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "no"
+  report_to: "wandb"
 
   lr: 1e-4
   num_iter: 100000
