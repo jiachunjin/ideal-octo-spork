@@ -148,7 +148,7 @@ def main(args):
                 model_pred = mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
-                    context     = x_clip,
+                    context     = mmdit.feature_down_projector(x_clip),
                     y           = None,
                 )
 

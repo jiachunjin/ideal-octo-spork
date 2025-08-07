@@ -55,7 +55,8 @@ def run():
     x = (x - imagenet_mean) / imagenet_std
 
     x_clip = ar_model.extract_feature(x) # (B, 256, 896)
-    context = x_clip
+    context = mmdit.feature_down_projector(x_clip)
+    print(f"{context.shape=}")
 
     samples = sample_sd3_5(
         transformer         = mmdit,
