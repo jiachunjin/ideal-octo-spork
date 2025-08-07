@@ -4,6 +4,17 @@ from einops.layers.torch import Rearrange
 
 from model.vae_aligner.vit_basic import precompute_freqs_cis_2d, Block
 
+def get_feature_down_proj(config):
+    feature_down_projector = nn.Sequential(
+        nn.Linear(config.clip_feature_dim, 2 * config.clip_feature_dim),
+        nn.GELU(),
+        nn.Linear(2 * config.clip_feature_dim, config.clip_feature_dim),
+        nn.GELU(),
+        nn.Linear(config.clip_feature_dim, config.feature_dim_output),
+    )
+
+    return feature_down_projector
+
 class ViTVAEAligner(nn.Module):
     def __init__(self, config):
         super().__init__()

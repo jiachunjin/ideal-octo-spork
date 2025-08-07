@@ -2,23 +2,26 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-import torch
-import pprint
+import copy
 import argparse
-
+import pprint
+import torch
 from tqdm import tqdm
-from diffusers import AutoencoderKL
 from omegaconf import OmegaConf
 from einops import rearrange
+
 from accelerate import Accelerator
-from accelerate.state import AcceleratorState
 from accelerate.utils import ProjectConfiguration
-from transformers import AutoModel
+from accelerate.state import AcceleratorState
 
-from model.vae_aligner import get_vae_aligner
+from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
+from diffusers.training_utils import compute_density_for_timestep_sampling, compute_loss_weighting_for_sd3
 
+from model.internvl.modeling_internvl_chat import InternVLChatModel
+from model.mmdit import load_mmdit
 from util.misc import process_pretrained_model_path, flatten_dict
 from util.intern_dataloader import get_intern_dataloader
+
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -37,32 +40,28 @@ def get_accelerator(config):
 
     return accelerator, output_dir
 
+
 def main(args):
     config = OmegaConf.load(args.config)
     config = process_pretrained_model_path(config)
     accelerator, output_dir = get_accelerator(config.train)
-    accelerator.print("Configuration:")
     accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
     AcceleratorState().deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = config.data.batch_size
     accelerator.print(AcceleratorState().deepspeed_plugin.deepspeed_config)
 
-    intern_vl_1b = AutoModel.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True)
-    vae_aligner = get_vae_aligner(config.vae_aligner)
-    vae = AutoencoderKL.from_pretrained(config.vae_path)
-
-    intern_vl_1b.requires_grad_(False)
+    ar_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path)
+    vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
     vae.requires_grad_(False)
 
+    mmdit = load_mmdit(config)
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
-        # if config.train.skipped_keys:
-        #     ckpt = {k: v for k, v in ckpt.items() if k not in config.train.skipped_keys}
-        m, u = vae_aligner.load_state_dict(ckpt, strict=False)
-        accelerator.print(f"Missing modules: {m}, unmatched modules: {u}")
+        mmdit.load_state_dict(ckpt, strict=True)
+        accelerator.print(f"mmdit loaded from {config.train.resume_path}")
 
     global_step = config.train.global_step if config.train.global_step is not None else 0
+    params_to_learn = list(p for p in mmdit.parameters() if p.requires_grad)
 
-    params_to_learn = list(vae_aligner.parameters())
     optimizer = torch.optim.AdamW(
         params_to_learn,
         lr           = config.train.lr,
@@ -77,11 +76,11 @@ def main(args):
         dtype = torch.float16
     else:
         dtype = torch.float32
-    
-    dataloader = get_intern_dataloader(config.data, accelerator)
 
-    vae_aligner, optimizer = accelerator.prepare(vae_aligner, optimizer)
-    intern_vl_1b = intern_vl_1b.to(accelerator.device, dtype).eval()
+    dataloader = get_intern_dataloader(config.data, accelerator)
+    mmdit, optimizer = accelerator.prepare(mmdit, optimizer)
+    ar_model.requires_grad_(False)
+    ar_model = ar_model.to(accelerator.device, dtype).eval()
     vae = vae.to(accelerator.device, dtype).eval()
 
     training_done = False
@@ -100,7 +99,7 @@ def main(args):
             OmegaConf.save(config, f)
 
     accelerator.print(f"Learnable parameters: {sum(p.numel() for p in params_to_learn if p.requires_grad) / 1e6} M")
-    accelerator.print(f"vae_aligner dtype: {next(vae_aligner.parameters()).dtype}")
+    accelerator.print(f"vae_aligner dtype: {next(mmdit.parameters()).dtype}")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
 
     imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
@@ -108,53 +107,71 @@ def main(args):
 
     while not training_done:
         for batch in dataloader:
-            with accelerator.accumulate([vae_aligner]):
-                vae_aligner.train()
+            with accelerator.accumulate([mmdit]):
+                mmdit.train()
                 pixel_values = batch["pixel_values"].to(accelerator.device, dtype)
-                x_intern = (pixel_values - imagenet_mean) / imagenet_std
-                x_vae = pixel_values * 2 - 1
+                pixel_values_clip = (pixel_values - imagenet_mean) / imagenet_std
+                pixel_values_vae = pixel_values * 2 - 1
+                x_clip = ar_model.extract_feature(pixel_values_clip)
+                x_vae = vae.encode(pixel_values_vae).latent_dist.sample()
 
-                with torch.no_grad():
-                    x_clip = intern_vl_1b.extract_feature(x_intern)
-                    vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
+                print(f"{x_clip.shape=}")
+                print(f"{x_vae.shape=}")
+                exit()
 
-                rec_latent = vae_aligner(x_clip).to(dtype)
-                loss_mse = torch.nn.functional.mse_loss(rec_latent, vae_latent)
 
-                accelerator.backward(loss_mse)
-                if accelerator.sync_gradients:
-                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
-                    optimizer.step()
-                    optimizer.zero_grad()
-
-                    global_step += 1
-                    progress_bar.update(1)
-
-                    logs = dict(
-                        loss_mse  = accelerator.gather(loss_mse.detach()).mean().item(),
-                    )
-                    accelerator.log(logs, step=global_step)
-                    progress_bar.set_postfix(**logs)
-
-                    if global_step > config.train.num_iter:
-                        training_done = True
-                        break
-
-                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
-                        vae_aligner.eval()
-                        state_dict = accelerator.unwrap_model(vae_aligner).state_dict()
-                        save_path = os.path.join(output_dir, f"vae_aligner-{config.train.exp_name}-{global_step}")
-                        torch.save(state_dict, save_path)
-                        accelerator.print(f"vae_aligner saved to {save_path}")
-
-        epoch += 1
-        accelerator.print(f"epoch {epoch}: finished")
-        accelerator.log({"epoch": epoch}, step=global_step)
-
-    accelerator.end_training()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="config/vae_aligner/intern_clip.yaml")
+    parser.add_argument("--config", type=str, default="config/mmdit/aligner_free_intern.yaml")
     args = parser.parse_args()
     main(args)
+    # patch_size = 2
+    # depth = 24
+    # num_patches = 200704
+    # pos_embed_max_size = 448
+    # adm_in_channels = 2048
+    # qk_norm = "rms"
+    # x_block_self_attn_layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    # context_embedder_config = {
+    #     "target": "torch.nn.Linear",
+    #     "params": {
+    #         "in_features": 8,
+    #         "out_features": 1536,
+    #     },
+    # }
+
+    # device = torch.device("cpu")
+    # dtype = torch.bfloat16
+
+    # transformer = MMDiTX(
+    #     input_size               = None,
+    #     pos_embed_scaling_factor = None,
+    #     pos_embed_offset         = None,
+    #     pos_embed_max_size       = pos_embed_max_size,
+    #     patch_size               = patch_size,
+    #     in_channels              = 16,
+    #     depth                    = depth,
+    #     num_patches              = num_patches,
+    #     adm_in_channels          = adm_in_channels,
+    #     context_embedder_config  = context_embedder_config,
+    #     qk_norm                  = qk_norm,
+    #     x_block_self_attn_layers = x_block_self_attn_layers,
+    #     device                   = device,
+    #     dtype                    = dtype,
+    #     verbose                  = False,
+    # )
+
+    # B = 3
+    # noisy_model_input = torch.randn(B, 16, 56, 56).to(device, dtype)
+    # timesteps = torch.randint(0, 1000, (B,)).to(device)
+    # context = torch.randn(B, 256, 8).to(device, dtype)
+
+    # model_pred = transformer(
+    #     x           = noisy_model_input,
+    #     t           = timesteps,
+    #     context     = context,
+    #     y           = None,
+    # )
+
+    # print(model_pred.shape)
