@@ -71,8 +71,8 @@ from model.vae_aligner.vit_vae_aligner import get_feature_down_proj
 def load_mmdit(config):
     patch_size = 2
     depth = 24
-    pos_embed_max_size = config.data.img_size
-    num_patches = pos_embed_max_size ** 2
+    pos_embed_max_size = 384
+    num_patches = 147456
     adm_in_channels = 2048
     qk_norm = "rms"
     x_block_self_attn_layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
