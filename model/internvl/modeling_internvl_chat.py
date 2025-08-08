@@ -200,6 +200,26 @@ class InternVLChatModel(PreTrainedModel):
         vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
         vit_embeds = self.mlp1(vit_embeds)
         return vit_embeds
+    
+    def extract_feature_pre_adapter(self, pixel_values):
+        if self.select_layer == -1:
+            vit_embeds = self.vision_model(
+                pixel_values=pixel_values,
+                output_hidden_states=False,
+                return_dict=True).last_hidden_state
+        else:
+            vit_embeds = self.vision_model(
+                pixel_values=pixel_values,
+                output_hidden_states=True,
+                return_dict=True).hidden_states[self.select_layer]
+        vit_embeds = vit_embeds[:, 1:, :]
+
+        h = w = int(vit_embeds.shape[1] ** 0.5)
+        vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
+        vit_embeds = self.pixel_shuffle(vit_embeds, scale_factor=self.downsample_ratio)
+        vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
+
+        return vit_embeds
 
     def batch_chat(self, tokenizer, pixel_values, questions, generation_config, num_patches_list=None,
                    history=None, return_history=False, IMG_START_TOKEN='<img>', IMG_END_TOKEN='</img>',

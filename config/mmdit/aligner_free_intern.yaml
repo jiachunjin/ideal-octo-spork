@@ -1,21 +1,21 @@
 machine: "ks"
 
 feature_down_projector:
-  clip_feature_dim: 896
+  clip_feature_dim: 4096
   feature_dim_output: 8
 
 train:
   root: null
-  resume_path: "/data/phd/jinjiachun/experiment/mmdit/0807_aligner_free_intern/mmdit-mmdit-10000"
-  global_step: 10000
+  resume_path: null
+  global_step: 0
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
-  output_dir: "0807_aligner_free_intern"
+  output_dir: "0808_aligner_free_intern_pre_adapter_dim8"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "wandb"
+  report_to: "no"
 
   lr: 1e-4
   num_iter: 100000

@@ -127,7 +127,7 @@ def main(args):
                 pixel_values_clip = (pixel_values - imagenet_mean) / imagenet_std
                 pixel_values_vae = pixel_values * 2 - 1
                 with torch.no_grad():
-                    x_clip = ar_model.extract_feature(pixel_values_clip)
+                    x_clip = ar_model.extract_feature_pre_adapter(pixel_values_clip)
                     x_vae = vae.encode(pixel_values_vae).latent_dist.sample()
                 
                 model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
