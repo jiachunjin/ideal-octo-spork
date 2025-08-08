@@ -141,3 +141,10 @@ def main(args):
                     print(f"{context.shape=}")
                     print(f"{x_vae.shape=}")
                     exit()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/mmdit/with_aligner_intern.yaml")
+    args = parser.parse_args()
+    main(args)

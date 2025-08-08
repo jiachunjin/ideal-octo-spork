@@ -76,10 +76,17 @@ def load_mmdit(config):
     adm_in_channels = 2048
     qk_norm = "rms"
     x_block_self_attn_layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    if hasattr(config, "feature_down_projector"):
+        in_features = config.feature_down_projector.feature_dim_output
+    elif hasattr(config, "vae_aligner"):
+        in_features = config.vae_aligner.siglip_feature_dim_down
+    else:
+        raise ValueError("No feature down projector or vae aligner found")
+
     context_embedder_config = {
         "target": "torch.nn.Linear",
         "params": {
-            "in_features": config.feature_down_projector.feature_dim_output,
+            "in_features": in_features,
             "out_features": 1536,
         },
     }
