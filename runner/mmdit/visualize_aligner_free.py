@@ -18,7 +18,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 @torch.no_grad()
 def run():
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0807_aligner_free_intern"
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0807_aligner_free_intern_dim16"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -28,7 +28,7 @@ def run():
     vae.requires_grad_(False)
 
     mmdit = load_mmdit(config)
-    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-10000")
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-30000")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     mmdit.load_state_dict(ckpt, strict=True)
 
@@ -86,7 +86,7 @@ def run():
     print(samples.shape)
 
     import torchvision.utils as vutils
-    sample_path = f"asset/mmdit/aligner_free/dim8_10000.png"
+    sample_path = f"asset/mmdit/aligner_free/dim16_10000.png"
     vutils.save_image(samples, sample_path, nrow=2, normalize=False)
     print(f"Samples saved to {sample_path}")    
 

@@ -117,8 +117,9 @@ def load_mmdit(config):
     print(f"missing keys: {m}")
     print(f"unexpected keys: {u}")
 
-    feature_down_projector = get_feature_down_proj(config.feature_down_projector)
-    feature_down_projector.requires_grad_(True)
-    transformer.feature_down_projector = feature_down_projector
+    if hasattr(config, "feature_down_projector"): # for aligner-free mmdit, apply projection
+        feature_down_projector = get_feature_down_proj(config.feature_down_projector)
+        feature_down_projector.requires_grad_(True)
+        transformer.feature_down_projector = feature_down_projector
 
     return transformer

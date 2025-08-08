@@ -1,0 +1,40 @@
+machine: "ks"
+
+vae_aligner:
+  hidden_size: 1536
+  depth: 16
+  num_heads: 24
+  grid_size: 16
+  scale_factor: 1.75
+
+  siglip_feature_dim: 896
+  siglip_feature_dim_down: 8
+
+  pretrained_path: "/data/phd/jinjiachun/experiment/intern_clip/0805_intern_aligner/vae_aligner-intern_clip-85000"
+
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name "mmdit"
+  wandb_proj: *exp_name
+  output_dir: "0808_with_aligner_intern"
+  logging_dir: "logs"
+  mixed_precision: "bf16"
+  gradient_accumulation_steps: 1
+  report_to: "no"
+
+  lr: 1e-4
+  num_iter: 100000
+  save_every: 5000
+
+data:
+  wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
+  img_size: 448
+  buffer_size: 50
+  batch_size: 5
+  num_workers: 8
+  num_img_token: 256
+  max_seq_length: 512
+  cfg_drop_rate: 0.1
