@@ -138,9 +138,65 @@ def main(args):
                     context = vae_aligner_down_proj(x_clip)
                     x_vae = vae.encode(pixel_values_vae).latent_dist.sample()
 
-                    print(f"{context.shape=}")
-                    print(f"{x_vae.shape=}")
-                    exit()
+                model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
+                noise = torch.randn_like(model_input)
+
+                u = compute_density_for_timestep_sampling(
+                    weighting_scheme = "logit_normal",
+                    batch_size       = model_input.shape[0],
+                    logit_mean       = 0.0,
+                    logit_std        = 1.0,
+                    mode_scale       = 1.29,
+                )
+                indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                timesteps = noise_scheduler_copy.timesteps[indices].to(device=model_input.device)
+                sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
+                noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise
+
+                model_pred = mmdit(
+                    x           = noisy_model_input,
+                    t           = timesteps,
+                    context     = context,
+                    y           = None,
+                )
+
+                model_pred = model_pred * (-sigmas) + noisy_model_input
+                weighting = compute_loss_weighting_for_sd3(weighting_scheme="logit_normal", sigmas=sigmas)
+                target = model_input
+
+                loss = torch.mean(
+                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                    1,
+                )
+                loss = loss.mean()
+
+                accelerator.backward(loss)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    progress_bar.update(1)
+                    global_step += 1
+
+                    logs = dict(
+                        sd3_loss = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+
+                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                        mmdit.eval()
+                        state_dict = accelerator.unwrap_model(mmdit).state_dict()
+                        save_path = os.path.join(output_dir, f"mmdit-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"mmdit saved to {save_path}")
+
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
 
 
 if __name__ == "__main__":

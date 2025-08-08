@@ -184,6 +184,11 @@ def main(args):
                         torch.save(state_dict, save_path)
                         print(f"mmdit saved to {save_path}")
 
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
 
 
 if __name__ == "__main__":
