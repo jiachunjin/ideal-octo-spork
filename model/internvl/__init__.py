@@ -28,3 +28,14 @@ def extract_feature_pre_adapter(vision_model, pixel_values):
     vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
 
     return vit_embeds
+
+def extract_feature_pre_shuffle_adapter(vision_model, pixel_values):
+    vit_embeds = vision_model(
+        pixel_values         = pixel_values,
+        output_hidden_states = False,
+        return_dict          = True
+    ).last_hidden_state
+
+    vit_embeds = vit_embeds[:, 1:, :]
+
+    return vit_embeds

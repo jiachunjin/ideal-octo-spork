@@ -17,7 +17,7 @@ from accelerate.state import AcceleratorState
 from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
 from diffusers.training_utils import compute_density_for_timestep_sampling, compute_loss_weighting_for_sd3
 
-from model.internvl import extract_feature_pre_adapter
+from model.internvl import extract_feature_pre_adapter, extract_feature_pre_shuffle_adapter
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.mmdit import load_mmdit
 from util.misc import process_pretrained_model_path, flatten_dict
@@ -135,8 +135,12 @@ def main(args):
                 pixel_values_clip = (pixel_values - imagenet_mean) / imagenet_std
                 pixel_values_vae = pixel_values * 2 - 1
                 with torch.no_grad():
-                    x_clip = extract_feature_pre_adapter(vision_model, pixel_values_clip)
+                    if config.feature_down_projector.shuffle:
+                        x_clip = extract_feature_pre_shuffle_adapter(vision_model, pixel_values_clip)
+                    else:
+                        x_clip = extract_feature_pre_adapter(vision_model, pixel_values_clip)
                     x_vae = vae.encode(pixel_values_vae).latent_dist.sample()
+                print(x_clip.shape)
                 
                 model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
                 noise = torch.randn_like(model_input)

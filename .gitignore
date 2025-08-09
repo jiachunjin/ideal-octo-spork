@@ -9,3 +9,8 @@ study_multi_node.sh
 *.ipynb
 *.jpg
 *.json
+asset_vae_100k/
+.ipynb_checkpoints/
+*.png
+dev.py
+test.py

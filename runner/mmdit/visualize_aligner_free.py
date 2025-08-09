@@ -19,11 +19,14 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 @torch.no_grad()
 def run():
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0808_aligner_free_intern_pre_adapter_dim8"
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0809_aligner_free_intern_pre_adapter_dim16"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
     noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+    if not hasattr(config, "base_model"):
+        config.base_model = "intern_vl_1b"
+    print(config.base_model)
     if config.base_model == "intern_vl_1b":
         vision_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path).vision_model
     elif config.base_model == "intern_vl_2b":
@@ -36,7 +39,7 @@ def run():
     vae.requires_grad_(False)
 
     mmdit = load_mmdit(config)
-    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-40000")
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-15000")
     exp_name = exp_dir.split("/")[-1]
     step = ckpt_path.split("-")[-1]
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
