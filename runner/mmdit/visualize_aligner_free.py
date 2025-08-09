@@ -11,6 +11,7 @@ from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
 
 from model.mmdit import load_mmdit
 from runner.mmdit.train_basic_sd3 import sample_sd3_5
+from model.internvl import extract_feature_pre_adapter
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -23,7 +24,14 @@ def run():
     config = OmegaConf.load(config_path)
 
     noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
-    ar_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path)
+    if config.base_model == "intern_vl_1b":
+        vision_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path).vision_model
+    elif config.base_model == "intern_vl_2b":
+        vision_model = InternVLChatModel.from_pretrained(config.intern_vl_2b_path).vision_model
+    elif config.base_model == "intern_vl_8b":
+        vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
+    else:
+        raise ValueError(f"Invalid base model: {config.base_model}")
     vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
     vae.requires_grad_(False)
 
@@ -38,7 +46,7 @@ def run():
     dtype = torch.float16
     vae = vae.to(device, dtype).eval()
     mmdit = mmdit.to(device, dtype).eval()
-    ar_model = ar_model.to(device, dtype).eval()
+    vision_model = vision_model.to(device, dtype).eval()
 
     vae_transform = pth_transforms.Compose([
         pth_transforms.Resize(448, max_size=None),
@@ -67,7 +75,8 @@ def run():
     imagenet_std = torch.tensor(IMAGENET_STD, device=device, dtype=dtype).view(1, 3, 1, 1)
     x = (x - imagenet_mean) / imagenet_std
 
-    x_clip = ar_model.extract_feature_pre_adapter(x) # (B, 256, 896) / (B, 256, 4096)
+    # x_clip = ar_model.extract_feature_pre_adapter(x) # (B, 256, 896) / (B, 256, 4096)
+    x_clip = extract_feature_pre_adapter(vision_model, x)
     context = mmdit.feature_down_projector(x_clip)
     print(f"{context.shape=}")
 

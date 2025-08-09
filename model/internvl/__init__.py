@@ -10,6 +10,8 @@ def pixel_shuffle(x, scale_factor=0.5):
 
     x = x.permute(0, 2, 1, 3).contiguous()
 
+    return x
+
 
 def extract_feature_pre_adapter(vision_model, pixel_values):
     vit_embeds = vision_model(
