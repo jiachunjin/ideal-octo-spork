@@ -136,9 +136,9 @@ def main(args):
                 pixel_values_vae = pixel_values * 2 - 1
                 with torch.no_grad():
                     if config.feature_down_projector.shuffle:
-                        x_clip = extract_feature_pre_shuffle_adapter(vision_model, pixel_values_clip)
-                    else:
                         x_clip = extract_feature_pre_adapter(vision_model, pixel_values_clip)
+                    else:
+                        x_clip = extract_feature_pre_shuffle_adapter(vision_model, pixel_values_clip)
                     x_vae = vae.encode(pixel_values_vae).latent_dist.sample()
                 print(x_clip.shape)
                 
