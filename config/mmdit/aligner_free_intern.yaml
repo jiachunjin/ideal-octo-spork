@@ -2,7 +2,9 @@ machine: "ks"
 
 feature_down_projector:
   clip_feature_dim: 4096
-  feature_dim_output: 8
+  feature_dim_output: 16
+
+base_model: "intern_vl_8b"
 
 train:
   root: null
@@ -11,11 +13,11 @@ train:
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
-  output_dir: "0808_aligner_free_intern_pre_adapter_dim8"
+  output_dir: "0809_aligner_free_intern_pre_adapter_dim16"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "no"
+  report_to: "wandb"
 
   lr: 1e-4
   num_iter: 100000

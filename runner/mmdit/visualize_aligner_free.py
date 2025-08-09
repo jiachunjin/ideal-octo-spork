@@ -18,7 +18,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 @torch.no_grad()
 def run():
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0807_aligner_free_intern_dim16"
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0808_aligner_free_intern_pre_adapter_dim8"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -28,7 +28,9 @@ def run():
     vae.requires_grad_(False)
 
     mmdit = load_mmdit(config)
-    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-30000")
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-40000")
+    exp_name = exp_dir.split("/")[-1]
+    step = ckpt_path.split("-")[-1]
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     mmdit.load_state_dict(ckpt, strict=True)
 
@@ -65,7 +67,7 @@ def run():
     imagenet_std = torch.tensor(IMAGENET_STD, device=device, dtype=dtype).view(1, 3, 1, 1)
     x = (x - imagenet_mean) / imagenet_std
 
-    x_clip = ar_model.extract_feature(x) # (B, 256, 896)
+    x_clip = ar_model.extract_feature_pre_adapter(x) # (B, 256, 896) / (B, 256, 4096)
     context = mmdit.feature_down_projector(x_clip)
     print(f"{context.shape=}")
 
@@ -86,7 +88,7 @@ def run():
     print(samples.shape)
 
     import torchvision.utils as vutils
-    sample_path = f"asset/mmdit/aligner_free/dim16_10000.png"
+    sample_path = f"asset/mmdit/aligner_free/{exp_name}_{step}.png"
     vutils.save_image(samples, sample_path, nrow=2, normalize=False)
     print(f"Samples saved to {sample_path}")    
 

@@ -17,6 +17,7 @@ from accelerate.state import AcceleratorState
 from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
 from diffusers.training_utils import compute_density_for_timestep_sampling, compute_loss_weighting_for_sd3
 
+from model.internvl import extract_feature_pre_adapter
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.mmdit import load_mmdit
 from util.misc import process_pretrained_model_path, flatten_dict
@@ -52,7 +53,14 @@ def main(args):
     noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
 
-    ar_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path)
+    if config.base_model == "intern_vl_1b":
+        vision_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path).vision_model
+    elif config.base_model == "intern_vl_2b":
+        vision_model = InternVLChatModel.from_pretrained(config.intern_vl_2b_path).vision_model
+    elif config.base_model == "intern_vl_8b":
+        vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
+    else:
+        raise ValueError(f"Invalid base model: {config.base_model}")
     vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
     vae.requires_grad_(False)
 
@@ -82,8 +90,8 @@ def main(args):
 
     dataloader = get_intern_dataloader(config.data, accelerator)
     mmdit, optimizer = accelerator.prepare(mmdit, optimizer)
-    ar_model.requires_grad_(False)
-    ar_model = ar_model.to(accelerator.device, dtype).eval()
+    vision_model.requires_grad_(False)
+    vision_model = vision_model.to(accelerator.device, dtype).eval()
     vae = vae.to(accelerator.device, dtype).eval()
 
     training_done = False
@@ -127,7 +135,7 @@ def main(args):
                 pixel_values_clip = (pixel_values - imagenet_mean) / imagenet_std
                 pixel_values_vae = pixel_values * 2 - 1
                 with torch.no_grad():
-                    x_clip = ar_model.extract_feature_pre_adapter(pixel_values_clip)
+                    x_clip = extract_feature_pre_adapter(vision_model, pixel_values_clip)
                     x_vae = vae.encode(pixel_values_vae).latent_dist.sample()
                 
                 model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor

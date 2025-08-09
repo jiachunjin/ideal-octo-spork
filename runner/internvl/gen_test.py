@@ -32,13 +32,13 @@ def generate_image():
     ar_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path)
     ar_model, _ = add_diffhead_to_ar_model(ar_model, config.model)
 
-    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-intern_gen-10000"), map_location="cpu", weights_only=True)
+    diffhead_ckpt = torch.load(os.path.join(exp_dir, "diff_head-intern_gen-70000"), map_location="cpu", weights_only=True)
     ar_model.diff_head.load_state_dict(diffhead_ckpt, strict=True)
 
-    clip_projector_ckpt = torch.load(os.path.join(exp_dir, "clip_projector-intern_gen-10000"), map_location="cpu", weights_only=True)
+    clip_projector_ckpt = torch.load(os.path.join(exp_dir, "clip_projector-intern_gen-70000"), map_location="cpu", weights_only=True)
     ar_model.clip_projector.load_state_dict(clip_projector_ckpt, strict=True)
 
-    llm_ckpt = torch.load(os.path.join(exp_dir, "backbone-intern_gen-10000"), map_location="cpu", weights_only=True)
+    llm_ckpt = torch.load(os.path.join(exp_dir, "backbone-intern_gen-70000"), map_location="cpu", weights_only=True)
     ar_model.language_model.model.load_state_dict(llm_ckpt, strict=True)
     ar_model = ar_model.to(device, dtype).eval()
 
@@ -96,7 +96,7 @@ def generate_image():
         "Confident man in leather jacket leaning against a wall.",
     ]
 
-    cfg_scale = 3
+    cfg_scale = 2
     for img_idx, prompt in enumerate(prompts):
         template = get_conv_template("internvl2_5")
         prompt = f"Generate an image: {prompt}"
