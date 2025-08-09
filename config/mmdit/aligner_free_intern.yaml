@@ -1,7 +1,7 @@
 machine: "ks"
 
 feature_down_projector:
-  clip_feature_dim: 4096
+  clip_feature_dim: 1024
   feature_dim_output: 16
   shuffle: false
 
@@ -14,7 +14,7 @@ train:
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
-  output_dir: "0809_aligner_free_intern_pre_shuffle_adapter_dim16"
+  output_dir: "0809_aligner_free_intern_no_shuffle_dim16"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
