@@ -140,7 +140,6 @@ def main(args):
                     else:
                         x_clip = extract_feature_pre_shuffle_adapter(vision_model, pixel_values_clip)
                     x_vae = vae.encode(pixel_values_vae).latent_dist.sample()
-                print(x_clip.shape)
                 
                 model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
                 noise = torch.randn_like(model_input)
