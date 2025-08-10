@@ -77,7 +77,8 @@ def load_mmdit(config):
     qk_norm = "rms"
     x_block_self_attn_layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     if hasattr(config, "feature_down_projector"):
-        in_features = config.feature_down_projector.feature_dim_output
+        if hasattr(config.feature_down_projector, "context_dim"):
+            in_features = config.feature_down_projector.context_dim
     elif hasattr(config, "vae_aligner"):
         in_features = config.vae_aligner.siglip_feature_dim_down
     else:
@@ -151,7 +152,7 @@ class FeatureMixer(nn.Module):
         self.norm1 = nn.LayerNorm(config.hidden_size)
         self.blocks = nn.ModuleList([Block(config.hidden_size, config.num_heads) for _ in range(config.depth)])
         self.norm2 = nn.LayerNorm(config.hidden_size)
-        self.output_proj = nn.Linear(config.hidden_size, config.input_dim)
+        # self.output_proj = nn.Linear(config.hidden_size, config.input_dim)
 
     def forward(self, x):
         """
@@ -166,7 +167,7 @@ class FeatureMixer(nn.Module):
         for block in self.blocks:
             x = block(x, pos)
         x = self.norm2(x)
-        x = self.output_proj(x)
+        # x = self.output_proj(x)
 
         return x
 
