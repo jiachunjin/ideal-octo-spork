@@ -129,4 +129,50 @@ def load_mmdit(config):
         feature_down_projector.requires_grad_(True)
         transformer.feature_down_projector = feature_down_projector
 
+        if hasattr(config.feature_down_projector, "feature_mixer"):
+            feature_mixer = FeatureMixer(config.feature_down_projector.feature_mixer)
+            feature_mixer.requires_grad_(True)
+            transformer.feature_mixer = feature_mixer
+
     return transformer
+
+from model.vae_aligner.vit_basic import precompute_freqs_cis_2d, Block
+
+class FeatureMixer(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.hidden_size = config.hidden_size
+        self.depth = config.depth
+        self.num_heads = config.num_heads
+        self.grid_size = config.grid_size
+
+        self.precompute_pos = dict()
+        self.input_proj = nn.Linear(config.siglip_feature_dim_down, config.hidden_size)
+        self.norm1 = nn.LayerNorm(config.hidden_size)
+        self.blocks = nn.ModuleList([Block(config.hidden_size, config.num_heads) for _ in range(config.depth)])
+        self.norm2 = nn.LayerNorm(config.hidden_size)
+
+    def forward(self, x):
+        """
+        x: [B, L, D]
+        """
+        pos = self.fetch_pos(self.grid_size, self.grid_size, x.device)
+        B, L, D = x.shape
+
+        x = self.siglip_feature_proj(x)
+        x = self.input_proj(x)
+        x = self.norm1(x)
+        x = x.to(x.dtype)
+        for block in self.blocks:
+            x = block(x, pos)
+        x = self.norm2(x)
+
+        return x
+
+    def fetch_pos(self, height, width, device):
+        if (height, width) in self.precompute_pos:
+            return self.precompute_pos[(height, width)].to(device)
+        else:
+            pos = precompute_freqs_cis_2d(self.hidden_size // self.num_heads, height, width).to(device)
+            self.precompute_pos[(height, width)] = pos
+            return pos

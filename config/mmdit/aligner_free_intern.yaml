@@ -3,25 +3,30 @@ machine: "ks"
 feature_down_projector:
   clip_feature_dim: 1024
   feature_dim_output: 16
-  shuffle: false
+  shuffle: true
+  feature_mixer:
+    hidden_size: 1024
+    depth: 16
+    num_heads: 16
+    grid_size: 16
 
 base_model: "intern_vl_8b"
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: "/data/phd/jinjiachun/experiment/mmdit/0809_aligner_free_intern_pre_adapter_dim16/mmdit-mmdit-30000"
+  global_step: 30000
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
-  output_dir: "0809_aligner_free_intern_no_shuffle_dim16"
+  output_dir: "0810_256x16_feature_mixer"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
   report_to: "wandb"
 
   lr: 1e-4
-  num_iter: 100000
+  num_iter: 200000
   save_every: 5000
 
 data:

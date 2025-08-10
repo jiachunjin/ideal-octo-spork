@@ -11,7 +11,7 @@ from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
 
 from model.mmdit import load_mmdit
 from runner.mmdit.train_basic_sd3 import sample_sd3_5
-from model.internvl import extract_feature_pre_adapter
+from model.internvl import extract_feature_pre_adapter, extract_feature_pre_shuffle_adapter
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -39,7 +39,7 @@ def run():
     vae.requires_grad_(False)
 
     mmdit = load_mmdit(config)
-    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-15000")
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-20000")
     exp_name = exp_dir.split("/")[-1]
     step = ckpt_path.split("-")[-1]
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
@@ -79,7 +79,13 @@ def run():
     x = (x - imagenet_mean) / imagenet_std
 
     # x_clip = ar_model.extract_feature_pre_adapter(x) # (B, 256, 896) / (B, 256, 4096)
-    x_clip = extract_feature_pre_adapter(vision_model, x)
+    # x_clip = extract_feature_pre_adapter(vision_model, x)
+    if not hasattr(config.feature_down_projector, "shuffle"):
+        config.feature_down_projector.shuffle = True
+    if config.feature_down_projector.shuffle:
+        x_clip = extract_feature_pre_adapter(vision_model, x)
+    else:
+        x_clip = extract_feature_pre_shuffle_adapter(vision_model, x)
     context = mmdit.feature_down_projector(x_clip)
     print(f"{context.shape=}")
 
