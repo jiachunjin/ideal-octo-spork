@@ -2,9 +2,10 @@ machine: "ks"
 
 feature_down_projector:
   clip_feature_dim: 1024
-  feature_dim_output: 16
+  feature_dim_output: &feature_dim_output 16
   shuffle: true
   feature_mixer:
+    input_dim: *feature_dim_output
     hidden_size: 1024
     depth: 16
     num_heads: 16
@@ -23,7 +24,7 @@ train:
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "wandb"
+  report_to: "no"
 
   lr: 1e-4
   num_iter: 200000
@@ -32,7 +33,7 @@ train:
 data:
   wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
   img_size: 448
-  buffer_size: 50000
+  buffer_size: 50
   batch_size: 15
   num_workers: 8
   num_img_token: 256

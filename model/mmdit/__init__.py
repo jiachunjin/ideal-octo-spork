@@ -147,7 +147,7 @@ class FeatureMixer(nn.Module):
         self.grid_size = config.grid_size
 
         self.precompute_pos = dict()
-        self.input_proj = nn.Linear(config.siglip_feature_dim_down, config.hidden_size)
+        self.input_proj = nn.Linear(config.input_dim, config.hidden_size)
         self.norm1 = nn.LayerNorm(config.hidden_size)
         self.blocks = nn.ModuleList([Block(config.hidden_size, config.num_heads) for _ in range(config.depth)])
         self.norm2 = nn.LayerNorm(config.hidden_size)
@@ -159,7 +159,6 @@ class FeatureMixer(nn.Module):
         pos = self.fetch_pos(self.grid_size, self.grid_size, x.device)
         B, L, D = x.shape
 
-        x = self.siglip_feature_proj(x)
         x = self.input_proj(x)
         x = self.norm1(x)
         x = x.to(x.dtype)
