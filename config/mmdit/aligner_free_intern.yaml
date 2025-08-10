@@ -1,7 +1,7 @@
 machine: "ks"
 
 feature_down_projector:
-  clip_feature_dim: 1024
+  clip_feature_dim: 4096
   feature_dim_output: &feature_dim_output 16
   shuffle: true
   feature_mixer:
@@ -16,7 +16,7 @@ base_model: "intern_vl_8b"
 train:
   root: null
   resume_path: "/data/phd/jinjiachun/experiment/mmdit/0809_aligner_free_intern_pre_adapter_dim16/mmdit-mmdit-30000"
-  global_step: 30000
+  global_step: 0
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
@@ -34,7 +34,7 @@ data:
   wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
   img_size: 448
   buffer_size: 50
-  batch_size: 15
+  batch_size: 25
   num_workers: 8
   num_img_token: 256
   max_seq_length: 512
