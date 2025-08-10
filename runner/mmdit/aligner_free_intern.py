@@ -67,7 +67,9 @@ def main(args):
     mmdit = load_mmdit(config)
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
-        mmdit.load_state_dict(ckpt, strict=True)
+        m, u = mmdit.load_state_dict(ckpt, strict=False)
+        print(f"missing keys: {m}")
+        print(f"unexpected keys: {u}")
         accelerator.print(f"mmdit loaded from {config.train.resume_path}")
 
     global_step = config.train.global_step if config.train.global_step is not None else 0
