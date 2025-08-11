@@ -10,14 +10,14 @@ feature_down_projector:
     hidden_size: 1024
     depth: 16
     num_heads: 16
-    grid_size: 16
+    grid_size: 32
 
 base_model: "intern_vl_8b"
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: "/data/phd/jinjiachun/experiment/mmdit/0811_1024x64/mmdit-mmdit-20000"
+  global_step: 20000
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
@@ -34,8 +34,8 @@ train:
 data:
   wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
   img_size: 448
-  buffer_size: 50
-  batch_size: 10
+  buffer_size: 70000
+  batch_size: 12
   num_workers: 8
   num_img_token: 256
   max_seq_length: 512
