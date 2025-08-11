@@ -14,13 +14,16 @@ from model.dit.diff_mlp import add_diffhead_to_ar_model
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.vae_aligner.vit_vae_aligner import get_feature_down_proj
 from model.internvl.conversation import get_conv_template
+from model.mmdit import load_mmdit
 
 IMG_START_TOKEN = "<img>"
 
 @torch.no_grad()
 def generate_image():
-    exp_dir = "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only"
+    exp_dir = "/data/phd/jinjiachun/experiment/intern_gen/0811_aligner_free"
+    mmdit_exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0811_1024x64"
     step = 1000
+    mmdit_step = 10000
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -51,16 +54,13 @@ def generate_image():
     ar_model.language_model.model.load_state_dict(llm_ckpt, strict=True)
     ar_model = ar_model.to(device, dtype).eval()
 
-    feature_down_projector = get_feature_down_proj(config.feature_down_projector)
-    feature_down_projector_ckpt = torch.load(config.feature_down_projector.ckpt_path, map_location="cpu", weights_only=True)
-    # 只保留以"feature_down_projector."开头的key，并去掉前缀
-    feature_down_projector_ckpt = {
-        k.replace("feature_down_projector.", "", 1): v
-        for k, v in feature_down_projector_ckpt.items()
-        if k.startswith("feature_down_projector.")
-    }
-
-    m, u = feature_down_projector.load_state_dict(feature_down_projector_ckpt, strict=False)
+    mmdit_config_path = os.path.join(mmdit_exp_dir, "config.yaml")
+    mmdit_config = OmegaConf.load(mmdit_config_path)
+    mmdit = load_mmdit(mmdit_config)
+    ckpt_path = os.path.join(mmdit_config, f"mmdit-mmdit-{mmdit_step}")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    mmdit.load_state_dict(ckpt, strict=True)
+    mmdit = mmdit.to(device, dtype).eval()
 
     vae = AutoencoderKL.from_pretrained(config.vae_path)
     vae = vae.to(device, dtype).eval()
@@ -162,7 +162,10 @@ def generate_image():
             img_mask = torch.ones((2, 1), dtype=torch.bool, device=device)
             attention_mask = torch.cat([attention_mask, img_mask], dim=1)
 
-        print(generated_tokens.shape)
+        print(generated_tokens.shape) # (1, 1024, 64)
+
+        context = mmdit.feature_mixer(generated_tokens)
+        print(context.shape) # (1, 1024, 64)
         # rec = vae_aligner.forward_with_low_dim(generated_tokens)
         # print(rec.shape)
 
