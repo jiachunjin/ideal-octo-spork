@@ -1,0 +1,44 @@
+machine: "ks"
+
+feature_down_projector:
+  clip_feature_dim: 1024
+  feature_dim_output: 64
+  ckpt_path: "/data/phd/jinjiachun/experiment/mmdit/0811_1024x64/mmdit-mmdit-5000"
+
+model:
+  diffhead:
+    hidden_size: 1024
+    depth: 2
+    x_dim: 8
+    z_dim: 896
+
+  tune_backbone: true
+
+train:
+  root: null
+  diffhead_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/diff_head-intern_gen-10000"
+  clip_projector_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/clip_projector-intern_gen-10000"
+  backbone_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/backbone-intern_gen-10000"
+  global_step: 10000
+
+  exp_name: &exp_name "intern_gen"
+  wandb_proj: *exp_name
+  output_dir: "0806_gen_only"
+  logging_dir: "logs"
+  mixed_precision: "bf16"
+  gradient_accumulation_steps: 1
+  report_to: "wandb"
+
+  lr: 1e-4
+  num_iter: 100000
+  save_every: 5000
+
+data:
+  wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
+  img_size: 448
+  buffer_size: 50000
+  batch_size: 45
+  num_workers: 8
+  num_img_token: 256
+  max_seq_length: 512
+  cfg_drop_rate: 0.1
