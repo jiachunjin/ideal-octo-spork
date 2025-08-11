@@ -6,15 +6,14 @@ import torch
 import torchvision
 from tqdm import trange
 from omegaconf import OmegaConf
-from diffusers import DDIMScheduler, AutoencoderKL
+from diffusers import DDIMScheduler, AutoencoderKL, FlowMatchEulerDiscreteScheduler
 from transformers import AutoTokenizer
 
-from model.vae_aligner import get_vae_aligner
 from model.dit.diff_mlp import add_diffhead_to_ar_model
 from model.internvl.modeling_internvl_chat import InternVLChatModel
-from model.vae_aligner.vit_vae_aligner import get_feature_down_proj
 from model.internvl.conversation import get_conv_template
 from model.mmdit import load_mmdit
+from runner.mmdit.train_basic_sd3 import sample_sd3_5
 
 IMG_START_TOKEN = "<img>"
 
@@ -22,8 +21,7 @@ IMG_START_TOKEN = "<img>"
 def generate_image():
     exp_dir = "/data/phd/jinjiachun/experiment/intern_gen/0811_aligner_free"
     mmdit_exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0811_1024x64"
-    step = 1000
-    mmdit_step = 10000
+    step = 5000
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -55,15 +53,18 @@ def generate_image():
     ar_model = ar_model.to(device, dtype).eval()
 
     mmdit_config_path = os.path.join(mmdit_exp_dir, "config.yaml")
+    mmdit_step = config.feature_down_projector.ckpt_path.split("-")[-1]
     mmdit_config = OmegaConf.load(mmdit_config_path)
     mmdit = load_mmdit(mmdit_config)
-    ckpt_path = os.path.join(mmdit_config, f"mmdit-mmdit-{mmdit_step}")
+    ckpt_path = os.path.join(mmdit_exp_dir, f"mmdit-mmdit-{mmdit_step}")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     mmdit.load_state_dict(ckpt, strict=True)
     mmdit = mmdit.to(device, dtype).eval()
 
     vae = AutoencoderKL.from_pretrained(config.vae_path)
     vae = vae.to(device, dtype).eval()
+
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
 
     #######################################
     ########### test generation ###########
@@ -166,15 +167,28 @@ def generate_image():
 
         context = mmdit.feature_mixer(generated_tokens)
         print(context.shape) # (1, 1024, 64)
-        # rec = vae_aligner.forward_with_low_dim(generated_tokens)
-        # print(rec.shape)
 
-        # reconstructed = vae.decode(rec).sample
-        # reconstructed = (reconstructed + 1) / 2
-        # reconstructed = torch.clamp(reconstructed, 0, 1)
-        # grid = torchvision.utils.make_grid(reconstructed, nrow=4)
-        # os.makedirs("asset/intern_gen", exist_ok=True)
-        # torchvision.utils.save_image(grid, f"asset/intern_gen/coarse_{img_idx:02d}.png")
+        samples = sample_sd3_5(
+            transformer         = mmdit,
+            vae                 = vae,
+            noise_scheduler     = noise_scheduler,
+            device              = device,
+            dtype               = dtype,
+            context             = context,
+            batch_size          = context.shape[0],
+            height              = 448,
+            width               = 448,
+            num_inference_steps = 20,
+            guidance_scale      = 1.0,
+            seed                = 42
+        )
+        print(samples.shape)
+
+        import torchvision.utils as vutils
+        # sample_path = f"asset/mmdit/aligner_free/{exp_name}_{step}.png"
+        sample_path = f"asset/intern_gen/1024x64/{img_idx:02d}.png"
+        vutils.save_image(samples, sample_path, nrow=1, normalize=False)
+        print(f"Samples saved to {sample_path}")  
 
 if __name__ == "__main__":
     generate_image()
