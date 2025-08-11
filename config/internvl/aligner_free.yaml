@@ -16,18 +16,18 @@ model:
 
 train:
   root: null
-  diffhead_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/diff_head-intern_gen-10000"
-  clip_projector_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/clip_projector-intern_gen-10000"
-  backbone_resume_path: "/data/phd/jinjiachun/experiment/intern_gen/0806_gen_only/backbone-intern_gen-10000"
-  global_step: 10000
+  diffhead_resume_path: null
+  clip_projector_resume_path: null
+  backbone_resume_path: null
+  global_step: 0
 
   exp_name: &exp_name "intern_gen"
   wandb_proj: *exp_name
-  output_dir: "0806_gen_only"
+  output_dir: "0811_aligner_free"
   logging_dir: "logs"
   mixed_precision: "bf16"
   gradient_accumulation_steps: 1
-  report_to: "wandb"
+  report_to: "no"
 
   lr: 1e-4
   num_iter: 100000
