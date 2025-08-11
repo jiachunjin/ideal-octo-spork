@@ -19,7 +19,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 @torch.no_grad()
 def run():
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0809_aligner_free_intern_pre_adapter_dim16"
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0809_aligner_free_intern_no_shuffle_dim16"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -39,7 +39,7 @@ def run():
     vae.requires_grad_(False)
 
     mmdit = load_mmdit(config)
-    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-20000")
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-62000")
     exp_name = exp_dir.split("/")[-1]
     step = ckpt_path.split("-")[-1]
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
@@ -58,6 +58,8 @@ def run():
     ])
 
     images = [
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/letter.jpeg").convert("RGB"),
+        Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/letter1.webp").convert("RGB"),
         Image.open("/data/phd/jinjiachun/codebase/connector/asset/kobe.png").convert("RGB"),
         Image.open("/data/phd/jinjiachun/codebase/connector/asset/004.jpg").convert("RGB"),
         Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/einstein.jpg"),
@@ -86,7 +88,11 @@ def run():
         x_clip = extract_feature_pre_adapter(vision_model, x)
     else:
         x_clip = extract_feature_pre_shuffle_adapter(vision_model, x)
-    context = mmdit.feature_down_projector(x_clip)
+    # context = mmdit.feature_down_projector(x_clip)
+    if hasattr(mmdit, "feature_mixer"):
+        context = mmdit.feature_mixer(mmdit.feature_down_projector(x_clip))
+    else:
+        context = mmdit.feature_down_projector(x_clip)
     print(f"{context.shape=}")
 
     samples = sample_sd3_5(

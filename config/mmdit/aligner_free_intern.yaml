@@ -16,8 +16,8 @@ base_model: "intern_vl_8b"
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: "/data/phd/jinjiachun/experiment/mmdit/0810_256x32/mmdit-mmdit-40000"
+  global_step: 40000
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name

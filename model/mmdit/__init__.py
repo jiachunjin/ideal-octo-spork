@@ -79,6 +79,8 @@ def load_mmdit(config):
     if hasattr(config, "feature_down_projector"):
         if hasattr(config.feature_down_projector, "context_dim"):
             in_features = config.feature_down_projector.context_dim
+        else:
+            in_features = config.feature_down_projector.feature_dim_output
     elif hasattr(config, "vae_aligner"):
         in_features = config.vae_aligner.siglip_feature_dim_down
     else:
