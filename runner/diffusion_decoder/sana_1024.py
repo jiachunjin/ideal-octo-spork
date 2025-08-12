@@ -184,12 +184,16 @@ def main(args):
                     progress_bar.set_postfix(**logs)
 
                     if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
-                        accelerator.print(f"saving here, to {output_dir}")
-                        # mmdit.eval()
-                        # state_dict = accelerator.unwrap_model(mmdit).state_dict()
-                        # save_path = os.path.join(output_dir, f"mmdit-{config.train.exp_name}-{global_step}")
-                        # torch.save(state_dict, save_path)
-                        # print(f"mmdit saved to {save_path}")
+                        sana_decoder.eval()
+                        state_dict = accelerator.unwrap_model(sana_decoder.transformer).state_dict()
+                        save_path = os.path.join(output_dir, f"transformer-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"transformer saved to {save_path}")
+
+                        state_dict = accelerator.unwrap_model(sana_decoder.connector).state_dict()
+                        save_path = os.path.join(output_dir, f"connector-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"connector saved to {save_path}")
 
         epoch += 1
         accelerator.print(f"epoch {epoch}: finished")
