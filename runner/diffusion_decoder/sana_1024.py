@@ -13,7 +13,7 @@ from accelerate.utils import ProjectConfiguration
 from accelerate.state import AcceleratorState
 
 from PIL import Image
-from diffusers import AutoencoderDC, SanaTransformer2DModel
+from diffusers.training_utils import compute_density_for_timestep_sampling, compute_loss_weighting_for_sd3
 from util.intern_dataloader import get_intern_dataloader
 from util.misc import process_pretrained_model_path, flatten_dict
 from model.internvl.modeling_internvl_chat import InternVLChatModel
@@ -95,7 +95,6 @@ def main(args):
     sana_decoder, optimizer = accelerator.prepare(sana_decoder, optimizer)
     vision_model.requires_grad_(False)
     vision_model = vision_model.to(accelerator.device, dtype).eval()
-    vae = vae.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -133,13 +132,70 @@ def main(args):
                         output_hidden_states = False,
                         return_dict          = True
                     ).last_hidden_state[:, 1:, :] # (B, 1024, 1024)
-                    x_vae = sana_decoder.vae.encode(pixel_values_vae).latent
-                
-                accelerator.print(f"{x_clip.shape=}")
-                accelerator.print(f"{x_vae.shape=}")
-                break
 
+                    x_vae = sana_decoder.vae.encode(pixel_values_vae).latent # (B, 32, 14, 14)
+                    if "shift_factor" in sana_decoder.vae.config and sana_decoder.vae.config.shift_factor is not None:
+                        x_vae = x_vae - sana_decoder.vae.config.shift_factor
+                    x_vae = x_vae * sana_decoder.vae.config.scaling_factor
 
+                noise = torch.randn_like(x_vae, device=accelerator.device, dtype=dtype)
+                weighting_scheme = "uniform"
+                u = compute_density_for_timestep_sampling(
+                    weighting_scheme = weighting_scheme,
+                    batch_size       = x_vae.shape[0],
+                    logit_mean       = 0.0,
+                    logit_std        = 1.0,
+                    mode_scale       = 1.29,
+                )
+                indices = (u * sana_decoder.noise_scheduler.config.num_train_timesteps).long()
+                timesteps = sana_decoder.noise_scheduler.timesteps[indices].to(device=accelerator.device)
+
+                sigmas = sana_decoder.get_sigmas(timesteps, x_vae.device, n_dim=x_vae.ndim, dtype=x_vae.dtype)
+                noisy_latents = (1.0 - sigmas) * x_vae + sigmas * noise
+
+                model_pred = sana_decoder.transformer(
+                    hidden_states          = noisy_latents,
+                    timestep               = timesteps,
+                    encoder_hidden_states  = sana_decoder.connector(x_clip),
+                    encoder_attention_mask = None,
+                ).sample
+
+                target = noise - x_vae
+                weighting = compute_loss_weighting_for_sd3(weighting_scheme=weighting_scheme, sigmas=sigmas)
+                loss = torch.mean(
+                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                    1,
+                )
+                loss = loss.mean()
+
+                accelerator.backward(loss)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    progress_bar.update(1)
+                    global_step += 1
+
+                    logs = dict(
+                        sana_loss = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+
+                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                        accelerator.print(f"saving here, to {output_dir}")
+                        # mmdit.eval()
+                        # state_dict = accelerator.unwrap_model(mmdit).state_dict()
+                        # save_path = os.path.join(output_dir, f"mmdit-{config.train.exp_name}-{global_step}")
+                        # torch.save(state_dict, save_path)
+                        # print(f"mmdit saved to {save_path}")
+
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
