@@ -1,0 +1,34 @@
+machine: ks
+
+base_model: intern_vl_1b
+
+clip_diffusion_connector:
+  connector_in_dim: 1024
+  connector_out_dim: 64
+
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name "sana_1024"
+  wandb_proj: *exp_name
+  output_dir: "0812_dev"
+  logging_dir: "logs"
+  mixed_precision: "bf16"
+  gradient_accumulation_steps: 1
+  report_to: "no"
+
+  lr: 1e-4
+  num_iter: 200000
+  save_every: 5000
+
+data:
+  wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
+  img_size: 448
+  buffer_size: 10
+  batch_size: 3
+  num_workers: 8
+  num_img_token: 1024
+  max_seq_length: 1276
+  cfg_drop_rate: 0.1

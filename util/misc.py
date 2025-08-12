@@ -11,6 +11,7 @@ def process_pretrained_model_path(config):
         config.intern_vl_1b_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-1B"
         config.intern_vl_2b_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-2B"
         config.intern_vl_8b_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-8B"
+        config.sana0_6b_path = "/data/phd/jinjiachun/ckpt/Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers"
     else:
         raise ValueError(f"Invalid machine: {config.machine}")
     return config
