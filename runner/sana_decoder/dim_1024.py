@@ -9,12 +9,13 @@ from diffusers import AutoencoderDC
 
 if __name__ == "__main__":
     vae_id = "Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers"
+    device = "cuda:0"
+    dtype = torch.float16
+
     vae = AutoencoderDC.from_pretrained(vae_id, subfolder="vae")
     vae.eval()
     vae.requires_grad_(False)
-
-    device = "cuda:0"
-    dtype = torch.float16
+    vae = vae.to(device, dtype)
 
     vae_transform = pth_transforms.Compose([
         pth_transforms.Resize(448, max_size=None),
