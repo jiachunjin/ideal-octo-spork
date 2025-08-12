@@ -10,13 +10,13 @@ class SanaDecoder(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.vae = AutoencoderDC.from_pretrained(config.sana0_6b_path, subfolder="vae")
+        self.vae = AutoencoderDC.from_pretrained(config.sana1_6b_path, subfolder="vae")
 
-        self.transformer = SanaTransformer2DModel.from_pretrained(config.sana0_6b_path, subfolder="transformer", torch_dtype=torch.bfloat16)
+        self.transformer = SanaTransformer2DModel.from_pretrained(config.sana1_6b_path, subfolder="transformer", torch_dtype=torch.bfloat16)
 
         self.connector = self._build_connector(config.clip_diffusion_connector)
 
-        self.noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sana0_6b_path, subfolder="scheduler")
+        self.noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sana1_6b_path, subfolder="scheduler")
         self.vae.eval()
         self.vae.requires_grad_(False)
 

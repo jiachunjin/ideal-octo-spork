@@ -10,20 +10,20 @@ train:
   resume_path: null
   global_step: 0
 
-  exp_name: &exp_name "sana_1024"
+  exp_name: &exp_name sana_1024
   wandb_proj: *exp_name
-  output_dir: "0812_dev"
-  logging_dir: "logs"
-  mixed_precision: "bf16"
+  output_dir: 0812_dev
+  logging_dir: logs
+  mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: "no"
+  report_to: no
 
   lr: 1e-4
   num_iter: 200000
   save_every: 5000
 
 data:
-  wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB",]
+  wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
   img_size: 448
   buffer_size: 10
   batch_size: 3
