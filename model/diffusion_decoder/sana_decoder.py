@@ -1,12 +1,12 @@
 import math
 import torch
 import torch.nn as nn
-from transformers import PreTrainedModel
+# from transformers import PreTrainedModel
 from diffusers import AutoencoderDC, FlowMatchEulerDiscreteScheduler, SanaTransformer2DModel
 from diffusers.models.normalization import RMSNorm
 
 
-class SanaDecoder(PreTrainedModel):
+class SanaDecoder(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -46,11 +46,10 @@ class SanaDecoder(PreTrainedModel):
         print(f"connector loaded from {ckpt_path}")
     
     def _build_connector(self, config):
-        norm = RMSNorm(config.connector_out_dim, eps=1e-5, elementwise_affine=True)
-        with torch.no_grad():
-            norm.weight.fill_(math.sqrt(5.5))
-
         caption_channels = self.transformer.config.caption_channels
+        norm = RMSNorm(caption_channels, eps=1e-5, elementwise_affine=True)
+        with torch.no_grad():
+            norm.weight.fill_(math.sqrt(5.5))        
         connector = nn.Sequential(
             nn.Linear(config.clip_dim, caption_channels),
             nn.GELU(approximate="tanh"),

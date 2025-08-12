@@ -3,8 +3,7 @@ machine: ks
 base_model: intern_vl_1b
 
 clip_diffusion_connector:
-  connector_in_dim: 1024
-  connector_out_dim: 64
+  clip_dim: 1024
 
 train:
   root: null
