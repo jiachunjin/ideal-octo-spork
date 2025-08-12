@@ -39,6 +39,6 @@ if __name__ == "__main__":
     samples = samples.clamp(0, 1)
 
     import torchvision.utils as vutils
-    vutils.save_image(samples, "asset/sana_decoder/dim_1024.png", nrow=1, normalize=False)
+    vutils.save_image(samples, "dim_1024.png", nrow=1, normalize=False)
 
 
