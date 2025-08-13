@@ -157,9 +157,9 @@ def main(args):
 
                 context = x_clip
 
-                accelerator.print(f"context shape: {context.shape}")
-                accelerator.print(f"noisy_model_input shape: {noisy_model_input.shape}")
-                exit(0)
+                # accelerator.print(f"context shape: {context.shape}")
+                # accelerator.print(f"noisy_model_input shape: {noisy_model_input.shape}")
+                # exit(0)
 
                 model_pred = mmdit(
                     x           = noisy_model_input,
