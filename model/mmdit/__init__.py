@@ -84,7 +84,7 @@ def load_mmdit(config):
     elif hasattr(config, "vae_aligner"):
         in_features = config.vae_aligner.siglip_feature_dim_down
     else:
-        raise ValueError("No feature down projector or vae aligner found")
+        in_features = 1024
 
     context_embedder_config = {
         "target": "torch.nn.Linear",
