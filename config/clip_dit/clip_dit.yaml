@@ -29,7 +29,7 @@ train:
   save_every: 5000
 
 data:
-  wds_path: [/data1/LargeData/timm/imagenet-1k-wds]
+  wds_path: [/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds]
   num_train_examples: 1331167
   img_size: 448
   buffer_size: 5

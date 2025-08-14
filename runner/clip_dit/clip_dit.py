@@ -5,6 +5,7 @@ import argparse
 from tqdm import tqdm
 from omegaconf import OmegaConf
 
+from diffusers import DDPMScheduler
 from model.dit.standard_dit import DiT
 from util.misc import process_pretrained_model_path, flatten_dict
 from model.internvl.modeling_internvl_chat import InternVLChatModel
@@ -135,6 +136,7 @@ def main(args):
     if config.train.resume_path is not None:
         raise NotImplementedError("Resume is not implemented")
 
+    params_to_learn = list(p for p in dit_model.parameters() if p.requires_grad)
     optimizer = torch.optim.AdamW(
         params_to_learn,
         lr           = config.train.lr,
@@ -144,7 +146,6 @@ def main(args):
     )
 
     global_step = config.train.global_step if config.train.global_step is not None else 0
-    params_to_learn = list(p for p in dit_model.parameters() if p.requires_grad)
     
     if accelerator.mixed_precision == "bf16":
         dtype = torch.bfloat16
@@ -178,18 +179,44 @@ def main(args):
     imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
     imagenet_std = torch.tensor(IMAGENET_STD, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
 
-    for batch in dataloader:
-        x = batch["pixel_values"].to(accelerator.device)
-        y = batch["labels"].to(accelerator.device)
-        x = (x - imagenet_mean) / imagenet_std
-        with torch.no_grad():
-            x_clip = vision_model(
-                pixel_values         = x,
-                output_hidden_states = False,
-                return_dict          = True
-            ).last_hidden_state[:, 1:, :]
+    train_scheduler = DDPMScheduler(
+        beta_schedule          = "scaled_linear",
+        beta_start             = 0.00085,
+        beta_end               = 0.012,
+        num_train_timesteps    = 1000,
+        clip_sample            = False,
+        prediction_type        = "v_prediction",
+        steps_offset           = 1,
+        trained_betas          = None,
+        timestep_spacing       = "trailing",
+        rescale_betas_zero_snr = True
+    )
 
-        print(y.shape, x_clip.shape)
+
+    while not training_done:
+        for batch in dataloader:
+            with accelerator.accumulate([dit_model]):
+                dit_model.train()
+                x = batch["pixel_values"].to(accelerator.device, dtype)
+                y = batch["labels"].to(accelerator.device)
+                x = (x - imagenet_mean) / imagenet_std
+                with torch.no_grad():
+                    x_clip = vision_model(
+                        pixel_values         = x,
+                        output_hidden_states = False,
+                        return_dict          = True
+                    ).last_hidden_state[:, 1:, :]
+
+                print(x_clip.mean(), x_clip.std(), x_clip.min(), x_clip.max())
+                B = x_clip.shape[0]
+                timesteps = torch.randint(0, 1000, (B,), device=accelerator.device, dtype=torch.int64)
+                noise = torch.randn_like(x_clip, device=accelerator.device, dtype=dtype)
+                noisy_latents = train_scheduler.add_noise(x_clip, noise, timesteps)
+                target = train_scheduler.get_velocity(x_clip, noise, timesteps)
+                pred = dit_model(noisy_latents, timesteps, y)
+                loss = torch.nn.functional.mse_loss(pred, target)
+
+                accelerator.print(loss.item())
 
 
 if __name__ == "__main__":
