@@ -18,21 +18,21 @@ train:
 
   exp_name: &exp_name clip_dit
   wandb_proj: *exp_name
-  output_dir: tmp
+  output_dir: dit_300M
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: wandb
 
   lr: 1e-4
   num_iter: 200000
-  save_every: 50
+  save_every: 5000
 
 data:
   wds_path: [/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds]
   num_train_examples: 1331167
   img_size: 448
-  buffer_size: 50
+  buffer_size: 50000
   batch_size: 100
   num_workers: 8
   cfg_drop_rate: 0.1
