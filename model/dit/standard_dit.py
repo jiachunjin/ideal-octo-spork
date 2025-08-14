@@ -42,8 +42,8 @@ class TimestepEmbedder(nn.Module):
             embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
         return embedding
 
-    def forward(self, t):
-        t_freq = self.timestep_embedding(t, self.frequency_embedding_size)
+    def forward(self, t, dtype):
+        t_freq = self.timestep_embedding(t, self.frequency_embedding_size).to(dtype)
         t_emb = self.mlp(t_freq)
         return t_emb
 
@@ -198,7 +198,7 @@ class DiT(nn.Module):
 
     def forward(self, x, t, y):
         x = self.x_embedder(x) + self.pos_embed
-        t_embed = self.t_embedder(t)
+        t_embed = self.t_embedder(t, x.dtype)
         y_embed = self.y_embedder(y)
         c = t_embed + y_embed
         for block in self.blocks:

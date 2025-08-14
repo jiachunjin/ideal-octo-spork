@@ -32,7 +32,7 @@ data:
   wds_path: [/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds]
   num_train_examples: 1331167
   img_size: 448
-  buffer_size: 5
-  batch_size: 10
+  buffer_size: 50
+  batch_size: 50
   num_workers: 8
   cfg_drop_rate: 0.5

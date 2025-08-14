@@ -207,7 +207,6 @@ def main(args):
                         return_dict          = True
                     ).last_hidden_state[:, 1:, :]
 
-                print(x_clip.mean(), x_clip.std(), x_clip.min(), x_clip.max())
                 B = x_clip.shape[0]
                 timesteps = torch.randint(0, 1000, (B,), device=accelerator.device, dtype=torch.int64)
                 noise = torch.randn_like(x_clip, device=accelerator.device, dtype=dtype)
@@ -216,7 +215,20 @@ def main(args):
                 pred = dit_model(noisy_latents, timesteps, y)
                 loss = torch.nn.functional.mse_loss(pred, target)
 
-                accelerator.print(loss.item())
+                accelerator.backward(loss)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        query_dit_loss = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
 
 
 if __name__ == "__main__":
