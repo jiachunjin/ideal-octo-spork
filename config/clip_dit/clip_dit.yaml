@@ -26,13 +26,13 @@ train:
 
   lr: 1e-4
   num_iter: 200000
-  save_every: 5000
+  save_every: 50
 
 data:
   wds_path: [/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds]
   num_train_examples: 1331167
   img_size: 448
   buffer_size: 50
-  batch_size: 50
+  batch_size: 100
   num_workers: 8
-  cfg_drop_rate: 0.5
+  cfg_drop_rate: 0.1
