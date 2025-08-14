@@ -5,8 +5,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 import torch
 from tqdm import tqdm
 from omegaconf import OmegaConf
-from diffusers import DDIMScheduler, AutoencoderKL
+from diffusers import DDIMScheduler, AutoencoderKL, FlowMatchEulerDiscreteScheduler
+
+from model.mmdit import load_mmdit
 from model.dit.standard_dit import DiT
+from runner.mmdit.train_basic_sd3 import sample_sd3_5
 
 
 @torch.no_grad()
@@ -23,6 +26,16 @@ def sample_imagenet():
     dit_model = dit_model.to(device, dtype).eval()
 
     # load diffusion decoder
+    mmdit_step = 55000
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024"
+    config_path = os.path.join(exp_dir, "config.yaml")
+    config = OmegaConf.load(config_path)
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+    mmdit = load_mmdit(config)
+    ckpt_path = os.path.join(exp_dir, f"mmdit-mmdit-{mmdit_step}")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    mmdit.load_state_dict(ckpt, strict=True)
+    mmdit = mmdit.to(device, dtype).eval()
 
     # load vae
     vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
@@ -51,7 +64,8 @@ def sample_imagenet():
     B = 3
     cfg_scale = 3.0  # 支持CFG，设置为1.0即为无CFG
     x = torch.randn((B, 1024, 1024), device=device, dtype=dtype)
-    y = torch.as_tensor([22]*B, device=device).long()
+    label = 22
+    y = torch.as_tensor([label]*B, device=device).long()
     x *= scheduler.init_noise_sigma
 
     if cfg_scale > 1.0:
@@ -78,7 +92,28 @@ def sample_imagenet():
     if cfg_scale > 1.0:
         x = x[:B]
 
-    print(x.shape)
+    context = x
+    print(context.shape)
 
+    samples = sample_sd3_5(
+        transformer         = mmdit,
+        vae                 = vae,
+        noise_scheduler     = noise_scheduler,
+        device              = device,
+        dtype               = dtype,
+        context             = context,
+        batch_size          = context.shape[0],
+        height              = 448,
+        width               = 448,
+        num_inference_steps = 25,
+        guidance_scale      = 1.0,
+        seed                = 42
+    )
+    print(samples.shape)
 
-    ...
+    import torchvision.utils as vutils
+    sample_path = f"asset/clip_dit/{label}.png"
+    vutils.save_image(samples, sample_path, nrow=2, normalize=False)
+    print(f"Samples saved to {sample_path}")    
+if __name__ == "__main__":
+    sample_imagenet()
