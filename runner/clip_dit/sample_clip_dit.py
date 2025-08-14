@@ -20,13 +20,14 @@ def sample_imagenet():
     # load dit
     exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_300M"
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
+    step = 10000
 
     dit_model = DiT(config.dit)
-    dit_model.load_state_dict(torch.load(os.path.join(exp_dir, "dit-clip_dit-5000"), map_location="cpu", weights_only=True))
+    dit_model.load_state_dict(torch.load(os.path.join(exp_dir, f"dit-clip_dit-{step}"), map_location="cpu", weights_only=True))
     dit_model = dit_model.to(device, dtype).eval()
 
     # load diffusion decoder
-    mmdit_step = 55000
+    mmdit_step = 60000
     exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024"
     config_path = os.path.join(exp_dir, "config.yaml")
     config_decoder = OmegaConf.load(config_path)
@@ -61,10 +62,10 @@ def sample_imagenet():
 
     scheduler.set_timesteps(50)
 
-    B = 3
-    cfg_scale = 3.0  # 支持CFG，设置为1.0即为无CFG
+    B = 4
+    cfg_scale = 2.  # 支持CFG，设置为1.0即为无CFG
     x = torch.randn((B, 1024, 1024), device=device, dtype=dtype)
-    label = 22
+    label = 980
     y = torch.as_tensor([label]*B, device=device).long()
     x *= scheduler.init_noise_sigma
 
@@ -112,7 +113,7 @@ def sample_imagenet():
     print(samples.shape)
 
     import torchvision.utils as vutils
-    sample_path = f"asset/clip_dit/{label}.png"
+    sample_path = f"asset/clip_dit/{label}_{step}.png"
     vutils.save_image(samples, sample_path, nrow=2, normalize=False)
     print(f"Samples saved to {sample_path}")    
 if __name__ == "__main__":
