@@ -1,0 +1,38 @@
+machine: ks
+
+dit:
+  in_channels: 1024
+  out_channels: 1024
+  num_tokens: 1024
+
+  hidden_size: 1024
+  num_heads: 16
+  depth: 16
+
+  num_classes: 1000
+
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name clip_dit
+  wandb_proj: *exp_name
+  output_dir: tmp
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 200000
+  save_every: 5000
+
+data:
+  wds_path: [/data1/LargeData/timm/imagenet-1k-wds]
+  num_train_examples: 1331167
+  img_size: 448
+  buffer_size: 5
+  batch_size: 10
+  num_workers: 8
+  cfg_drop_rate: 0.5
