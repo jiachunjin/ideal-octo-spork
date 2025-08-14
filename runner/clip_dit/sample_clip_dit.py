@@ -29,16 +29,16 @@ def sample_imagenet():
     mmdit_step = 55000
     exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024"
     config_path = os.path.join(exp_dir, "config.yaml")
-    config = OmegaConf.load(config_path)
-    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
-    mmdit = load_mmdit(config)
+    config_decoder = OmegaConf.load(config_path)
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config_decoder.sd3_5_path, subfolder="scheduler")
+    mmdit = load_mmdit(config_decoder)
     ckpt_path = os.path.join(exp_dir, f"mmdit-mmdit-{mmdit_step}")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     mmdit.load_state_dict(ckpt, strict=True)
     mmdit = mmdit.to(device, dtype).eval()
 
     # load vae
-    vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
+    vae = AutoencoderKL.from_pretrained(config_decoder.sd3_5_path, subfolder="vae")
     vae.requires_grad_(False)
     vae = vae.to(device, dtype).eval()
 
