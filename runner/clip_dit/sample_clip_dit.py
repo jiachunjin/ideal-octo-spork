@@ -1,8 +1,11 @@
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 import torch
 from tqdm import tqdm
 from omegaconf import OmegaConf
-from diffusers import DDIMScheduler
+from diffusers import DDIMScheduler, AutoencoderKL
 from model.dit.standard_dit import DiT
 
 
@@ -20,6 +23,11 @@ def sample_imagenet():
     dit_model = dit_model.to(device, dtype).eval()
 
     # load diffusion decoder
+
+    # load vae
+    vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
+    vae.requires_grad_(False)
+    vae = vae.to(device, dtype).eval()
 
 
     # sample from dit
