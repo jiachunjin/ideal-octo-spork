@@ -20,7 +20,7 @@ def sample_imagenet():
     # load dit
     exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_300M"
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    step = 10000
+    step = 40000
 
     dit_model = DiT(config.dit)
     dit_model.load_state_dict(torch.load(os.path.join(exp_dir, f"dit-clip_dit-{step}"), map_location="cpu", weights_only=True))
@@ -65,7 +65,7 @@ def sample_imagenet():
     B = 4
     cfg_scale = 2.  # 支持CFG，设置为1.0即为无CFG
     x = torch.randn((B, 1024, 1024), device=device, dtype=dtype)
-    label = 980
+    label = 22
     y = torch.as_tensor([label]*B, device=device).long()
     x *= scheduler.init_noise_sigma
 

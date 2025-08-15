@@ -5,7 +5,7 @@ dit:
   out_channels: 1024
   num_tokens: 1024
 
-  hidden_size: 1024
+  hidden_size: 2048
   num_heads: 16
   depth: 16
 
@@ -18,7 +18,7 @@ train:
 
   exp_name: &exp_name clip_dit
   wandb_proj: *exp_name
-  output_dir: dit_300M
+  output_dir: dit_2048
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
@@ -33,6 +33,6 @@ data:
   num_train_examples: 1331167
   img_size: 448
   buffer_size: 50000
-  batch_size: 100
+  batch_size: 45
   num_workers: 8
   cfg_drop_rate: 0.1
