@@ -4,8 +4,8 @@ base_model: "intern_vl_8b"
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024/mmdit-mmdit-90000"
+  global_step: 90000
 
   exp_name: &exp_name "mmdit"
   wandb_proj: *exp_name
@@ -16,7 +16,7 @@ train:
   report_to: "wandb"
 
   lr: 1e-4
-  num_iter: 200000
+  num_iter: 400000
   save_every: 5000
 
 data:

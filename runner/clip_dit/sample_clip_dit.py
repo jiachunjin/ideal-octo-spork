@@ -18,9 +18,9 @@ def sample_imagenet():
     dtype = torch.float16
 
     # load dit
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_300M"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_2048"
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    step = 40000
+    step = 15000
 
     dit_model = DiT(config.dit)
     dit_model.load_state_dict(torch.load(os.path.join(exp_dir, f"dit-clip_dit-{step}"), map_location="cpu", weights_only=True))
@@ -65,7 +65,7 @@ def sample_imagenet():
     B = 4
     cfg_scale = 2.  # 支持CFG，设置为1.0即为无CFG
     x = torch.randn((B, 1024, 1024), device=device, dtype=dtype)
-    label = 22
+    label = 170
     y = torch.as_tensor([label]*B, device=device).long()
     x *= scheduler.init_noise_sigma
 
@@ -113,7 +113,7 @@ def sample_imagenet():
     print(samples.shape)
 
     import torchvision.utils as vutils
-    sample_path = f"asset/clip_dit/{label}_{step}.png"
+    sample_path = f"asset/clip_dit/iter_{step}_{label}.png"
     vutils.save_image(samples, sample_path, nrow=2, normalize=False)
     print(f"Samples saved to {sample_path}")    
 if __name__ == "__main__":
