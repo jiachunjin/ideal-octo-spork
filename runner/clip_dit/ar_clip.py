@@ -246,12 +246,11 @@ def main(args):
                     progress_bar.set_postfix(**logs)
 
                     if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
-                        raise NotImplementedError("Save is not implemented")
-                        # dit_model.eval()
-                        # state_dict = accelerator.unwrap_model(dit_model).state_dict()
-                        # save_path = os.path.join(output_dir, f"dit-{config.train.exp_name}-{global_step}")
-                        # torch.save(state_dict, save_path)
-                        # print(f"dit saved to {save_path}")
+                        ar_model.eval()
+                        state_dict = accelerator.unwrap_model(ar_model).state_dict()
+                        save_path = os.path.join(output_dir, f"ar_model-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"ar_model saved to {save_path}")
 
                     accelerator.wait_for_everyone()
 
