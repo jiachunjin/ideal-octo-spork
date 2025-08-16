@@ -46,12 +46,14 @@ def main(args):
     accelerator.print(AcceleratorState().deepspeed_plugin.deepspeed_config)
 
     # load models
-    vae_aligner = get_vae_aligner(config.vae_aligner)
-    ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
-    vae_aligner.load_state_dict(ckpt, strict=True)
-    vae_aligner_projector = vae_aligner.siglip_feature_proj
+    # vae_aligner = get_vae_aligner(config.vae_aligner)
+    # ckpt = torch.load(config.vae_aligner.pretrained_path, map_location="cpu", weights_only=True)
+    # vae_aligner.load_state_dict(ckpt, strict=True)
+    # vae_aligner_projector = vae_aligner.siglip_feature_proj
+    vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
+    vision_model.requires_grad_(False)
 
-    ar_model = InternVLChatModel.from_pretrained(config.intern_vl_1b_path)
+    ar_model = InternVLChatModel.from_pretrained(config.intern_vl_2b_path)
     ar_model, train_scheduler = add_diffhead_to_ar_model(ar_model, config.model)
     # clip = ar_model.vision_model
 
@@ -89,8 +91,10 @@ def main(args):
     dataloader = get_intern_dataloader(config.data, accelerator)
     ar_model, optimizer = accelerator.prepare(ar_model, optimizer)
     
-    vae_aligner_projector.requires_grad_(False)
-    vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
+    # vae_aligner_projector.requires_grad_(False)
+    # vae_aligner_projector = vae_aligner_projector.to(accelerator.device, dtype).eval()
+    vision_model.requires_grad_(False)
+    vision_model = vision_model.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -108,7 +112,6 @@ def main(args):
             OmegaConf.save(config, f)
 
     accelerator.print(f"Learnable parameters: {sum(p.numel() for p in params_to_learn if p.requires_grad) / 1e6} M")
-    accelerator.print(f"vae_aligner dtype: {next(vae_aligner.parameters()).dtype}")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
 
     imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
@@ -125,9 +128,15 @@ def main(args):
                 pixel_values = (pixel_values - imagenet_mean) / imagenet_std
 
                 with torch.no_grad():
-                    x_clip = ar_model.extract_feature(pixel_values)
-                    x_siglip_dimdown = vae_aligner_projector(x_clip)
-                    visual_gen_feature = x_siglip_dimdown
+                    # x_clip = ar_model.extract_feature(pixel_values)
+                    # x_siglip_dimdown = vae_aligner_projector(x_clip)
+                    # visual_gen_feature = x_siglip_dimdown
+                    x_clip = vision_model(
+                        pixel_values         = pixel_values,
+                        output_hidden_states = False,
+                        return_dict          = True
+                    ).last_hidden_state[:, 1:, :]
+                    visual_gen_feature = x_clip
 
                 B, L = input_ids.shape
                 text_embedding = ar_model.language_model.get_input_embeddings()(input_ids).clone()
