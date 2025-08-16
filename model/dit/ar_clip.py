@@ -118,7 +118,7 @@ class AR_CLIP(nn.Module):
     def forward(self, x, y):
         x = self.x_embedder(x) + self.pos_embed
         y_embed = self.y_embedder(y).unsqueeze(1)
-        x = torch.cat([x, y_embed], dim=1)
+        x = torch.cat([y_embed, x], dim=1)
     
         for block in self.blocks:
             x = block(x)
