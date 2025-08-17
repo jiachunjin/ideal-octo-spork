@@ -1,0 +1,9 @@
+hybrid_dit:
+  condition_injection: beginning
+  intern_hidden_size: 1536
+  hidden_size: 1024
+  num_heads: 16
+  depth: 16
+  seq_len: 1024
+  block_size: 4
+  out_channels: 1024

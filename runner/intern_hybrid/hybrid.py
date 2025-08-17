@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+import torch
 import argparse
 from omegaconf import OmegaConf
 from util.misc import process_pretrained_model_path
@@ -20,10 +21,26 @@ def main(args):
 
     model = HybridDiT(config.hybrid_dit)
 
-    
+    if config.train.resume_path is not None:
+        raise NotImplementedError("Resume is not implemented")
 
+    params_to_learn = list(p for p in model.parameters() if p.requires_grad)
+    optimizer = torch.optim.AdamW(
+        params_to_learn,
+        lr           = config.train.lr,
+        betas        = (0.9, 0.95),
+        weight_decay = 5e-2,
+        eps          = 1e-8,
+    )
 
-    
+    global_step = config.train.global_step if config.train.global_step is not None else 0
+
+    if accelerator.mixed_precision == "bf16":
+        dtype = torch.bfloat16
+    elif accelerator.mixed_precision == "fp16":
+        dtype = torch.float16
+    else:
+        dtype = torch.float32
 
 
     ...

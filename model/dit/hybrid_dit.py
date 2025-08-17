@@ -1,6 +1,66 @@
 import torch
 import torch.nn as nn
+
+from einops import rearrange
+from timm.layers.mlp import Mlp
 from model.dit.standard_dit import TimestepEmbedder
+
+
+class Attention(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int = 8,
+        qkv_bias: bool = False,
+        qk_norm: bool = False,
+        proj_bias: bool = True,
+        attn_drop: float = 0.,
+        proj_drop: float = 0.,
+        norm_layer: nn.Module = nn.LayerNorm,
+    ) -> None:
+        super().__init__()
+        assert dim % num_heads == 0, 'dim should be divisible by num_heads'
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
+
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.q_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+        self.k_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(dim, dim, bias=proj_bias)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        B, N, C = x.shape
+        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv.unbind(0)
+        q, k = self.q_norm(q), self.k_norm(k)
+
+        x = torch.nn.functional.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=mask,
+        )
+
+        x = x.transpose(1, 2).reshape(B, N, C)
+        x = self.proj(x)
+        x = self.proj_drop(x)
+        return x
+
+
+class HybridBlock(nn.Module):
+    def __init__(self, hidden_size, num_heads, mlp_ratio=4):
+        super().__init__()
+        self.attn = Attention(hidden_size, num_heads, qkv_bias=True)
+        self.norm1 = nn.LayerNorm(hidden_size)
+        self.norm2 = nn.LayerNorm(hidden_size)
+        self.mlp = Mlp(hidden_size, hidden_size * mlp_ratio, hidden_size)
+    
+    def forward(self, x, mask):
+        x = x + self.attn(self.norm1(x), mask)
+        x = x + self.mlp(self.norm2(x))
+        return x
+
 
 class HybridDiT(nn.Module):
     def __init__(self, config):
@@ -10,8 +70,43 @@ class HybridDiT(nn.Module):
         self.x_t_embedder = nn.Linear(1024, config.hidden_size)
         self.y_embedder = nn.Linear(config.intern_hidden_size, config.hidden_size)
         self.t_embedder = TimestepEmbedder(config.hidden_size)
+        self.seq_len = config.seq_len
 
         self.pos_embed = nn.Parameter(torch.randn(1, 2048, config.hidden_size))
+
+        self.blocks = nn.ModuleList([
+            HybridBlock(config.hidden_size, config.num_heads, mlp_ratio=4) for _ in range(config.depth)
+        ])
+
+        self.final_layer = nn.Linear(config.hidden_size, config.out_channels)
+
+        self.register_buffer("mask", self._create_attn_mask(config.seq_len, config.block_size))
+    
+    def _create_attn_mask(self, seq_len, block_size):
+        mask = torch.zeros(2 * seq_len, 2 * seq_len)
+        
+        # 创建块对角结构
+        total_size = 2 * seq_len
+        num_blocks = (total_size + block_size - 1) // block_size  # 向上取整
+        
+        for i in range(num_blocks):
+            start_row = i * block_size
+            end_row = min((i + 1) * block_size, total_size)
+            start_col = i * block_size
+            end_col = min((i + 1) * block_size, total_size)
+            
+            mask[start_row:end_row, start_col:end_col] = 1
+
+        # 把左下角的部分转成blockwise下三角，blocksize = block_size
+        for i in range(num_blocks - 1):
+            start_row = seq_len + (i+1) * block_size
+            end_row = seq_len + (i+2) * block_size
+            start_col = 0
+            end_col = (i+1) * block_size
+
+            mask[start_row:end_row, start_col:end_col] = 1
+
+        return mask
 
     def forward(self, x, x_t, y, t):
         """
@@ -25,37 +120,43 @@ class HybridDiT(nn.Module):
         x_embed = self.x_embedder(x) # (B, 1024, config.hidden_size)
         y_embed = self.y_embedder(y) # (B, 256, config.hidden_size)
         y_embed = y_embed.repeat_interleave(4, dim=1) # (B, 1024, config.hidden_size)
+
+        B, _ = t.shape
+        t = rearrange(t, "b n -> (b n)")
         t_embed = self.t_embedder(t, x.dtype)
+        t_embed = rearrange(t_embed, "(b n) c -> b n c", b=B)
+
         t_embed = t_embed.repeat_interleave(4, dim=1) # (B, 1024, config.hidden_size)
         if self.config.condition_injection == "beginning":
-            x_t_embed = self.x_t_embedder(x_t) + y_embed + t_embed
-
-
-
+            x_t = self.x_t_embedder(x_t) + y_embed + t_embed
+        else:
+            raise NotImplementedError
         x = torch.cat([x, x_t], dim=1)
 
         for block in self.blocks:
-            x = block(x)
+            x = block(x, mask=self.mask)
+        
         x = self.final_layer(x)
 
+        return x[:, :self.seq_len, :]
 
-
-    
     def block_wise_noising(self, x):
         """
         add noise to x, the same noise for each block with size 4
         """
         ...
 
-        
 
-        
-        
+if __name__ == "__main__":
+    from omegaconf import OmegaConf
+    config = OmegaConf.load("config/intern_hybrid/hybrid.yaml")
+    model = HybridDiT(config.hybrid_dit)
 
-        # for block in self.blocks:
-        #     x = block(x, c)
-        # x = self.final_layer(x, c)
-        # return x
-        
-        
+    B = 3
+    x = torch.randn(B, 1024, 1024)
+    x_t = torch.randn(B, 1024, 1024)
+    y = torch.randn(B, 256, config.hybrid_dit.intern_hidden_size)
+    t = torch.randint(0, 1000, (B, 256))
+    out = model(x, x_t, y, t)
+    print(out.shape)
         
