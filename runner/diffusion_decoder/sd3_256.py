@@ -28,7 +28,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 def main(args):
     config = OmegaConf.load(args.config)
     config = process_pretrained_model_path(config)
-    accelerator, output_dir = get_accelerator(config.train)
+    accelerator, output_dir = get_accelerator(config)
 
     noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
@@ -118,7 +118,6 @@ def main(args):
                 pixel_values_vae = pixel_values * 2 - 1
                 with torch.no_grad():
                     x_clip = extract_feature_pre_adapter(vision_model, pixel_values_clip)
-                    print(f"x_clip shape: {x_clip.shape}")
                     x_vae = vae.encode(pixel_values_vae).latent_dist.sample()
                 
                 model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
@@ -137,7 +136,6 @@ def main(args):
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise
 
                 context = mmdit.feature_down_projector(x_clip)
-                print(f"context shape: {context.shape}")
 
                 model_pred = mmdit(
                     x           = noisy_model_input,

@@ -1,6 +1,6 @@
-machine: "ks"
+machine: ks
 
-base_model: "intern_vl_8b"
+base_model: intern_vl_8b
 
 feature_down_projector:
   clip_feature_dim: 4096
@@ -11,23 +11,23 @@ train:
   resume_path: null
   global_step: 0
 
-  exp_name: &exp_name "mmdit"
+  exp_name: &exp_name mmdit
   wandb_proj: *exp_name
-  output_dir: "0817_sd3_256"
-  logging_dir: "logs"
-  mixed_precision: "bf16"
+  output_dir: 0817_sd3_256
+  logging_dir: logs
+  mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: wandb
 
   lr: 1e-4
   num_iter: 400000
   save_every: 5000
 
 data:
-  wds_path: ["/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption", "/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB"]
+  wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
   img_size: 448
   buffer_size: 50000
-  batch_size: 16
+  batch_size: 25
   num_workers: 8
   num_img_token: 1024
   max_seq_length: 1276
