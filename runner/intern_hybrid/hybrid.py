@@ -132,7 +132,7 @@ def main(args):
                     progress_bar.update(1)
 
                     logs = dict(
-                        loss_diff_head = accelerator.gather(loss.detach()).mean().item(),
+                        query_dit_loss = accelerator.gather(loss.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
@@ -140,21 +140,11 @@ def main(args):
 
                     if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
                         model.eval()
-                        state_dict = accelerator.unwrap_model(model).diff_head.state_dict()
-                        save_path = os.path.join(output_dir, f"diff_head-{config.train.exp_name}-{global_step}")
+                        state_dict = accelerator.unwrap_model(model).state_dict()
+                        save_path = os.path.join(output_dir, f"hybrid_dit-{config.train.exp_name}-{global_step}")
                         torch.save(state_dict, save_path)
-                        print(f"diff_head saved to {save_path}")
+                        print(f"hybrid_dit saved to {save_path}")
 
-                        state_dict = accelerator.unwrap_model(model).clip_projector.state_dict()
-                        save_path = os.path.join(output_dir, f"clip_projector-{config.train.exp_name}-{global_step}")
-                        torch.save(state_dict, save_path)
-                        print(f"clip_projector saved to {save_path}")
-
-                        if config.model.tune_backbone:
-                            state_dict = accelerator.unwrap_model(model).language_model.model.state_dict()
-                            save_path = os.path.join(output_dir, f"backbone-{config.train.exp_name}-{global_step}")
-                            torch.save(state_dict, save_path)
-                            print(f"backbone saved to {save_path}")
                     accelerator.wait_for_everyone()
 
         epoch += 1

@@ -32,6 +32,6 @@ data:
   num_train_examples: 1331167
   img_size: 448
   buffer_size: 500
-  batch_size: 5
+  batch_size: 20
   num_workers: 8
   cfg_drop_rate: 0.1
