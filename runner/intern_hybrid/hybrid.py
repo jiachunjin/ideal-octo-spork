@@ -114,17 +114,54 @@ def main(args):
                         inputs_embeds        = joint_embedding,
                         # attention_mask       = attention_mask,
                         output_hidden_states = True,
-                    ).hidden_states[-1]
+                    ).hidden_states[-1][:, :-1, :]
 
                     x_t, target, t = model.block_wise_noising(x_clip, train_scheduler)
-                
+
                 pred = model(x_clip, x_t, hidden_states, t)
 
-                print(pred.shape, target.shape)
+                loss = torch.nn.functional.mse_loss(pred.to(dtype), target)
+                accelerator.backward(loss)
 
-                # hidden_states.shape = (B, 257, intern_hidden_size)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
 
-                exit(0)
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        loss_diff_head = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+
+
+                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                        model.eval()
+                        state_dict = accelerator.unwrap_model(model).diff_head.state_dict()
+                        save_path = os.path.join(output_dir, f"diff_head-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"diff_head saved to {save_path}")
+
+                        state_dict = accelerator.unwrap_model(model).clip_projector.state_dict()
+                        save_path = os.path.join(output_dir, f"clip_projector-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"clip_projector saved to {save_path}")
+
+                        if config.model.tune_backbone:
+                            state_dict = accelerator.unwrap_model(model).language_model.model.state_dict()
+                            save_path = os.path.join(output_dir, f"backbone-{config.train.exp_name}-{global_step}")
+                            torch.save(state_dict, save_path)
+                            print(f"backbone saved to {save_path}")
+                    accelerator.wait_for_everyone()
+
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
