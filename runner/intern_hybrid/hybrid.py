@@ -4,12 +4,23 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 import torch
 import argparse
+from tqdm import tqdm
+from diffusers import DDPMScheduler
 from omegaconf import OmegaConf
-from util.misc import process_pretrained_model_path
+from util.misc import process_pretrained_model_path, flatten_dict
 
-from util.my_tool_box import get_accelerator
-from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.dit.hybrid_dit import HybridDiT
+from util.my_tool_box import get_accelerator, get_wds_dataloader
+from model.internvl import extract_feature_pre_adapter, extract_feature_pre_shuffle_adapter
+from model.internvl.modeling_internvl_chat import InternVLChatModel
+
+
+
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
 
 def main(args):
     config = OmegaConf.load(args.config)
@@ -41,9 +52,56 @@ def main(args):
         dtype = torch.float16
     else:
         dtype = torch.float32
+    
+    dataloader = get_wds_dataloader(config.data, accelerator)
+    model, optimizer = accelerator.prepare(model, optimizer)
+    internvl = internvl.to(accelerator.device, dtype).eval()
 
+    training_done = False
+    epoch = 0
+    progress_bar = tqdm(
+        total   = config.train.num_iter,
+        initial = global_step,
+        desc    = "Steps",
+        disable = not accelerator.is_local_main_process,
+    )
 
-    ...
+    config.device_count = accelerator.num_processes
+    if accelerator.is_main_process:
+        accelerator.init_trackers(config.train.wandb_proj, config=flatten_dict(config))
+        with open(os.path.join(output_dir, "config.yaml"), "w") as f:
+            OmegaConf.save(config, f)
+
+    accelerator.print(f"Learnable parameters: {sum(p.numel() for p in params_to_learn if p.requires_grad) / 1e6} M")
+    accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
+
+    imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
+    imagenet_std = torch.tensor(IMAGENET_STD, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
+
+    train_scheduler = DDPMScheduler(
+        beta_schedule          = "scaled_linear",
+        beta_start             = 0.00085,
+        beta_end               = 0.012,
+        num_train_timesteps    = 1000,
+        clip_sample            = False,
+        prediction_type        = "v_prediction",
+        steps_offset           = 1,
+        trained_betas          = None,
+        timestep_spacing       = "trailing",
+        rescale_betas_zero_snr = True
+    )
+
+    while not training_done:
+        for batch in dataloader:
+            with accelerator.accumulate([model]):
+                model.train()
+                x = batch["pixel_values"].to(accelerator.device, dtype)
+                y = batch["labels"].to(accelerator.device)
+                x = (x - imagenet_mean) / imagenet_std
+                with torch.no_grad():
+                    x_clip_condensed = extract_feature_pre_adapter(vision_model, x)
+                    print(x_clip_condensed.shape)
+                exit(0)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
