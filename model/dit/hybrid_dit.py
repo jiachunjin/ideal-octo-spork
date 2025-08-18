@@ -128,10 +128,10 @@ class HybridDiT(nn.Module):
 
         t_embed = t_embed.repeat_interleave(4, dim=1) # (B, 1024, config.hidden_size)
         if self.config.condition_injection == "beginning":
-            x_t = self.x_t_embedder(x_t) + y_embed + t_embed
+            x_t_embed = self.x_t_embedder(x_t) + y_embed + t_embed
         else:
             raise NotImplementedError
-        x = torch.cat([x, x_t], dim=1)
+        x = torch.cat([x_embed, x_t_embed], dim=1)
 
         for block in self.blocks:
             x = block(x, mask=self.mask)
@@ -140,23 +140,65 @@ class HybridDiT(nn.Module):
 
         return x[:, :self.seq_len, :]
 
-    def block_wise_noising(self, x):
+    def block_wise_noising(self, x, train_scheduler):
         """
         add noise to x, the same noise for each block with size 4
+        x: (B, 1024, 1024)
         """
-        ...
+        B, seq_len, dim = x.shape
+        block_size = 4
+        num_blocks = 256
+
+        # sample block-wise timesteps
+        timesteps = torch.randint(0, 1000, (B, num_blocks), dtype=torch.int64, device=x.device)
+
+        # sample block-wise noise and repeat within each block
+        # noise_block = torch.randn(B, num_blocks, dim, device=x.device, dtype=x.dtype)
+        # noise = noise_block.repeat_interleave(block_size, dim=1)  # (B, seq_len, dim)
+        noise = torch.randn_like(x, device=x.device, dtype=x.dtype)
+
+        # expand timesteps to per-token and flatten for scheduler API
+        timesteps_token = timesteps.repeat_interleave(block_size, dim=1)  # (B, seq_len)
+        x_flat = rearrange(x, "b n d -> (b n) d")
+        noise_flat = rearrange(noise, "b n d -> (b n) d")
+        t_flat = rearrange(timesteps_token, "b n -> (b n)")
+
+        noisy_flat = train_scheduler.add_noise(x_flat, noise_flat, t_flat)
+        target_flat = train_scheduler.get_velocity(x_flat, noise_flat, t_flat)
+
+        noisy_latents = rearrange(noisy_flat, "(b n) d -> b n d", b=B, n=seq_len)
+        target = rearrange(target_flat, "(b n) d -> b n d", b=B, n=seq_len)
+
+        return noisy_latents, target, timesteps
 
 
 if __name__ == "__main__":
     from omegaconf import OmegaConf
+    from diffusers import DDPMScheduler
+
     config = OmegaConf.load("config/intern_hybrid/hybrid.yaml")
     model = HybridDiT(config.hybrid_dit)
 
     B = 3
     x = torch.randn(B, 1024, 1024)
-    x_t = torch.randn(B, 1024, 1024)
+    # x_t = torch.randn(B, 1024, 1024)
     y = torch.randn(B, 256, config.hybrid_dit.intern_hidden_size)
-    t = torch.randint(0, 1000, (B, 256))
-    out = model(x, x_t, y, t)
-    print(out.shape)
+    # t = torch.randint(0, 1000, (B, 256))
+    # out = model(x, x_t, y, t)
+    # print(out.shape)
+    train_scheduler = DDPMScheduler(
+        beta_schedule          = "scaled_linear",
+        beta_start             = 0.00085,
+        beta_end               = 0.012,
+        num_train_timesteps    = 1000,
+        clip_sample            = False,
+        prediction_type        = "v_prediction",
+        steps_offset           = 1,
+        trained_betas          = None,
+        timestep_spacing       = "trailing",
+        rescale_betas_zero_snr = True
+    )
+
+    noisy_latents, target, timesteps = model.block_wise_noising(x, train_scheduler)
+    print(noisy_latents.shape, target.shape, timesteps.shape)
         

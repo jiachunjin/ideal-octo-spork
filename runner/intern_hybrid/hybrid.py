@@ -5,14 +5,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 import torch
 import argparse
 from tqdm import tqdm
-from diffusers import DDPMScheduler
+from einops import rearrange
 from omegaconf import OmegaConf
-from util.misc import process_pretrained_model_path, flatten_dict
+from diffusers import DDPMScheduler
+
 
 from model.dit.hybrid_dit import HybridDiT
 from util.my_tool_box import get_accelerator, get_wds_dataloader
 from model.internvl import extract_feature_pre_adapter, extract_feature_pre_shuffle_adapter
 from model.internvl.modeling_internvl_chat import InternVLChatModel
+from util.misc import process_pretrained_model_path, flatten_dict
 
 
 
@@ -99,8 +101,29 @@ def main(args):
                 y = batch["labels"].to(accelerator.device)
                 x = (x - imagenet_mean) / imagenet_std
                 with torch.no_grad():
+                    B = x.shape[0]
                     x_clip_condensed = extract_feature_pre_adapter(vision_model, x)
-                    print(x_clip_condensed.shape)
+                    x_clip = rearrange(x_clip_condensed, "b t (s d) -> b (t s) d", s=4, d=1024)
+
+                    boi_embedding = internvl.language_model.get_input_embeddings()(torch.LongTensor([151665]).to(accelerator.device)).unsqueeze(1).repeat(B, 1, 1)
+                    img_embedding = internvl.mlp1(x_clip_condensed)
+                    # print(boi_embedding.shape, img_embedding.shape)
+                    joint_embedding = torch.cat([boi_embedding, img_embedding], dim=1)
+
+                    hidden_states = internvl.language_model(
+                        inputs_embeds        = joint_embedding,
+                        # attention_mask       = attention_mask,
+                        output_hidden_states = True,
+                    ).hidden_states[-1]
+
+                    x_t, target, t = model.block_wise_noising(x_clip, train_scheduler)
+                
+                pred = model(x_clip, x_t, hidden_states, t)
+
+                print(pred.shape, target.shape)
+
+                # hidden_states.shape = (B, 257, intern_hidden_size)
+
                 exit(0)
 
 if __name__ == "__main__":
