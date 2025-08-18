@@ -1,5 +1,9 @@
 machine: ks
 
+feature_down_projector:
+  clip_feature_dim: 4096
+  feature_dim_output: 1024
+
 dit:
   in_channels: 1024
   out_channels: 1024
