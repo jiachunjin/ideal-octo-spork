@@ -12,7 +12,8 @@ from diffusers import DDPMScheduler
 from model.dit.standard_dit import DiT
 from util.misc import process_pretrained_model_path, flatten_dict
 from model.internvl.modeling_internvl_chat import InternVLChatModel
-
+from model.internvl import extract_feature_pre_adapter
+from model.vae_aligner.vit_vae_aligner import get_feature_down_proj
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -135,6 +136,12 @@ def main(args):
     dit_model = DiT(config.dit)
     vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
     vision_model.requires_grad_(False)
+    feature_down_projector = get_feature_down_proj(config.feature_down_projector)
+    ckpt = torch.load("/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256/mmdit-mmdit-35000", map_location="cpu", weights_only=True)
+    # 只保留ckpt中以"feature_down_projector"开头的key, 并重命名
+    ckpt = {k.replace("feature_down_projector.", ""): v for k, v in ckpt.items() if k.startswith("feature_down_projector.")}
+    feature_down_projector.load_state_dict(ckpt)
+    feature_down_projector.requires_grad_(False)
 
     if config.train.resume_path is not None:
         raise NotImplementedError("Resume is not implemented")
@@ -160,6 +167,7 @@ def main(args):
     dataloader = get_wds_dataloader(config.data, accelerator)
     dit_model, optimizer = accelerator.prepare(dit_model, optimizer)
     vision_model = vision_model.to(accelerator.device, dtype).eval()
+    feature_down_projector = feature_down_projector.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -204,11 +212,10 @@ def main(args):
                 y = batch["labels"].to(accelerator.device)
                 x = (x - imagenet_mean) / imagenet_std
                 with torch.no_grad():
-                    x_clip = vision_model(
-                        pixel_values         = x,
-                        output_hidden_states = False,
-                        return_dict          = True
-                    ).last_hidden_state[:, 1:, :]
+                    x_clip = extract_feature_pre_adapter(vision_model, x)
+                    x_clip = feature_down_projector(x_clip)
+                    accelerator.print(x_clip.shape)
+                    exit(0)
 
                 B = x_clip.shape[0]
                 timesteps = torch.randint(0, 1000, (B,), device=accelerator.device, dtype=torch.int64)

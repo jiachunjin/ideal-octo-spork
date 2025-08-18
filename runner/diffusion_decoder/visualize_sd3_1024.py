@@ -19,7 +19,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 @torch.no_grad()
 def run():
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024"
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256"
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
 
@@ -39,7 +39,7 @@ def run():
     vae.requires_grad_(False)
 
     mmdit = load_mmdit(config)
-    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-90000")
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-35000")
     exp_name = exp_dir.split("/")[-1]
     step = ckpt_path.split("-")[-1]
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
@@ -80,8 +80,10 @@ def run():
     imagenet_std = torch.tensor(IMAGENET_STD, device=device, dtype=dtype).view(1, 3, 1, 1)
     x = (x - imagenet_mean) / imagenet_std
 
-    x_clip = extract_feature_pre_shuffle_adapter(vision_model, x)
-    context = x_clip
+    # x_clip = extract_feature_pre_shuffle_adapter(vision_model, x)
+    # context = x_clip
+    x_clip = extract_feature_pre_adapter(vision_model, x)
+    context = mmdit.feature_down_projector(x_clip)
     print(f"{context.shape=}")
 
     samples = sample_sd3_5(
