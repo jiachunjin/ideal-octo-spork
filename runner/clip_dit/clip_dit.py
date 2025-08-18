@@ -214,8 +214,6 @@ def main(args):
                 with torch.no_grad():
                     x_clip = extract_feature_pre_adapter(vision_model, x)
                     x_clip = feature_down_projector(x_clip)
-                    accelerator.print(x_clip.shape)
-                    exit(0)
 
                 B = x_clip.shape[0]
                 timesteps = torch.randint(0, 1000, (B,), device=accelerator.device, dtype=torch.int64)

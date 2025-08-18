@@ -2,12 +2,12 @@ machine: ks
 
 feature_down_projector:
   clip_feature_dim: 4096
-  feature_dim_output: 1024
+  feature_dim_output: 8
 
 dit:
-  in_channels: 1024
-  out_channels: 1024
-  num_tokens: 1024
+  in_channels: 8
+  out_channels: 8
+  num_tokens: 256
 
   hidden_size: 2048
   num_heads: 16
@@ -22,11 +22,11 @@ train:
 
   exp_name: &exp_name clip_dit
   wandb_proj: *exp_name
-  output_dir: dit_2048
+  output_dir: dit_256_8
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: wandb
+  report_to: null
 
   lr: 1e-4
   num_iter: 200000
@@ -36,7 +36,7 @@ data:
   wds_path: [/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds]
   num_train_examples: 1331167
   img_size: 448
-  buffer_size: 50000
+  buffer_size: 50
   batch_size: 45
   num_workers: 8
   cfg_drop_rate: 0.1
