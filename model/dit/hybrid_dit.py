@@ -198,6 +198,7 @@ class HybridDiT_256(nn.Module):
     def _create_attn_mask(self, seq_len):
         mask = torch.eye(2 * seq_len)
         mask[seq_len+1:, :seq_len-1] = torch.tril(torch.ones(seq_len-1, seq_len-1))
+        mask = mask.unsqueeze(0).unsqueeze(0)
 
         return mask
     

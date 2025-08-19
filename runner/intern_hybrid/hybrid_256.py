@@ -113,9 +113,10 @@ def main(args):
                     boi_embedding = internvl.language_model.get_input_embeddings()(torch.LongTensor([151665]).to(accelerator.device)).unsqueeze(1).repeat(B, 1, 1)
                     img_embedding = internvl.mlp1(x_clip)
                     joint_embedding = torch.cat([boi_embedding, img_embedding], dim=1)
+                    attention_mask = torch.ones_like(joint_embedding, dtype=torch.long)
                     hidden_states = internvl.language_model(
                         inputs_embeds        = joint_embedding,
-                        # attention_mask       = attention_mask,
+                        attention_mask       = attention_mask,
                         output_hidden_states = True,
                     ).hidden_states[-1][:, :-1, :]
 
