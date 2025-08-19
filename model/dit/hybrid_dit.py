@@ -73,7 +73,7 @@ class HybridDiT(nn.Module):
         self.t_embedder = TimestepEmbedder(config.hidden_size)
         self.seq_len = config.seq_len
 
-        self.pos_embed = nn.Parameter(torch.randn(1, 2048, config.hidden_size))
+        self.pos_embed = nn.Parameter(torch.randn(1, 1024, config.hidden_size), requires_grad=True)
 
         self.blocks = nn.ModuleList([
             HybridBlock(config.hidden_size, config.num_heads, mlp_ratio=4) for _ in range(config.depth)
@@ -107,6 +107,11 @@ class HybridDiT(nn.Module):
 
             mask[start_row:end_row, start_col:end_col] = 1
 
+        mask[mask == 0] = float('-inf')
+        mask[mask == 1] = 0
+
+        mask = mask.unsqueeze(0).unsqueeze(0)
+
         return mask
 
     def forward(self, x, x_t, y, t):
@@ -132,6 +137,9 @@ class HybridDiT(nn.Module):
             x_t_embed = self.x_t_embedder(x_t) + y_embed + t_embed
         else:
             raise NotImplementedError
+        
+        x_embed = x_embed + self.pos_embed
+        x_t_embed = x_t_embed + self.pos_embed
         x = torch.cat([x_embed, x_t_embed], dim=1)
 
         for block in self.blocks:
