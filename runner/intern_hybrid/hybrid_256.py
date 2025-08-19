@@ -126,17 +126,39 @@ def main(args):
                 
                 pred = model(x_clip_low, x_t, hidden_states, t)
 
-                accelerator.print(f"pred shape: {pred.shape}")
-                accelerator.print(f"target shape: {target.shape}")
-
-                exit(0)
-
                 loss = torch.nn.functional.mse_loss(pred, target)
                 accelerator.backward(loss)
 
                 if accelerator.sync_gradients:
                     accelerator.clip_grad_norm_(params_to_learn, 1.0)
                     optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        query_dit_loss = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+
+
+                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                        model.eval()
+                        state_dict = accelerator.unwrap_model(model).state_dict()
+                        save_path = os.path.join(output_dir, f"hybrid_dit-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"hybrid_dit saved to {save_path}")
+
+                    accelerator.wait_for_everyone()
+
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
