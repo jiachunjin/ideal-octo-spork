@@ -124,7 +124,7 @@ def main(args):
 
                     x_t, target, t = model.block_wise_noising(x_clip_low, train_scheduler)
                 
-                pred = model(x_clip, x_t, hidden_states, t)
+                pred = model(x_clip_low, x_t, hidden_states, t)
 
                 accelerator.print(f"pred shape: {pred.shape}")
                 accelerator.print(f"target shape: {target.shape}")
@@ -137,4 +137,9 @@ def main(args):
                 if accelerator.sync_gradients:
                     accelerator.clip_grad_norm_(params_to_learn, 1.0)
                     optimizer.step()
-                    
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, required=True)
+    args = parser.parse_args()
+    main(args)
