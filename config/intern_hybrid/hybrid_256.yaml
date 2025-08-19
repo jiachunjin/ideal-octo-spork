@@ -11,6 +11,10 @@ hybrid_dit:
   depth: 16
   seq_len: 256
   
+feature_down_projector:
+  clip_feature_dim: 4096
+  feature_dim_output: 8
+  path: "/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256/mmdit-mmdit-90000"
 
 train:
   root: null
