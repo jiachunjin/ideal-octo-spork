@@ -206,7 +206,9 @@ class HybridDiT_256(nn.Module):
         x_embed = self.x_embedder(x) # (B, 256, config.hidden_size)
         x_t_embed = self.x_t_embedder(x_t) # (B, 256, config.hidden_size)
         y_embed = self.y_embedder(y) # (B, 256, config.hidden_size)
-        t_embed = self.t_embedder(t, x.dtype) # (B, 256, config.hidden_size)
+        t = rearrange(t, "b n -> (b n)")
+        t_embed = self.t_embedder(t, x.dtype)
+        t_embed = rearrange(t_embed, "(b n) c -> b n c", b=B)
 
         x_t_embed = x_t_embed + y_embed + t_embed
 
