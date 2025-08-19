@@ -222,7 +222,7 @@ class HybridDiT_256(nn.Module):
         
         x = self.final_layer(x)
 
-        return x[:, :self.seq_len, :]
+        return x[:, :self.config.seq_len, :]
     
     def block_wise_noising(self, x, train_scheduler):
         B, L, _ = x.shape
