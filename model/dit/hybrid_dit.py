@@ -203,6 +203,7 @@ class HybridDiT_256(nn.Module):
     
     def forward(self, x, x_t, y, t):
         assert self.training
+        B, L, _ = x.shape
         x_embed = self.x_embedder(x) # (B, 256, config.hidden_size)
         x_t_embed = self.x_t_embedder(x_t) # (B, 256, config.hidden_size)
         y_embed = self.y_embedder(y) # (B, 256, config.hidden_size)
