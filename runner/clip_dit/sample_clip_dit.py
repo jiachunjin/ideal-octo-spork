@@ -18,24 +18,27 @@ def sample_imagenet():
     dtype = torch.float16
 
     # load dit
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_2048"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_256_8"
+    # exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_256_8_norm"
+    exp_name = exp_dir.split("/")[-1]
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    step = 15000
+    step = 35000
 
     dit_model = DiT(config.dit)
     dit_model.load_state_dict(torch.load(os.path.join(exp_dir, f"dit-clip_dit-{step}"), map_location="cpu", weights_only=True))
     dit_model = dit_model.to(device, dtype).eval()
 
     # load diffusion decoder
-    mmdit_step = 60000
-    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024"
+    mmdit_step = 35000
+    # mmdit_step = 50000
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256"
     config_path = os.path.join(exp_dir, "config.yaml")
     config_decoder = OmegaConf.load(config_path)
     noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config_decoder.sd3_5_path, subfolder="scheduler")
     mmdit = load_mmdit(config_decoder)
     ckpt_path = os.path.join(exp_dir, f"mmdit-mmdit-{mmdit_step}")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-    mmdit.load_state_dict(ckpt, strict=True)
+    mmdit.load_state_dict(ckpt, strict=False)
     mmdit = mmdit.to(device, dtype).eval()
 
     # load vae
@@ -62,10 +65,10 @@ def sample_imagenet():
 
     scheduler.set_timesteps(50)
 
-    B = 4
-    cfg_scale = 2.  # 支持CFG，设置为1.0即为无CFG
-    x = torch.randn((B, 1024, 1024), device=device, dtype=dtype)
-    label = 170
+    B = 16
+    cfg_scale = 1.5  # 支持CFG，设置为1.0即为无CFG
+    x = torch.randn((B, config.dit.num_tokens, config.dit.in_channels), device=device, dtype=dtype)
+    label = 981
     y = torch.as_tensor([label]*B, device=device).long()
     x *= scheduler.init_noise_sigma
 
@@ -113,8 +116,8 @@ def sample_imagenet():
     print(samples.shape)
 
     import torchvision.utils as vutils
-    sample_path = f"asset/clip_dit/iter_{step}_{label}.png"
-    vutils.save_image(samples, sample_path, nrow=2, normalize=False)
+    sample_path = f"asset/clip_dit/{exp_name}_{step}_{label}_{cfg_scale}.png"
+    vutils.save_image(samples, sample_path, nrow=4, normalize=False)
     print(f"Samples saved to {sample_path}")    
 if __name__ == "__main__":
     sample_imagenet()

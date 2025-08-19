@@ -39,7 +39,7 @@ def run():
     vae.requires_grad_(False)
 
     mmdit = load_mmdit(config)
-    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-35000")
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-80000")
     exp_name = exp_dir.split("/")[-1]
     step = ckpt_path.split("-")[-1]
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)

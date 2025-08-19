@@ -3,6 +3,7 @@ machine: ks
 feature_down_projector:
   clip_feature_dim: 4096
   feature_dim_output: 8
+  path: "/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256/mmdit-mmdit-50000"
 
 dit:
   in_channels: 8
@@ -22,7 +23,7 @@ train:
 
   exp_name: &exp_name clip_dit
   wandb_proj: *exp_name
-  output_dir: dit_256_8
+  output_dir: dit_256_8_norm
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1

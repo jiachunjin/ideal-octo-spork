@@ -137,10 +137,10 @@ def main(args):
     vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
     vision_model.requires_grad_(False)
     feature_down_projector = get_feature_down_proj(config.feature_down_projector)
-    ckpt = torch.load("/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256/mmdit-mmdit-35000", map_location="cpu", weights_only=True)
+    ckpt = torch.load(config.feature_down_projector.path, map_location="cpu", weights_only=True)
     # 只保留ckpt中以"feature_down_projector"开头的key, 并重命名
     ckpt = {k.replace("feature_down_projector.", ""): v for k, v in ckpt.items() if k.startswith("feature_down_projector.")}
-    feature_down_projector.load_state_dict(ckpt)
+    feature_down_projector.load_state_dict(ckpt, strict=True)
     feature_down_projector.requires_grad_(False)
 
     if config.train.resume_path is not None:
