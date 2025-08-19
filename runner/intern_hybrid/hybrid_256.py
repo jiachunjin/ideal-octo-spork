@@ -109,9 +109,6 @@ def main(args):
                     B = x.shape[0]
                     x_clip = extract_feature_pre_adapter(internvl.vision_model, x)
                     x_clip_low = feature_down_projector(x_clip)
-                    accelerator.print(f"x_clip shape: {x_clip.shape}")
-                    accelerator.print(f"x_clip_low shape: {x_clip_low.shape}")
-
 
                     boi_embedding = internvl.language_model.get_input_embeddings()(torch.LongTensor([151665]).to(accelerator.device)).unsqueeze(1).repeat(B, 1, 1)
                     img_embedding = internvl.mlp1(x_clip)
