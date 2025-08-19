@@ -1,0 +1,39 @@
+machine: ks
+
+hybrid_dit:
+  condition_injection: beginning
+  in_channels: 8
+  out_channels: 8
+  intern_hidden_size: 3584
+
+  hidden_size: 1024
+  num_heads: 16
+  depth: 16
+  seq_len: 256
+  
+
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name clip_dit
+  wandb_proj: *exp_name
+  output_dir: 0819_intern_hybrid_256
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 200000
+  save_every: 5000
+
+data:
+  wds_path: [/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds]
+  num_train_examples: 1331167
+  img_size: 448
+  buffer_size: 50000
+  batch_size: 50
+  num_workers: 8
+  cfg_drop_rate: 0.1
