@@ -8,6 +8,9 @@ from omegaconf import OmegaConf
 from diffusers import DDIMScheduler
 
 from model.dit.hybrid_dit import HybridDiT
+from model.mmdit import load_mmdit
+from runner.mmdit.train_basic_sd3 import sample_sd3_5
+from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
 
 scheduler = DDIMScheduler(
     beta_schedule          = "scaled_linear",
@@ -29,14 +32,27 @@ def sample_imagenet():
     device = torch.device("cuda:0")
     dtype = torch.float16
 
-    # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_1024_null_condition"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_1024_null_condition"
+    exp_name = exp_dir.split("/")[-1]
     step = 5000
 
-    # config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
+    config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
+    # config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
     model = HybridDiT(config.hybrid_dit)
-    # model.load_state_dict(torch.load(os.path.join(exp_dir, f"hybrid_dit-{config.train.exp_name}-{step}"), map_location="cpu", weights_only=True))
+    model.load_state_dict(torch.load(os.path.join(exp_dir, f"hybrid_dit-{config.train.exp_name}-{step}"), map_location="cpu", weights_only=True))
     model = model.to(device, dtype).eval()
+
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024"
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+    mmdit = load_mmdit(config)
+    ckpt_path = os.path.join(exp_dir, "mmdit-mmdit-140000")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    mmdit.load_state_dict(ckpt, strict=True)
+    mmdit = mmdit.to(device, dtype).eval()
+
+    vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
+    vae.requires_grad_(False)
+    vae = vae.to(device, dtype).eval()
 
     def sample_one_clip_block(model, prefix):
         B = 1
@@ -53,11 +69,31 @@ def sample_imagenet():
 
     x_clip = torch.empty((1, 0, 1024), device=device, dtype=dtype)
     for i in trange(256):
-        print(x_clip.shape)
         x_clip_block = sample_one_clip_block(model, x_clip)
-
         x_clip = torch.cat([x_clip, x_clip_block], dim=1)
+    
+    print(x_clip.shape)
 
+    samples = sample_sd3_5(
+        transformer         = mmdit,
+        vae                 = vae,
+        noise_scheduler     = noise_scheduler,
+        device              = device,
+        dtype               = dtype,
+        context             = x_clip,
+        batch_size          = x_clip.shape[0],
+        height              = 448,
+        width               = 448,
+        num_inference_steps = 25,
+        guidance_scale      = 1.0,
+        seed                = 42
+    )
+    print(samples.shape)
+
+    import torchvision.utils as vutils
+    sample_path = f"asset/clip_dit/{exp_name}_{step}.png"
+    vutils.save_image(samples, sample_path, nrow=1, normalize=False)
+    print(f"Samples saved to {sample_path}")    
 
 if __name__ == "__main__":
     sample_imagenet()
