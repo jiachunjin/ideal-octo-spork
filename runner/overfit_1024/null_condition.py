@@ -104,3 +104,25 @@ def main(args):
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
+
+                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                        model.eval()
+                        state_dict = accelerator.unwrap_model(model).state_dict()
+                        save_path = os.path.join(output_dir, f"hybrid_dit-{config.train.exp_name}-{global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"hybrid_dit saved to {save_path}")
+
+                    accelerator.wait_for_everyone()
+
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/overfit_1024/null_condition.yaml")
+    args = parser.parse_args()
+    main(args)
