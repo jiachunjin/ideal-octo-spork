@@ -160,7 +160,7 @@ class HybridDiT(nn.Module):
 
         return x[:, self.config.seq_len:, :]
     
-    def forward_test(self, x_t, t, prefix):
+    def forward_test_null_condition(self, x_t, t, prefix):
         assert self.training is False
 
         B = x_t.shape[0]

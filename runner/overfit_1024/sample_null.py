@@ -26,8 +26,8 @@ scheduler.set_timesteps(50)
 
 @torch.no_grad()
 def sample_imagenet():
-    device = torch.device("cpu")
-    dtype = torch.float32
+    device = torch.device("cuda:0")
+    dtype = torch.float16
 
     # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_1024_null_condition"
     step = 5000
@@ -45,8 +45,8 @@ def sample_imagenet():
         for t in scheduler.timesteps:
             x_t = scheduler.scale_model_input(x_t, t)
             with torch.no_grad():
-                t = torch.as_tensor([t], device=device)
-                noise_pred = model.forward_test(x_t, t, prefix)
+                t_tensor = torch.as_tensor([t], device=device)
+                noise_pred = model.forward_test_null_condition(x_t, t_tensor, prefix)
                 x_t = scheduler.step(noise_pred, t, x_t).prev_sample
 
         return x_t
