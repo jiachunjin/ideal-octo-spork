@@ -27,7 +27,7 @@ def sample_imagenet():
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
 
     model = HybridDiT_256(config.hybrid_dit)
-    model.load_state_dict(torch.load(os.path.join(exp_dir, f"hybrid_dit-clip_dit-{step}"), map_location="cpu", weights_only=True), state_dict=True)
+    model.load_state_dict(torch.load(os.path.join(exp_dir, f"hybrid_dit-clip_dit-{step}"), map_location="cpu", weights_only=True), strict=True)
     model = model.to(device, dtype).eval()
 
     internvl = InternVLChatModel.from_pretrained(config.intern_vl_8b_path)
@@ -39,9 +39,9 @@ def sample_imagenet():
     feature_down_projector.load_state_dict(ckpt, strict=True)
     feature_down_projector = feature_down_projector.to(device, dtype).eval()
 
-    # ---------------------------------
-    # --------- load an image ---------
-    # ---------------------------------
+    # ----------------------------------------------------------------
+    # --------- load an image and make original clip feature ---------
+    # ----------------------------------------------------------------
     from PIL import Image
     import torchvision.transforms as pth_transforms
     from model.internvl import extract_feature_pre_adapter
@@ -57,11 +57,30 @@ def sample_imagenet():
     ])
 
     img = Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/imagenet_dog.png")
-
     img = transform(img)
     img = img.unsqueeze(0).to(device, dtype)
-
     x_clip = extract_feature_pre_adapter(internvl.vision_model, img)
 
-    print(x_clip.shape)
+    # ---------------------------------------------
+    # ----- produce hidden states by internvl -----
+    # ---------------------------------------------
 
+    B = x_clip.shape[0]
+    boi_embedding = internvl.language_model.get_input_embeddings()(torch.LongTensor([151665]).to(device)).unsqueeze(1).repeat(B, 1, 1)
+    img_embedding = internvl.mlp1(x_clip)
+    joint_embedding = torch.cat([boi_embedding, img_embedding], dim=1)
+    attention_mask = torch.ones_like(joint_embedding, dtype=torch.long)
+    hidden_states = internvl.language_model(
+        inputs_embeds        = joint_embedding,
+        attention_mask       = attention_mask,
+        output_hidden_states = True,
+    ).hidden_states[-1][:, :-1, :]
+
+    # --------------------------------------
+    # ----- sample 256x8 clip features -----
+    # --------------------------------------
+    
+
+
+if __name__ == "__main__":
+    sample_imagenet()

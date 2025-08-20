@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from einops import rearrange
 from timm.layers.mlp import Mlp
+from diffusers import DDPMScheduler
 from model.dit.standard_dit import TimestepEmbedder
 from model.dit.standard_dit import get_2d_sincos_pos_embed
 
@@ -67,13 +68,13 @@ class HybridDiT(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.x_embedder = nn.Linear(1024, config.hidden_size)
-        self.x_t_embedder = nn.Linear(1024, config.hidden_size)
-        self.y_embedder = nn.Linear(config.intern_hidden_size, config.hidden_size)
+        self.x_embedder = nn.Linear(config.in_channels, config.hidden_size)
+        self.x_t_embedder = nn.Linear(config.in_channels, config.hidden_size)
+        if config.use_condition:
+            self.y_embedder = nn.Linear(config.intern_hidden_size, config.hidden_size)
         self.t_embedder = TimestepEmbedder(config.hidden_size)
-        self.seq_len = config.seq_len
 
-        self.pos_embed = nn.Parameter(torch.randn(1, 1024, config.hidden_size), requires_grad=True)
+        self.pos_embed = nn.Parameter(torch.randn(1, config.seq_len, config.hidden_size), requires_grad=True)
 
         self.blocks = nn.ModuleList([
             HybridBlock(config.hidden_size, config.num_heads, mlp_ratio=4) for _ in range(config.depth)
@@ -82,13 +83,25 @@ class HybridDiT(nn.Module):
         self.final_layer = nn.Linear(config.hidden_size, config.out_channels)
 
         self.register_buffer("mask", self._create_attn_mask(config.seq_len, config.block_size))
-    
+
+        self.train_scheduler = DDPMScheduler(
+            beta_schedule          = "scaled_linear",
+            beta_start             = 0.00085,
+            beta_end               = 0.012,
+            num_train_timesteps    = 1000,
+            clip_sample            = False,
+            prediction_type        = "v_prediction",
+            steps_offset           = 1,
+            trained_betas          = None,
+            timestep_spacing       = "trailing",
+            rescale_betas_zero_snr = True
+        )
+
     def _create_attn_mask(self, seq_len, block_size):
         mask = torch.zeros(2 * seq_len, 2 * seq_len)
-        
-        # 创建块对角结构
+
         total_size = 2 * seq_len
-        num_blocks = (total_size + block_size - 1) // block_size  # 向上取整
+        num_blocks = int(seq_len / block_size * 2)
         
         for i in range(num_blocks):
             start_row = i * block_size
@@ -98,7 +111,6 @@ class HybridDiT(nn.Module):
             
             mask[start_row:end_row, start_col:end_col] = 1
 
-        # 把左下角的部分转成blockwise下三角，blocksize = block_size
         for i in range(num_blocks - 1):
             start_row = seq_len + (i+1) * block_size
             end_row = seq_len + (i+2) * block_size
@@ -107,14 +119,14 @@ class HybridDiT(nn.Module):
 
             mask[start_row:end_row, start_col:end_col] = 1
 
-        mask[mask == 0] = float('-inf')
+        mask[mask == 0] = float("-inf")
         mask[mask == 1] = 0
 
         mask = mask.unsqueeze(0).unsqueeze(0)
 
         return mask
 
-    def forward(self, x, x_t, y, t):
+    def forward(self, x, x_t, t, y=None):
         """
         only used for training
         x: (B, 1024, 1024), the clean clip tokens
@@ -123,23 +135,22 @@ class HybridDiT(nn.Module):
         t: (B, 256), the timesteps, the timesteps are the same within one block
         """
         assert self.training
-        x_embed = self.x_embedder(x) # (B, 1024, config.hidden_size)
-        y_embed = self.y_embedder(y) # (B, 256, config.hidden_size)
-        y_embed = y_embed.repeat_interleave(4, dim=1) # (B, 1024, config.hidden_size)
-
         B, _ = t.shape
-        t = rearrange(t, "b n -> (b n)")
+        t = rearrange(t, "B N -> (B N)")
         t_embed = self.t_embedder(t, x.dtype)
-        t_embed = rearrange(t_embed, "(b n) c -> b n c", b=B)
+        t_embed = rearrange(t_embed, "(B N) D -> B N D", B=B)
 
-        t_embed = t_embed.repeat_interleave(4, dim=1) # (B, 1024, config.hidden_size)
-        if self.config.condition_injection == "beginning":
-            x_t_embed = self.x_t_embedder(x_t) + y_embed + t_embed
-        else:
-            raise NotImplementedError
-        
-        x_embed = x_embed + self.pos_embed
-        x_t_embed = x_t_embed + self.pos_embed
+        t_embed = t_embed.repeat_interleave(self.config.block_size, dim=1) # (B, 1024, config.hidden_size)
+
+        x_embed = self.x_embedder(x) + self.pos_embed # (B, 1024, config.hidden_size)
+        x_t_embed = self.x_t_embedder(x_t) + t_embed + self.pos_embed
+
+        if self.config.use_condition:
+            assert y is not None
+            y_embed = self.y_embedder(y) # (B, 256, config.hidden_size)
+            y_embed = y_embed.repeat_interleave(self.config.block_size, dim=1) # (B, 1024, config.hidden_size)
+            x_t_embed = x_t_embed + y_embed
+
         x = torch.cat([x_embed, x_t_embed], dim=1)
 
         for block in self.blocks:
@@ -147,23 +158,21 @@ class HybridDiT(nn.Module):
         
         x = self.final_layer(x)
 
-        return x[:, self.seq_len:, :]
+        return x[:, self.config.seq_len:, :]
 
-    def block_wise_noising(self, x, train_scheduler):
+    def block_wise_noising(self, x):
         """
         add noise to x, the same noise for each block with size 4
         x: (B, 1024, 1024)
         """
-        B, seq_len, dim = x.shape
-        block_size = 4
-        num_blocks = 256
+        B, seq_len, _ = x.shape
+        block_size = self.config.block_size
+        num_blocks = seq_len // block_size
 
         # sample block-wise timesteps
         timesteps = torch.randint(0, 1000, (B, num_blocks), dtype=torch.int64, device=x.device)
 
         # sample block-wise noise and repeat within each block
-        # noise_block = torch.randn(B, num_blocks, dim, device=x.device, dtype=x.dtype)
-        # noise = noise_block.repeat_interleave(block_size, dim=1)  # (B, seq_len, dim)
         noise = torch.randn_like(x, device=x.device, dtype=x.dtype)
 
         # expand timesteps to per-token and flatten for scheduler API
@@ -172,8 +181,8 @@ class HybridDiT(nn.Module):
         noise_flat = rearrange(noise, "b n d -> (b n) d")
         t_flat = rearrange(timesteps_token, "b n -> (b n)")
 
-        noisy_flat = train_scheduler.add_noise(x_flat, noise_flat, t_flat)
-        target_flat = train_scheduler.get_velocity(x_flat, noise_flat, t_flat)
+        noisy_flat = self.train_scheduler.add_noise(x_flat, noise_flat, t_flat)
+        target_flat = self.train_scheduler.get_velocity(x_flat, noise_flat, t_flat)
 
         noisy_latents = rearrange(noisy_flat, "(b n) d -> b n d", b=B, n=seq_len)
         target = rearrange(target_flat, "(b n) d -> b n d", b=B, n=seq_len)
@@ -181,104 +190,96 @@ class HybridDiT(nn.Module):
         return noisy_latents, target, timesteps
 
 
-class HybridDiT_256(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.config = config
-        self.x_embedder = nn.Linear(config.in_channels, config.hidden_size)
-        self.x_t_embedder = nn.Linear(config.in_channels, config.hidden_size)
+# class HybridDiT_256(nn.Module):
+#     def __init__(self, config):
+#         super().__init__()
+#         self.config = config
+#         self.x_embedder = nn.Linear(config.in_channels, config.hidden_size)
+#         self.x_t_embedder = nn.Linear(config.in_channels, config.hidden_size)
 
-        self.y_embedder = nn.Linear(config.intern_hidden_size, config.hidden_size)
-        self.t_embedder = TimestepEmbedder(config.hidden_size)
+#         self.y_embedder = nn.Linear(config.intern_hidden_size, config.hidden_size)
+#         self.t_embedder = TimestepEmbedder(config.hidden_size)
 
-        self.pos_embed = nn.Parameter(torch.randn(1, config.seq_len, config.hidden_size), requires_grad=False)
-        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(config.seq_len ** 0.5))
-        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+#         self.pos_embed = nn.Parameter(torch.randn(1, config.seq_len, config.hidden_size), requires_grad=False)
+#         pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(config.seq_len ** 0.5))
+#         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-        self.blocks = nn.ModuleList([
-            HybridBlock(config.hidden_size, config.num_heads, mlp_ratio=4) for _ in range(config.depth)
-        ])
+#         self.blocks = nn.ModuleList([
+#             HybridBlock(config.hidden_size, config.num_heads, mlp_ratio=4) for _ in range(config.depth)
+#         ])
 
-        self.final_layer = nn.Linear(config.hidden_size, config.out_channels)
+#         self.final_layer = nn.Linear(config.hidden_size, config.out_channels)
 
-        self.register_buffer("mask", self._create_attn_mask(config.seq_len))
+#         self.register_buffer("mask", self._create_attn_mask(config.seq_len))
 
-    def _create_attn_mask(self, seq_len):
-        mask = torch.eye(2 * seq_len)
-        mask[seq_len+1:, :seq_len-1] = torch.tril(torch.ones(seq_len-1, seq_len-1))
-        mask[mask == 0] = float('-inf')
-        mask[mask == 1] = 0
+#     def _create_attn_mask(self, seq_len):
+#         mask = torch.eye(2 * seq_len)
+#         mask[seq_len+1:, :seq_len-1] = torch.tril(torch.ones(seq_len-1, seq_len-1))
+#         mask[mask == 0] = float('-inf')
+#         mask[mask == 1] = 0
 
-        mask = mask.unsqueeze(0).unsqueeze(0)
+#         mask = mask.unsqueeze(0).unsqueeze(0)
 
-        return mask
+#         return mask
     
-    def forward(self, x, x_t, y, t):
-        assert self.training
-        B, L, _ = x.shape
-        x_embed = self.x_embedder(x) # (B, 256, config.hidden_size)
-        x_t_embed = self.x_t_embedder(x_t) # (B, 256, config.hidden_size)
-        y_embed = self.y_embedder(y) # (B, 256, config.hidden_size)
-        t = rearrange(t, "b n -> (b n)")
-        t_embed = self.t_embedder(t, x.dtype)
-        t_embed = rearrange(t_embed, "(b n) c -> b n c", b=B)
+#     def forward(self, x, x_t, y, t):
+#         assert self.training
+#         B, L, _ = x.shape
+#         x_embed = self.x_embedder(x) # (B, 256, config.hidden_size)
+#         x_t_embed = self.x_t_embedder(x_t) # (B, 256, config.hidden_size)
+#         y_embed = self.y_embedder(y) # (B, 256, config.hidden_size)
+#         t = rearrange(t, "b n -> (b n)")
+#         t_embed = self.t_embedder(t, x.dtype)
+#         t_embed = rearrange(t_embed, "(b n) c -> b n c", b=B)
 
-        x_t_embed = x_t_embed + y_embed + t_embed
+#         x_t_embed = x_t_embed + y_embed + t_embed
 
-        x_embed = x_embed + self.pos_embed
-        x_t_embed = x_t_embed + self.pos_embed
+#         x_embed = x_embed + self.pos_embed
+#         x_t_embed = x_t_embed + self.pos_embed
 
-        x = torch.cat([x_embed, x_t_embed], dim=1)
-        for block in self.blocks:
-            x = block(x, mask=self.mask)
+#         x = torch.cat([x_embed, x_t_embed], dim=1)
+#         for block in self.blocks:
+#             x = block(x, mask=self.mask)
         
-        x = self.final_layer(x)
+#         x = self.final_layer(x)
 
-        return x[:, self.config.seq_len:, :]
+#         return x[:, self.config.seq_len:, :]
     
-    def block_wise_noising(self, x, train_scheduler):
-        B, L, _ = x.shape
-        timesteps = torch.randint(0, 1000, (B, L), dtype=torch.int64, device=x.device)
-        noise = torch.randn_like(x, device=x.device, dtype=x.dtype)
+#     def block_wise_noising(self, x, train_scheduler):
+#         B, L, _ = x.shape
+#         timesteps = torch.randint(0, 1000, (B, L), dtype=torch.int64, device=x.device)
+#         noise = torch.randn_like(x, device=x.device, dtype=x.dtype)
 
-        t_flat = rearrange(timesteps, "B L -> (B L)")
-        x_flat = rearrange(x, "B L D -> (B L) D")
-        noise_flat = rearrange(noise, "B L D -> (B L) D")
+#         t_flat = rearrange(timesteps, "B L -> (B L)")
+#         x_flat = rearrange(x, "B L D -> (B L) D")
+#         noise_flat = rearrange(noise, "B L D -> (B L) D")
 
-        noisy_flat = train_scheduler.add_noise(x_flat, noise_flat, t_flat)
-        target_flat = train_scheduler.get_velocity(x_flat, noise_flat, t_flat)
+#         noisy_flat = train_scheduler.add_noise(x_flat, noise_flat, t_flat)
+#         target_flat = train_scheduler.get_velocity(x_flat, noise_flat, t_flat)
 
-        noisy_latents = rearrange(noisy_flat, "(B L) D -> B L D", B=B, L=L)
-        target = rearrange(target_flat, "(B L) D -> B L D", B=B, L=L)
+#         noisy_latents = rearrange(noisy_flat, "(B L) D -> B L D", B=B, L=L)
+#         target = rearrange(target_flat, "(B L) D -> B L D", B=B, L=L)
 
-        return noisy_latents, target, timesteps
+#         return noisy_latents, target, timesteps
 
 if __name__ == "__main__":
     from omegaconf import OmegaConf
     from diffusers import DDPMScheduler
 
-    config = OmegaConf.load("config/intern_hybrid/hybrid_256.yaml")
-    model = HybridDiT_256(config.hybrid_dit)
+    config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
+    model = HybridDiT(config.hybrid_dit)
 
     B = 3
-    x = torch.randn(B, 256, 8)
-    # x_t = torch.randn(B, 1024, 1024)
-    y = torch.randn(B, 256, config.hybrid_dit.intern_hidden_size)
-    # t = torch.randint(0, 1000, (B, 256))
+    x = torch.randn(B, 1024, 1024)
+    x_t = torch.randn(B, 1024, 1024)
+    t = torch.randint(0, 1000, (B, 256))
+    y = None
+
+    out = model(x, x_t, t, y)
+    print(out.shape)
+    
     # out = model(x, x_t, y, t)
     # print(out.shape)
-    train_scheduler = DDPMScheduler(
-        beta_schedule          = "scaled_linear",
-        beta_start             = 0.00085,
-        beta_end               = 0.012,
-        num_train_timesteps    = 1000,
-        clip_sample            = False,
-        prediction_type        = "v_prediction",
-        steps_offset           = 1,
-        trained_betas          = None,
-        timestep_spacing       = "trailing",
-        rescale_betas_zero_snr = True
-    )
 
-    noisy_latents, target, timesteps = model.block_wise_noising(x, train_scheduler)
-    print(noisy_latents.shape, target.shape, timesteps.shape)
+    noisy_latents, target, timesteps = model.block_wise_noising(x)
+    # print(noisy_latents.shape, target.shape, timesteps.shape)
