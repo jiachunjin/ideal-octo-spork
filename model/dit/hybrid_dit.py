@@ -159,6 +159,41 @@ class HybridDiT(nn.Module):
         x = self.final_layer(x)
 
         return x[:, self.config.seq_len:, :]
+    
+    def forward_test(self, x_t, t, prefix):
+        assert self.training is False
+
+        B = x_t.shape[0]
+
+        t = t.unsqueeze(0)
+        t = rearrange(t, "B N -> (B N)")
+        t_embed = self.t_embedder(t, x_t.dtype)
+        t_embed = rearrange(t_embed, "(B N) D -> B N D", B=B)
+        t_embed = t_embed.repeat_interleave(self.config.block_size, dim=1)
+
+        if prefix.shape[1] == 0:
+            curr_pos = 0
+            x = self.x_t_embedder(x_t) + t_embed + self.pos_embed[:, curr_pos:curr_pos+self.config.block_size, :]
+
+            # mask = torch.zeros(self.config.block_size, self.config.block_size, device=x_t.device, dtype=x_t.dtype).unsqueeze(0).unsqueeze(0)
+            for block in self.blocks:
+                x = block(x, mask=None)
+            x = self.final_layer(x)
+
+            return x
+        else:
+            curr_pos = prefix.shape[1]
+            x_t_embed = self.x_t_embedder(x_t) + t_embed + self.pos_embed[:, curr_pos:curr_pos+self.config.block_size, :] 
+
+            x_embed = self.x_embedder(prefix) + self.pos_embed[:, :curr_pos, :]
+            x = torch.cat([x_embed, x_t_embed], dim=1)
+
+            # mask = torch.zeros(curr_pos + self.config.block_size, curr_pos + self.config.block_size, device=x_t.device, dtype=x_t.dtype).unsqueeze(0).unsqueeze(0)
+            for block in self.blocks:
+                x = block(x, mask=None)
+            x = self.final_layer(x)
+
+            return x[:, curr_pos:, :]
 
     def block_wise_noising(self, x):
         """
