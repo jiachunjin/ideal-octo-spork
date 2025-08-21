@@ -16,6 +16,7 @@ from transformers import (AutoModel, GenerationConfig, LlamaForCausalLM,
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import ModelOutput, logging
+from einops import rearrange
 
 from .configuration_internvl_chat import InternVLChatConfig
 from .conversation import get_conv_template
@@ -310,7 +311,7 @@ class InternVLChatModel(PreTrainedModel):
         generation_config['eos_token_id'] = eos_token_id
 
         # ---------- make visual features here ----------
-        # TODO: 
+        clip_feature = rearrange(clip_feature, 'b (h w) c-> b h w c', h=32, w=32)
         vit_embeds = self.pixel_shuffle(clip_feature, scale_factor=self.downsample_ratio)
         vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
         visual_features = self.mlp1(vit_embeds)
