@@ -1,11 +1,11 @@
 machine: ks
 
 hybrid_dit:
-  use_condition: false
   in_channels: 1024
   out_channels: 1024
   seq_len: 1024
   block_size: 4
+  num_classes: 1000
 
   hidden_size: 2048
   num_heads: 16
@@ -18,11 +18,11 @@ train:
 
   exp_name: &exp_name clip_1024
   wandb_proj: *exp_name
-  output_dir: 0820_overfit_1024_null_condition
+  output_dir: 0820_overfit_1024_null_condition_50000
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: wandb
+  report_to: null
 
   lr: 1e-4
   num_iter: 200000
@@ -32,7 +32,7 @@ data:
   wds_path: [/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds]
   num_train_examples: 1331167
   img_size: 448
-  buffer_size: 10000
-  batch_size: 64
+  buffer_size: 100
+  batch_size: 25
   num_workers: 8
   cfg_drop_rate: 0.1

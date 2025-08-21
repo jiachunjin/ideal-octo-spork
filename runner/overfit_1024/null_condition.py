@@ -11,7 +11,8 @@ from omegaconf import OmegaConf
 from util.misc import process_pretrained_model_path, flatten_dict
 from util.my_tool_box import get_accelerator, get_wds_dataloader
 from model.internvl.modeling_internvl_chat import InternVLChatModel
-from model.dit.hybrid_dit import HybridDiT
+# from model.dit.hybrid_dit import HybridDiT
+from model.dit.hybrid_dit_conditional import HybridDiT_Class
 from model.internvl import extract_feature_pre_adapter
 
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -26,7 +27,7 @@ def main(args):
     accelerator, output_dir = get_accelerator(config)
 
     vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
-    model = HybridDiT(config.hybrid_dit)
+    model = HybridDiT_Class(config.hybrid_dit)
 
     params_to_learn = list(p for p in model.parameters() if p.requires_grad)
     optimizer = torch.optim.AdamW(
@@ -86,7 +87,7 @@ def main(args):
 
                 x_t, target, timesteps = model.block_wise_noising(x_clip)
 
-                pred = model(x_clip, x_t, timesteps)
+                pred = model(x_clip, x_t, timesteps, y)
 
                 loss = torch.nn.functional.mse_loss(pred, target)
                 accelerator.backward(loss)
