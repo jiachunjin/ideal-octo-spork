@@ -116,15 +116,24 @@ class HybridDiT_Class(nn.Module):
         t_embed = self.t_embedder(t, x_t.dtype).repeat(B, 1)
         y_embed = self.y_embedder(y)
         c = t_embed + y_embed
-        c = c.unsqueeze(1)
+        c = c.unsqueeze(1).repeat(1, self.config.block_size, 1)
 
         curr_pos = prefix.shape[1]
         x_embed = self.x_embedder(prefix) + self.pos_embed[:, :curr_pos, :]
         x_t_embed = self.x_t_embedder(x_t) + self.pos_embed[:, curr_pos:curr_pos+self.config.block_size, :]
 
-        # print(x_embed.shape, x_t_embed.shape)
+        c = torch.cat([torch.zeros_like(x_embed), c], dim=1)
         x = torch.cat([x_embed, x_t_embed], dim=1)
 
+        mask = torch.zeros((curr_pos + 4, curr_pos + 4), device=x.device)
+        prefix_blocks = curr_pos // 4
+        for i in range(prefix_blocks):
+            mask[i*4:(i+1)*4, i*4:(i+1)*4] = 1
+        mask[-4:, :] = 1
+        mask[mask == 0] = float("-inf")
+        mask[mask == 1] = 0
+        mask = mask.unsqueeze(0).unsqueeze(0)
+        
         for block in self.blocks:
             x = block(x, c, mask=None)
         x = self.final_layer(x, c)

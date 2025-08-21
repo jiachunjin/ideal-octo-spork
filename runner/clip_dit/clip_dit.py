@@ -51,7 +51,7 @@ def get_wds_dataloader(config, accelerator):
 
     urls = []
     for path in config.wds_path:
-        urls.extend(glob.glob(os.path.join(path, "*.tar")))
+        urls.extend(glob.glob(os.path.join(path, "*validation*.tar")))
     accelerator.print(f"Found tar files: {len(urls)}")
 
     pre_transform = pth_transforms.Compose([

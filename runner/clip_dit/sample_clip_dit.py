@@ -20,10 +20,11 @@ def sample_imagenet():
     # load dit
     # exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_256_8"
     # exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_256_8_norm"
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_2048"
+    # exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_2048"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_1024_1024_12_validation"
     exp_name = exp_dir.split("/")[-1]
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    step = 50000
+    step = 2000
 
     dit_model = DiT(config.dit)
     dit_model.load_state_dict(torch.load(os.path.join(exp_dir, f"dit-clip_dit-{step}"), map_location="cpu", weights_only=True))
@@ -69,7 +70,7 @@ def sample_imagenet():
     scheduler.set_timesteps(50)
 
     B = 16
-    cfg_scale = 4.  # 支持CFG，设置为1.0即为无CFG
+    cfg_scale = 2.  # 支持CFG，设置为1.0即为无CFG
     x = torch.randn((B, config.dit.num_tokens, config.dit.in_channels), device=device, dtype=dtype)
     label = 22
     y = torch.as_tensor([label]*B, device=device).long()
