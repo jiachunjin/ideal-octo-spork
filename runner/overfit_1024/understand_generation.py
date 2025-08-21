@@ -12,10 +12,9 @@ def understand_generation():
     device = torch.device("cuda:7")
     dtype = torch.float16
 
-    clip_feature = torch.load("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/clip_dit/0820_overfit_dog_6000_dog_clip.pt")
-    clip_feature = clip_feature.to(device, dtype)
-    print(clip_feature.shape)
-    clip_feature = clip_feature[0].unsqueeze(0)
+    clip_features = torch.load("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/clip_dit/0820_overfit_dog_8000_dog_clip.pt")
+    clip_features = clip_features.to(device, dtype)
+    print(clip_features.shape)
 
     internvl_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-8B"
     internvl = InternVLChatModel.from_pretrained(internvl_path)
@@ -24,10 +23,11 @@ def understand_generation():
     tokenizer = AutoTokenizer.from_pretrained(internvl_path, trust_remote_code=True, use_fast=False)
     generation_config = dict(max_new_tokens=1024, do_sample=True)
 
-    question = '<image>\nPlease describe the image in detail.'
-    response = internvl.chat_with_clip(tokenizer, clip_feature, question, generation_config)
-    print(f'User: {question}\nAssistant: {response}')
-
+    for i in range(clip_features.shape[0]):
+        clip_feature = clip_features[i].unsqueeze(0)
+        question = '<image>\nPlease describe the image in detail.'
+        response = internvl.chat_with_clip(tokenizer, clip_feature, question, generation_config)
+        print(f'User: {question}\nAssistant: {response}')
 
 
 if __name__ == "__main__":

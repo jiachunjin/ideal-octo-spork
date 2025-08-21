@@ -317,7 +317,7 @@ class InternVLChatModel(PreTrainedModel):
         visual_features = self.mlp1(vit_embeds)
 
         generation_output = self.generate(
-            # pixel_values=pixel_values,
+            pixel_values=visual_features,
             visual_features=visual_features,
             input_ids=input_ids,
             attention_mask=attention_mask,
