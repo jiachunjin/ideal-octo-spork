@@ -277,9 +277,9 @@ class InternVLChatModel(PreTrainedModel):
         if history is None and clip_feature is not None and '<image>' not in question:
             question = '<image>\n' + question
 
-        # if num_patches_list is None:
-        #     num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
-        # assert pixel_values is None or len(pixel_values) == sum(num_patches_list)
+        if num_patches_list is None:
+            num_patches_list = [clip_feature.shape[0]] if clip_feature is not None else []
+        assert clip_feature is None or len(clip_feature) == sum(num_patches_list)
 
         img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
         self.img_context_token_id = img_context_token_id
