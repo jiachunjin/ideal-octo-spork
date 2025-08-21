@@ -29,18 +29,18 @@ scheduler.set_timesteps(50)
 
 @torch.no_grad()
 def sample_imagenet():
-    device = torch.device("cpu")
+    device = torch.device("cuda:0")
     dtype = torch.float16
 
     # ---------- load model ----------
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_1024_with_condition"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_1024_null_condition_50000"
     exp_name = exp_dir.split("/")[-1]
     step = 5000
 
-    # config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
+    config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
+    # config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
     model = HybridDiT_Class(config.hybrid_dit)
-    # model.load_state_dict(torch.load(os.path.join(exp_dir, f"hybrid_dit-{config.train.exp_name}-{step}"), map_location="cpu", weights_only=True))
+    model.load_state_dict(torch.load(os.path.join(exp_dir, f"hybrid_dit-{config.train.exp_name}-{step}"), map_location="cpu", weights_only=True))
     model = model.to(device, dtype).eval()
 
     ...
@@ -63,9 +63,15 @@ def sample_imagenet():
             with torch.no_grad():
                 t_tensor = torch.as_tensor([t], device=device)
                 noise_pred = model.forward_test(x_t, t_tensor, prefix, y_cfg)
-                x_t = scheduler.step(noise_pred, t, x_t).prev_sample
+                
+                noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2, dim=0)
+                noise_pred = noise_pred_uncond + cfg_scale * (noise_pred_cond - noise_pred_uncond)
 
-        return x_t
+                x_out = x_t[:B]
+                x_out = scheduler.step(noise_pred, t, x_out).prev_sample
+                x_t = torch.cat([x_out, x_out], dim=0)
+
+        return x_t[:B]
 
     B = 4
     label = torch.tensor([22]*B, dtype=torch.int64, device=device)
@@ -73,8 +79,9 @@ def sample_imagenet():
     x_clip = torch.empty((B, 0, 1024), device=device, dtype=dtype)
     for i in trange(256):
         x_clip_block = sample_one_clip_block(model, x_clip, label)
+        print(x_clip_block.shape)
         x_clip = torch.cat([x_clip, x_clip_block], dim=1)
-    
+
     print(x_clip.shape)
 
 
