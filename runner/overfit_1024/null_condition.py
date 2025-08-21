@@ -12,7 +12,7 @@ from util.misc import process_pretrained_model_path, flatten_dict
 from util.my_tool_box import get_accelerator, get_wds_dataloader
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 # from model.dit.hybrid_dit import HybridDiT
-from model.dit.hybrid_dit_conditional import HybridDiT_Class
+from model.overfit_1024.hybrid_dit_class import HybridDiT_Class
 from model.internvl import extract_feature_pre_adapter
 
 torch.backends.cuda.matmul.allow_tf32 = True

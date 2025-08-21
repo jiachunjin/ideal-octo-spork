@@ -103,6 +103,34 @@ class HybridDiT_Class(nn.Module):
 
         return x[:, self.config.seq_len:, :]
 
+    def forward_test(self, x_t, t, prefix, y):
+        """
+        x_t: (B, 4, 1024)
+        t: (1,)
+        prefix: (B, ?, 1024)
+        y: (B,)
+        """
+        assert self.training is False
+        B = x_t.shape[0]
+
+        t_embed = self.t_embedder(t, x_t.dtype).repeat(B, 1)
+        y_embed = self.y_embedder(y)
+        c = t_embed + y_embed
+        c = c.unsqueeze(1)
+
+        curr_pos = prefix.shape[1]
+        x_embed = self.x_embedder(prefix) + self.pos_embed[:, :curr_pos, :]
+        x_t_embed = self.x_t_embedder(x_t) + self.pos_embed[:, curr_pos:curr_pos+self.config.block_size, :]
+
+        # print(x_embed.shape, x_t_embed.shape)
+        x = torch.cat([x_embed, x_t_embed], dim=1)
+
+        for block in self.blocks:
+            x = block(x, c, mask=None)
+        x = self.final_layer(x, c)
+
+        return x[:, curr_pos:, :]
+
     def block_wise_noising(self, x):
         """
         add noise to x, the same noise for each block with size 4
