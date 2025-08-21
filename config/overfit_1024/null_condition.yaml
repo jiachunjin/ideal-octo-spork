@@ -7,9 +7,9 @@ hybrid_dit:
   block_size: 4
   num_classes: 1000
 
-  hidden_size: 1024
-  num_heads: 8
-  depth: 8
+  hidden_size: 2048
+  num_heads: 24
+  depth: 24
 
 train:
   root: null
@@ -18,7 +18,7 @@ train:
 
   exp_name: &exp_name clip_1024
   wandb_proj: *exp_name
-  output_dir: 0820_overfit_dog
+  output_dir: 0821_imagenet_class_conditional
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
@@ -26,13 +26,13 @@ train:
 
   lr: 1e-4
   num_iter: 200000
-  save_every: 5000
+  save_every: 2000
 
 data:
   wds_path: [/data/phd/jinjiachun/dataset/timm/imagenet-1k-wds]
   num_train_examples: 1331167
   img_size: 448
   buffer_size: 100
-  batch_size: 25
+  batch_size: 5
   num_workers: 8
   cfg_drop_rate: 0.1
