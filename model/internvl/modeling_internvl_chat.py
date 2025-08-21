@@ -269,6 +269,70 @@ class InternVLChatModel(PreTrainedModel):
         responses = tokenizer.batch_decode(generation_output, skip_special_tokens=True)
         responses = [response.split(template.sep.strip())[0].strip() for response in responses]
         return responses
+    
+    def chat_with_clip(self, tokenizer, clip_feature, question, generation_config, history=None, return_history=False,
+             num_patches_list=None, IMG_START_TOKEN='<img>', IMG_END_TOKEN='</img>', IMG_CONTEXT_TOKEN='<IMG_CONTEXT>',
+             verbose=False):
+
+        if history is None and clip_feature is not None and '<image>' not in question:
+            question = '<image>\n' + question
+
+        # if num_patches_list is None:
+        #     num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
+        # assert pixel_values is None or len(pixel_values) == sum(num_patches_list)
+
+        img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
+        self.img_context_token_id = img_context_token_id
+
+        template = get_conv_template(self.template)
+        template.system_message = self.system_message
+        eos_token_id = tokenizer.convert_tokens_to_ids(template.sep.strip())
+
+        history = [] if history is None else history
+        for (old_question, old_answer) in history:
+            template.append_message(template.roles[0], old_question)
+            template.append_message(template.roles[1], old_answer)
+        template.append_message(template.roles[0], question)
+        template.append_message(template.roles[1], None)
+        query = template.get_prompt()
+
+        if verbose and clip_feature is not None:
+            image_bs = clip_feature.shape[0]
+            print(f'dynamic ViT batch size: {image_bs}')
+
+        for num_patches in num_patches_list:
+            image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * self.num_image_token * num_patches + IMG_END_TOKEN
+            query = query.replace('<image>', image_tokens, 1)
+
+        model_inputs = tokenizer(query, return_tensors='pt')
+        input_ids = model_inputs['input_ids'].to(self.device)
+        attention_mask = model_inputs['attention_mask'].to(self.device)
+        generation_config['eos_token_id'] = eos_token_id
+
+        # ---------- make visual features here ----------
+        # TODO: 
+        vit_embeds = self.pixel_shuffle(clip_feature, scale_factor=self.downsample_ratio)
+        vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
+        visual_features = self.mlp1(vit_embeds)
+
+        generation_output = self.generate(
+            # pixel_values=pixel_values,
+            visual_features=visual_features,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            **generation_config
+        )
+        response = tokenizer.batch_decode(generation_output, skip_special_tokens=True)[0]
+        response = response.split(template.sep.strip())[0].strip()
+        history.append((question, response))
+        if return_history:
+            return response, history
+        else:
+            query_to_print = query.replace(IMG_CONTEXT_TOKEN, '')
+            query_to_print = query_to_print.replace(f'{IMG_START_TOKEN}{IMG_END_TOKEN}', '<image>')
+            if verbose:
+                print(query_to_print, response)
+            return response
 
     def chat(self, tokenizer, pixel_values, question, generation_config, history=None, return_history=False,
              num_patches_list=None, IMG_START_TOKEN='<img>', IMG_END_TOKEN='</img>', IMG_CONTEXT_TOKEN='<IMG_CONTEXT>',
