@@ -47,7 +47,7 @@ def main(args):
     else:
         dtype = torch.float32
 
-    dataloader = get_wds_dataloader(config.data, accelerator)
+    # dataloader = get_wds_dataloader(config.data, accelerator)
     model, optimizer = accelerator.prepare(model, optimizer)
     vision_model = vision_model.to(accelerator.device, dtype).eval()
 
@@ -72,50 +72,69 @@ def main(args):
     imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
     imagenet_std = torch.tensor(IMAGENET_STD, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
 
+    # make a batch here
+    from PIL import Image
+    import torchvision.transforms as pth_transforms
+
+    pre_transform = pth_transforms.Compose([
+        pth_transforms.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+        pth_transforms.Resize(config.data.img_size, max_size=None),
+        pth_transforms.CenterCrop(config.data.img_size),
+        pth_transforms.ToTensor(),
+    ])
+
+    x = Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/imagenet_dog.png")
+    x = pre_transform(x)
+    x = x.unsqueeze(0).repeat(config.data.batch_size, 1, 1, 1)
+    x = (x - imagenet_mean) / imagenet_std
+    y = torch.tensor([1000]*config.data.batch_size, dtype=torch.long, device=accelerator.device)
+
+    accelerator.print("data shape: ", x.shape, y.shape)
+
     while not training_done:
-        for batch in dataloader:
-            with accelerator.accumulate([model]):
-                model.train()
-                x = batch["pixel_values"].to(accelerator.device, dtype)
-                y = batch["labels"].to(accelerator.device)
-                x = (x - imagenet_mean) / imagenet_std
+        # for batch in dataloader:
+        with accelerator.accumulate([model]):
+            model.train()
+            # x = batch["pixel_values"].to(accelerator.device, dtype)
+            # y = batch["labels"].to(accelerator.device)
+            # x = (x - imagenet_mean) / imagenet_std
 
-                with torch.no_grad():
-                    B = x.shape[0]
-                    x_clip_condensed = extract_feature_pre_adapter(vision_model, x) # (B, 256, 4096)
-                    x_clip = rearrange(x_clip_condensed, "b t (s d) -> b (t s) d", s=4, d=1024) # (B, 1024, 1024)
+            with torch.no_grad():
+                B = x.shape[0]
+                x_clip_condensed = extract_feature_pre_adapter(vision_model, x) # (B, 256, 4096)
+                x_clip = rearrange(x_clip_condensed, "b t (s d) -> b (t s) d", s=4, d=1024) # (B, 1024, 1024)
 
-                x_t, target, timesteps = model.block_wise_noising(x_clip)
+            x_t, target, timesteps = model.block_wise_noising(x_clip)
 
-                pred = model(x_clip, x_t, timesteps, y)
+            pred = model(x_clip, x_t, timesteps, y)
 
-                loss = torch.nn.functional.mse_loss(pred, target)
-                accelerator.backward(loss)
+            loss = torch.nn.functional.mse_loss(pred, target)
+            accelerator.backward(loss)
 
-                if accelerator.sync_gradients:
-                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
-                    optimizer.step()
-                    optimizer.zero_grad()
+            if accelerator.sync_gradients:
+                accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                optimizer.step()
+                optimizer.zero_grad()
 
-                    global_step += 1
-                    progress_bar.update(1)
+                global_step += 1
+                progress_bar.update(1)
 
-                    logs = dict(
-                        clip_loss = accelerator.gather(loss.detach()).mean().item(),
-                    )
-                    accelerator.log(logs, step=global_step)
-                    progress_bar.set_postfix(**logs)
+                logs = dict(
+                    clip_loss = accelerator.gather(loss.detach()).mean().item(),
+                )
+                accelerator.log(logs, step=global_step)
+                progress_bar.set_postfix(**logs)
 
-                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
-                        model.eval()
-                        state_dict = accelerator.unwrap_model(model).state_dict()
-                        save_path = os.path.join(output_dir, f"hybrid_dit-{config.train.exp_name}-{global_step}")
-                        torch.save(state_dict, save_path)
-                        print(f"hybrid_dit saved to {save_path}")
+                if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                    model.eval()
+                    state_dict = accelerator.unwrap_model(model).state_dict()
+                    save_path = os.path.join(output_dir, f"hybrid_dit-{config.train.exp_name}-{global_step}")
+                    torch.save(state_dict, save_path)
+                    print(f"hybrid_dit saved to {save_path}")
 
-                    accelerator.wait_for_everyone()
+                accelerator.wait_for_everyone()
 
-        epoch += 1
+        # epoch += 1
         accelerator.print(f"epoch {epoch}: finished")
         accelerator.log({"epoch": epoch}, step=global_step)
 

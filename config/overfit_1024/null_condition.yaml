@@ -7,9 +7,9 @@ hybrid_dit:
   block_size: 4
   num_classes: 1000
 
-  hidden_size: 2048
-  num_heads: 16
-  depth: 16
+  hidden_size: 1024
+  num_heads: 8
+  depth: 8
 
 train:
   root: null
@@ -18,7 +18,7 @@ train:
 
   exp_name: &exp_name clip_1024
   wandb_proj: *exp_name
-  output_dir: 0820_overfit_1024_null_condition_50000
+  output_dir: 0820_overfit_dog
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
