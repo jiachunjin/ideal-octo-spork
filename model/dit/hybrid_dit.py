@@ -303,6 +303,8 @@ if __name__ == "__main__":
 
     config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
     model = HybridDiT(config.hybrid_dit)
+    num_params = sum(p.numel() for p in model.parameters())
+    print(f"Number of parameters: {num_params / 1e6:.2f}M")
 
     B = 3
     x = torch.randn(B, 1024, 1024)

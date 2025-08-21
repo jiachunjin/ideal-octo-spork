@@ -101,6 +101,33 @@ class HybridDiT_AdaLN(nn.Module):
         x = self.final_layer(x, c)
 
         return x[:, self.config.seq_len:, :]
+    
+    def forward_test_with_condition(self, x_t, t, y, prefix):
+        assert self.training is False
+        B = x_t.shape[0]
+
+        t = t.unsqueeze(0)
+        t = rearrange(t, "B N -> (B N)")
+        t_embed = self.t_embedder(t, x_t.dtype)
+        t_embed = rearrange(t_embed, "(B N) D -> B N D", B=B)
+        t_embed = t_embed.repeat_interleave(self.config.block_size, dim=1)
+
+        y_embed = self.y_embedder(y)
+        y_embed = y_embed.repeat_interleave(self.config.block_size, dim=1) # (B, 1024, D)
+        c = t_embed + y_embed
+
+        curr_pos = prefix.shape[1]
+        x_embed = self.x_embedder(prefix) + self.pos_embed[:, :curr_pos, :]
+        x_t_embed = self.x_t_embedder(x_t) + self.pos_embed[:, curr_pos:curr_pos+self.config.block_size, :]
+        x = torch.cat([x_embed, x_t_embed], dim=1)
+        c = torch.cat([torch.zeros_like(x_embed), c], dim=1)
+
+        for block in self.blocks:
+            x = block(x, c, mask=None)
+
+        x = self.final_layer(x, c)
+
+        return x[:, curr_pos:, :]
 
     def block_wise_noising(self, x):
         """

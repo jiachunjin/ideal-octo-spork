@@ -34,7 +34,7 @@ def sample_imagenet():
 
     exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_1024_null_condition"
     exp_name = exp_dir.split("/")[-1]
-    step = 5000
+    step = 30000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     # config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
