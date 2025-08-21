@@ -86,8 +86,9 @@ def main(args):
     x = Image.open("/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/imagenet_dog.png")
     x = pre_transform(x)
     x = x.unsqueeze(0).repeat(config.data.batch_size, 1, 1, 1)
+    x = x.to(accelerator.device, dtype)
     x = (x - imagenet_mean) / imagenet_std
-    y = torch.tensor([1000]*config.data.batch_size, dtype=torch.long, device=accelerator.device)
+    y = torch.tensor([1000]*config.data.batch_size, dtype=torch.int64, device=accelerator.device)
 
     accelerator.print("data shape: ", x.shape, y.shape)
 
@@ -135,8 +136,8 @@ def main(args):
                 accelerator.wait_for_everyone()
 
         # epoch += 1
-        accelerator.print(f"epoch {epoch}: finished")
-        accelerator.log({"epoch": epoch}, step=global_step)
+        # accelerator.print(f"epoch {epoch}: finished")
+        # accelerator.log({"epoch": epoch}, step=global_step)
 
     accelerator.end_training()
 
