@@ -93,6 +93,8 @@ class HybridDiT_Class(nn.Module):
         )
 
     def forward(self, x, x_t, t, y):
+        print(x.shape, x_t.shape, t.shape, y.shape)
+        exit(0)
         assert self.training
         B, _ = t.shape
         t = rearrange(t, "B N -> (B N)")
