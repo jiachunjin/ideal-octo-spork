@@ -25,7 +25,7 @@ scheduler = DDIMScheduler(
     timestep_spacing       = "trailing",
     rescale_betas_zero_snr = True
 )
-scheduler.set_timesteps(50)
+scheduler.set_timesteps(25)
 
 def block_sequence_to_row_major(sequence, n):
     """
@@ -116,15 +116,15 @@ def block_sequence_to_row_major_tensor(tokens: torch.Tensor, n: int) -> torch.Te
 
 @torch.no_grad()
 def sample_imagenet():
-    device = torch.device("cuda:7")
+    device = torch.device("cuda:3")
     dtype = torch.float16
 
     # ---------- load model ----------
     # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_1024_null_condition_50000"
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_dog"
-    # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0821_imagenet_class_conditional"
+    # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_dog"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0821_imagenet_class_conditional"
     exp_name = exp_dir.split("/")[-1]
-    step = 10000
+    step = 45000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     # config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
@@ -218,8 +218,8 @@ def sample_imagenet():
             return x_t[:B], None
 
     B = 4
-    cfg_scale = 1.0
-    label = 1000
+    cfg_scale = 1.5
+    label = 980
     y = torch.tensor([label]*B, dtype=torch.int64, device=device)
 
     x_clip = torch.empty((B, 0, 1024), device=device, dtype=dtype)

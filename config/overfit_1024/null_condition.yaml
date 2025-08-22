@@ -13,8 +13,8 @@ hybrid_dit:
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: "/data/phd/jinjiachun/experiment/clip_1024/0821_imagenet_class_conditional/hybrid_dit-clip_1024-30000"
+  global_step: 30000
 
   exp_name: &exp_name clip_1024
   wandb_proj: *exp_name
@@ -33,6 +33,6 @@ data:
   num_train_examples: 1331167
   img_size: 448
   buffer_size: 70000
-  batch_size: 16
+  batch_size: 14
   num_workers: 8
   cfg_drop_rate: 0.1
