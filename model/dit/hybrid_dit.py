@@ -33,11 +33,24 @@ class Attention(nn.Module):
         self.proj = nn.Linear(dim, dim, bias=proj_bias)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor, kv_cache=None) -> torch.Tensor:
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         q, k, v = qkv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
+
+        if kv_cache is not None:
+            # 使用KV cache进行增量计算
+            cached_k, cached_v = kv_cache
+            if cached_k is not None and cached_v is not None:
+                # 将新的k,v与缓存的k,v拼接
+                k = torch.cat([cached_k, k], dim=2)  # dim=2 是序列长度维度
+                v = torch.cat([cached_v, v], dim=2)
+            
+            # 更新cache，返回完整的k,v用于下次缓存
+            new_cache = (k, v)
+        else:
+            new_cache = None
 
         x = torch.nn.functional.scaled_dot_product_attention(
             q, k, v,
@@ -47,7 +60,11 @@ class Attention(nn.Module):
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
-        return x
+        
+        if kv_cache is not None:
+            return x, new_cache
+        else:
+            return x
 
 
 class HybridBlock(nn.Module):

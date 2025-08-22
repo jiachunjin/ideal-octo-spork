@@ -122,8 +122,9 @@ def sample_imagenet():
     # ---------- load model ----------
     # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_1024_null_condition_50000"
     exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0820_overfit_dog"
+    # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0821_imagenet_class_conditional"
     exp_name = exp_dir.split("/")[-1]
-    step = 2000
+    step = 10000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     # config = OmegaConf.load("config/overfit_1024/null_condition.yaml")
@@ -149,7 +150,7 @@ def sample_imagenet():
     vae = vae.to(device, dtype).eval()
 
     # ---------- do autoregressive diffusion sampling ----------
-    def sample_one_clip_block(model, prefix, y, cfg_scale=2.0):
+    def sample_one_clip_block(model, prefix, y, cfg_scale=2.0, kv_caches=None):
         B = y.shape[0]
         x_t = torch.randn((B, 4, 1024), device=device, dtype=dtype)
 
@@ -158,14 +159,37 @@ def sample_imagenet():
             prefix = prefix.repeat(2, 1, 1)
             y_null = torch.full_like(y, fill_value=1000, dtype=torch.int64, device=device)
             y_cfg = torch.cat([y, y_null], dim=0)
+            # 如果有KV cache，也需要复制
+            if kv_caches is not None:
+                kv_caches_cfg = []
+                for layer_cache in kv_caches:
+                    if layer_cache is not None:
+                        cached_k, cached_v = layer_cache
+                        # 复制KV cache用于CFG
+                        cached_k_cfg = cached_k.repeat(2, 1, 1, 1) if cached_k is not None else None
+                        cached_v_cfg = cached_v.repeat(2, 1, 1, 1) if cached_v is not None else None
+                        kv_caches_cfg.append((cached_k_cfg, cached_v_cfg))
+                    else:
+                        kv_caches_cfg.append(None)
+            else:
+                kv_caches_cfg = None
         else:
             y_cfg = y
+            kv_caches_cfg = kv_caches
 
+        # 在扩散步骤中维护KV cache
+        current_kv_caches = kv_caches_cfg
+        
         for t in scheduler.timesteps:
             x_t = scheduler.scale_model_input(x_t, t)
             with torch.no_grad():
                 t_tensor = torch.as_tensor([t], device=device)
-                noise_pred = model.forward_test(x_t, t_tensor, prefix, y_cfg)
+                
+                if current_kv_caches is not None:
+                    noise_pred, updated_kv_caches = model.forward_test(x_t, t_tensor, prefix, y_cfg, current_kv_caches)
+                    current_kv_caches = updated_kv_caches
+                else:
+                    noise_pred = model.forward_test(x_t, t_tensor, prefix, y_cfg)
 
                 if cfg_scale > 1.0:
                     noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2, dim=0)
@@ -176,16 +200,33 @@ def sample_imagenet():
                 else:
                     x_t = scheduler.step(noise_pred, t, x_t).prev_sample
 
-        return x_t[:B]
+        # 如果使用了KV cache，需要返回更新后的cache用于下次调用
+        if kv_caches is not None and current_kv_caches is not None:
+            # 从CFG的cache中提取原始的cache（取前B个）
+            final_kv_caches = []
+            for layer_cache in current_kv_caches:
+                if layer_cache is not None:
+                    cached_k, cached_v = layer_cache
+                    # 只保留前B个batch的cache
+                    cached_k_final = cached_k[:B] if cached_k is not None else None
+                    cached_v_final = cached_v[:B] if cached_v is not None else None
+                    final_kv_caches.append((cached_k_final, cached_v_final))
+                else:
+                    final_kv_caches.append(None)
+            return x_t[:B], final_kv_caches
+        else:
+            return x_t[:B], None
 
-    B = 8
+    B = 4
     cfg_scale = 1.0
     label = 1000
     y = torch.tensor([label]*B, dtype=torch.int64, device=device)
 
     x_clip = torch.empty((B, 0, 1024), device=device, dtype=dtype)
+    kv_caches = None  # 初始化KV cache
+    
     for i in trange(256):
-        x_clip_block = sample_one_clip_block(model, x_clip, y, cfg_scale=cfg_scale)
+        x_clip_block, kv_caches = sample_one_clip_block(model, x_clip, y, cfg_scale=cfg_scale, kv_caches=kv_caches)
         x_clip = torch.cat([x_clip, x_clip_block], dim=1)
 
     print(x_clip.shape)

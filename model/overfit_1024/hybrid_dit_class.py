@@ -22,12 +22,26 @@ class HybridBlock_AdaLN(nn.Module):
             nn.Linear(hidden_size, 6 * hidden_size, bias=True)
         )
 
-    def forward(self, x, c, mask):
+    def forward(self, x, c, mask, kv_cache=None):
         shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(c).chunk(6, dim=-1)
-        x = x + gate_msa * self.attn(modulate_per_token(self.norm1(x), shift_msa, scale_msa), mask)
+        
+        # 注意力计算
+        normed_x = modulate_per_token(self.norm1(x), shift_msa, scale_msa)
+        if kv_cache is not None:
+            attn_out, new_cache = self.attn(normed_x, mask, kv_cache)
+            x = x + gate_msa * attn_out
+        else:
+            attn_out = self.attn(normed_x, mask)
+            x = x + gate_msa * attn_out
+            new_cache = None
+        
+        # MLP计算
         x = x + gate_mlp * self.mlp(modulate_per_token(self.norm2(x), shift_mlp, scale_mlp))
 
-        return x
+        if kv_cache is not None:
+            return x, new_cache
+        else:
+            return x
 
 class FinalLayer(nn.Module):
     def __init__(self, hidden_size, out_channels):
@@ -103,12 +117,13 @@ class HybridDiT_Class(nn.Module):
 
         return x[:, self.config.seq_len:, :]
 
-    def forward_test(self, x_t, t, prefix, y):
+    def forward_test(self, x_t, t, prefix, y, kv_caches=None):
         """
         x_t: (B, 4, 1024)
         t: (1,)
         prefix: (B, ?, 1024)
         y: (B,)
+        kv_caches: list of KV cache tuples for each layer, or None
         """
         assert self.training is False
         B = x_t.shape[0]
@@ -119,26 +134,38 @@ class HybridDiT_Class(nn.Module):
         c = c.unsqueeze(1).repeat(1, self.config.block_size, 1)
 
         curr_pos = prefix.shape[1]
-        x_embed = self.x_embedder(prefix) + self.pos_embed[:, :curr_pos, :]
-        x_t_embed = self.x_t_embedder(x_t) + self.pos_embed[:, curr_pos:curr_pos+self.config.block_size, :]
-
-        c = torch.cat([torch.zeros_like(x_embed), c], dim=1)
-        x = torch.cat([x_embed, x_t_embed], dim=1)
-
-        mask = torch.zeros((curr_pos + 4, curr_pos + 4), device=x.device)
-        prefix_blocks = curr_pos // 4
-        for i in range(prefix_blocks):
-            mask[i*4:(i+1)*4, i*4:(i+1)*4] = 1
-        mask[-4:, :] = 1
-        mask[mask == 0] = float("-inf")
-        mask[mask == 1] = 0
-        mask = mask.unsqueeze(0).unsqueeze(0)
         
-        for block in self.blocks:
-            x = block(x, c, mask=None)
-        x = self.final_layer(x, c)
+        if kv_caches is not None and curr_pos > 0:
+            # 使用KV cache时，只需要处理新的x_t tokens
+            x_t_embed = self.x_t_embedder(x_t) + self.pos_embed[:, curr_pos:curr_pos+self.config.block_size, :]
+            x = x_t_embed
+            c_input = c
+        else:
+            # 第一次调用或不使用cache时，处理所有tokens
+            x_embed = self.x_embedder(prefix) + self.pos_embed[:, :curr_pos, :]
+            x_t_embed = self.x_t_embedder(x_t) + self.pos_embed[:, curr_pos:curr_pos+self.config.block_size, :]
+            c_input = torch.cat([torch.zeros_like(x_embed), c], dim=1)
+            x = torch.cat([x_embed, x_t_embed], dim=1)
 
-        return x[:, curr_pos:, :]
+        # 创建mask（如果需要的话，这里简化为None，因为我们使用因果注意力）
+        mask = None
+        
+        new_kv_caches = []
+        for i, block in enumerate(self.blocks):
+            if kv_caches is not None:
+                cache = kv_caches[i] if i < len(kv_caches) else None
+                x, new_cache = block(x, c_input, mask=mask, kv_cache=cache)
+                new_kv_caches.append(new_cache)
+            else:
+                x = block(x, c_input, mask=mask)
+        
+        x = self.final_layer(x, c_input)
+
+        if kv_caches is not None:
+            # 返回新生成的tokens和更新后的KV caches
+            return x[:, -self.config.block_size:, :], new_kv_caches
+        else:
+            return x[:, curr_pos:, :]
 
     def block_wise_noising(self, x):
         """
