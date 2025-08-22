@@ -13,8 +13,8 @@ dit:
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: "/data/phd/jinjiachun/experiment/clip_1024/0822_imagenet_holistic_diffusion/dit-clip_1024-25000"
+  global_step: 25000
 
   exp_name: &exp_name clip_1024
   wandb_proj: *exp_name
@@ -33,6 +33,6 @@ data:
   num_train_examples: 1331167
   img_size: 448
   buffer_size: 70000
-  batch_size: 32
+  batch_size: 40
   num_workers: 8
   cfg_drop_rate: 0.1

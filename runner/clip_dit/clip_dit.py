@@ -134,6 +134,13 @@ def main(args):
     accelerator, output_dir = get_accelerator(config)
 
     dit_model = DiT(config.dit)
+    if config.train.resume_path is not None:
+        ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
+        m, u = dit_model.load_state_dict(ckpt, strict=False)
+        accelerator.print(f"missing keys: {m}")
+        accelerator.print(f"unexpected keys: {u}")
+        accelerator.print(f"DiT loaded from {config.train.resume_path}")
+
     vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
     vision_model.requires_grad_(False)
     # feature_down_projector = get_feature_down_proj(config.feature_down_projector)
@@ -142,9 +149,6 @@ def main(args):
     # ckpt = {k.replace("feature_down_projector.", ""): v for k, v in ckpt.items() if k.startswith("feature_down_projector.")}
     # feature_down_projector.load_state_dict(ckpt, strict=True)
     # feature_down_projector.requires_grad_(False)
-
-    if config.train.resume_path is not None:
-        raise NotImplementedError("Resume is not implemented")
 
     params_to_learn = list(p for p in dit_model.parameters() if p.requires_grad)
     optimizer = torch.optim.AdamW(
