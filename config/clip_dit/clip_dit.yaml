@@ -5,20 +5,23 @@ dit:
   out_channels: 1024
   num_tokens: 1024
 
-  hidden_size: 1536
-  num_heads: 24
-  depth: 24
+  hidden_size: 2048
+  num_heads: 32
+  depth: 32
 
   num_classes: 1000
 
+  repa:
+    depth: 4
+
 train:
   root: null
-  resume_path: "/data/phd/jinjiachun/experiment/clip_1024/0822_imagenet_holistic_diffusion/dit-clip_1024-25000"
-  global_step: 25000
+  resume_path: "/data/phd/jinjiachun/experiment/clip_1024/0823_imagenet_holistic_diffusion_32_32_2048/dit-clip_1024-55000"
+  global_step: 55000
 
   exp_name: &exp_name clip_1024
   wandb_proj: *exp_name
-  output_dir: 0822_imagenet_holistic_diffusion
+  output_dir: 0823_imagenet_holistic_diffusion_32_32_2048_repa_4
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
@@ -33,6 +36,6 @@ data:
   num_train_examples: 1331167
   img_size: 448
   buffer_size: 70000
-  batch_size: 40
+  batch_size: 16
   num_workers: 8
   cfg_drop_rate: 0.1

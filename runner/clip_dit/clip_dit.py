@@ -12,8 +12,8 @@ from diffusers import DDPMScheduler
 from model.dit.standard_dit import DiT
 from util.misc import process_pretrained_model_path, flatten_dict
 from model.internvl.modeling_internvl_chat import InternVLChatModel
-from model.internvl import extract_feature_pre_adapter, extract_feature_pre_shuffle_adapter
-from model.vae_aligner.vit_vae_aligner import get_feature_down_proj
+from model.internvl import extract_feature_pre_shuffle_adapter
+from util.my_tool_box import get_wds_dataloader, get_accelerator
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -21,111 +21,6 @@ torch.backends.cudnn.allow_tf32 = True
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
-def get_accelerator(config):
-    import pprint
-    from accelerate import Accelerator
-    from accelerate.state import AcceleratorState
-    from accelerate.utils import ProjectConfiguration
-
-    output_dir = os.path.join(config.train.root, config.train.exp_name, config.train.output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-    logging_dir = os.path.join(output_dir, config.train.logging_dir)
-    project_config = ProjectConfiguration(project_dir=config.train.output_dir, logging_dir=logging_dir)
-    accelerator = Accelerator(
-        log_with                    = config.train.report_to,
-        mixed_precision             = config.train.mixed_precision,
-        project_config              = project_config,
-        gradient_accumulation_steps = config.train.gradient_accumulation_steps,
-    )
-    AcceleratorState().deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = config.data.batch_size
-    accelerator.print("Configuration:")
-    accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
-
-    return accelerator, output_dir
-
-def get_wds_dataloader(config, accelerator):
-    import glob
-    import random
-    import webdataset as wds
-    import torchvision.transforms as pth_transforms
-
-    urls = []
-    for path in config.wds_path:
-        urls.extend(glob.glob(os.path.join(path, "*.tar")))
-    accelerator.print(f"Found tar files: {len(urls)}")
-
-    pre_transform = pth_transforms.Compose([
-        pth_transforms.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
-        pth_transforms.Resize(config.img_size, max_size=None),
-        pth_transforms.CenterCrop(config.img_size),
-        pth_transforms.ToTensor(),
-    ])
-
-    def preprocess_image(image):
-        width, height = image.size
-        max_size = max(width, height)
-        if max_size < config.img_size * 0.25:
-            return None
-        pixel_values = pre_transform(image)
-
-        return pixel_values
-    
-    def preprocess_label(label):
-        if random.random() < config.cfg_drop_rate:
-            label = 1000
-        label = torch.tensor(label, dtype=torch.long)
-
-        return label
-
-    def collation_fn(batch):
-        pixel_values = []
-        labels = []
-
-        for sample in batch:
-            x, y = sample
-            if x == None:
-                continue
-            else:
-                pixel_values.append(x)
-                labels.append(y)
-
-        pixel_values = torch.stack(pixel_values)
-        labels = torch.stack(labels)
-
-        return {
-            "pixel_values": pixel_values,
-            "labels": labels,
-        }
-
-    pipeline = [
-        wds.ResampledShards(urls),
-        wds.tarfile_to_samples(handler=wds.warn_and_continue),
-        wds.shuffle(bufsize=config.buffer_size, initial=config.buffer_size),
-        wds.decode("pil", handler=wds.ignore_and_continue),
-        wds.to_tuple("jpg", "cls"),
-        wds.map_tuple(preprocess_image, preprocess_label),
-        wds.batched(config.batch_size, partial=preprocess_label, collation_fn=collation_fn),
-    ]
-
-    num_train_examples = config.num_train_examples
-    global_batch_size = config.batch_size * accelerator.num_processes
-    num_workers_per_gpu = config.num_workers
-
-    num_worker_batches = math.ceil(num_train_examples / 
-        (global_batch_size * num_workers_per_gpu))
-    
-    accelerator.print(f"num_worker_batches: {num_worker_batches}")
-
-    train_dataset = wds.DataPipeline(*pipeline).with_epoch(num_worker_batches)
-
-    dataloader = wds.WebLoader(
-        train_dataset,
-        batch_size  = None,
-        num_workers = config.num_workers,
-        pin_memory  = True,
-    )
-
-    return dataloader
 
 def main(args):
     config = OmegaConf.load(args.config)
@@ -143,12 +38,6 @@ def main(args):
 
     vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
     vision_model.requires_grad_(False)
-    # feature_down_projector = get_feature_down_proj(config.feature_down_projector)
-    # ckpt = torch.load(config.feature_down_projector.path, map_location="cpu", weights_only=True)
-    # 只保留ckpt中以"feature_down_projector"开头的key, 并重命名
-    # ckpt = {k.replace("feature_down_projector.", ""): v for k, v in ckpt.items() if k.startswith("feature_down_projector.")}
-    # feature_down_projector.load_state_dict(ckpt, strict=True)
-    # feature_down_projector.requires_grad_(False)
 
     params_to_learn = list(p for p in dit_model.parameters() if p.requires_grad)
     optimizer = torch.optim.AdamW(
@@ -171,7 +60,6 @@ def main(args):
     dataloader = get_wds_dataloader(config.data, accelerator)
     dit_model, optimizer = accelerator.prepare(dit_model, optimizer)
     vision_model = vision_model.to(accelerator.device, dtype).eval()
-    # feature_down_projector = feature_down_projector.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -217,16 +105,20 @@ def main(args):
                 x = (x - imagenet_mean) / imagenet_std
                 with torch.no_grad():
                     x_clip = extract_feature_pre_shuffle_adapter(vision_model, x)
-                    # x_clip = extract_feature_pre_adapter(vision_model, x)
-                    # x_clip = feature_down_projector(x_clip)
 
                 B = x_clip.shape[0]
                 timesteps = torch.randint(0, 1000, (B,), device=accelerator.device, dtype=torch.int64)
                 noise = torch.randn_like(x_clip, device=accelerator.device, dtype=dtype)
                 noisy_latents = train_scheduler.add_noise(x_clip, noise, timesteps)
                 target = train_scheduler.get_velocity(x_clip, noise, timesteps)
-                pred = dit_model(noisy_latents, timesteps, y)
-                loss = torch.nn.functional.mse_loss(pred, target)
+                if dit_model.repa:
+                    pred, zs = dit_model(noisy_latents, timesteps, y)
+                    diff_loss = torch.nn.functional.mse_loss(pred, target)
+                    repa_loss = dit_model.get_repa_loss(x_clip, zs)
+                    loss = diff_loss + repa_loss
+                else:
+                    pred = dit_model(noisy_latents, timesteps, y)
+                    loss = torch.nn.functional.mse_loss(pred, target)
 
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
@@ -237,9 +129,15 @@ def main(args):
                     global_step += 1
                     progress_bar.update(1)
 
-                    logs = dict(
-                        clip_loss = accelerator.gather(loss.detach()).mean().item(),
-                    )
+                    if dit_model.repa:
+                        logs = dict(
+                            clip_loss = accelerator.gather(diff_loss.detach()).mean().item(), 
+                            repa_loss = accelerator.gather(repa_loss.detach()).mean().item(),
+                        )
+                    else:
+                        logs = dict(
+                            clip_loss = accelerator.gather(loss.detach()).mean().item(), 
+                        )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
 

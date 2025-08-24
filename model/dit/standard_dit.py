@@ -4,6 +4,14 @@ import torch
 import torch.nn as nn
 from timm.models.vision_transformer import Attention, Mlp
 
+def build_mlp(hidden_size, projector_dim, z_dim):
+    return nn.Sequential(
+                nn.Linear(hidden_size, projector_dim),
+                nn.SiLU(),
+                nn.Linear(projector_dim, projector_dim),
+                nn.SiLU(),
+                nn.Linear(projector_dim, z_dim),
+            )
 
 def modulate(x, shift, scale):
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
@@ -170,6 +178,13 @@ class DiT(nn.Module):
         self.final_layer = FinalLayer(config.hidden_size, config.out_channels)
         self.initialize_weights()
 
+        # ----- repa -----
+        self.repa = False
+        if hasattr(config, "repa"):
+            self.repa = True
+            self.repa_depth = config.repa.depth
+            self.repa_projector = build_mlp(config.hidden_size, 2 * config.hidden_size, config.in_channels)
+
     def initialize_weights(self):
         def _basic_init(module):
             if isinstance(module, nn.Linear):
@@ -201,11 +216,24 @@ class DiT(nn.Module):
         t_embed = self.t_embedder(t, x.dtype)
         y_embed = self.y_embedder(y)
         c = t_embed + y_embed
-        for block in self.blocks:
+        B, L, D = x.shape
+        for i, block in enumerate(self.blocks):
             x = block(x, c)
+            if self.repa and (i + 1) == self.repa_depth:
+                zs = self.repa_projector(x.reshape(-1, D)).reshape(B, L, -1)
         x = self.final_layer(x, c)
 
-        return x
+        if self.repa:
+            return x, zs
+        else:
+            return x
+    
+    def get_repa_loss(self, clip, zs):
+        clip_normalized = torch.nn.functional.normalize(clip, dim=-1)
+        zs_normalized = torch.nn.functional.normalize(zs, dim=-1)
+
+        similarity = torch.nn.functional.cosine_similarity(clip_normalized, zs_normalized, dim=-1)
+        return -similarity.mean()
 
 
 if __name__ == "__main__":
