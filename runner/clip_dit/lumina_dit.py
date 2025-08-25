@@ -7,6 +7,7 @@ import torch.nn as nn
 import argparse
 from tqdm import tqdm
 from omegaconf import OmegaConf
+from einops import rearrange
 
 from diffusers import DDPMScheduler
 from model.dit.lumina_next.nextdit import NextDiTCrossAttn, NextDiTCrossAttnConfig
@@ -112,6 +113,7 @@ def main(args):
                 x = (x - imagenet_mean) / imagenet_std
                 with torch.no_grad():
                     x_clip = extract_feature_pre_shuffle_adapter(internvl.vision_model, x)
+                    x_clip = rearrange(x_clip, "b (h w) d -> b h w d", h=32, w=32)
 
                     B = x_clip.shape[0]
 
@@ -127,7 +129,7 @@ def main(args):
                     output_hidden_states = True,
                 ).hidden_states[-1][:, -config.query.num_query:, :]
 
-                accelerator.print(hidden_states.shape)
+                print(hidden_states.shape)
 
                 timesteps = torch.randint(0, 1000, (B,), device=accelerator.device, dtype=torch.int64)
                 noise = torch.randn_like(x_clip, device=accelerator.device, dtype=dtype)
