@@ -3,6 +3,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
+import torch.nn as nn
 import argparse
 from tqdm import tqdm
 from omegaconf import OmegaConf
@@ -20,6 +21,11 @@ torch.backends.cudnn.allow_tf32 = True
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
+def add_query(model, config):
+    model.query = nn.Parameter(torch.randn(1, config.num_query, config.dim))
+    model.query.requires_grad = True
+    return model
+
 def main(args):
     config = OmegaConf.load(args.config)
     config = process_pretrained_model_path(config)
@@ -28,6 +34,7 @@ def main(args):
 
     dit_config = NextDiTCrossAttnConfig(**config.dit)
     model = NextDiTCrossAttn(dit_config)
+    model = add_query(model, config.query)
 
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
@@ -57,7 +64,7 @@ def main(args):
     else:
         dtype = torch.float32
 
-    dataloader = get_wds_dataloader(config.data, accelerator)
+    dataloader = get_t2i_dataloader(config.data, accelerator)
     model, optimizer = accelerator.prepare(model, optimizer)
     internvl = internvl.to(accelerator.device, dtype).eval()
 
@@ -100,14 +107,56 @@ def main(args):
             with accelerator.accumulate([model]):
                 model.train()
                 x = batch["pixel_values"].to(accelerator.device, dtype)
-                y = batch["labels"].to(accelerator.device)
+                input_ids = batch["input_ids"].to(accelerator.device)
+                attention_mask = batch["attention_mask"].to(accelerator.device)
                 x = (x - imagenet_mean) / imagenet_std
                 with torch.no_grad():
                     x_clip = extract_feature_pre_shuffle_adapter(internvl.vision_model, x)
 
-                B = x_clip.shape[0]
+                    B = x_clip.shape[0]
+
+                    text_embedding = internvl.language_model.get_input_embeddings()(input_ids)
+                    joint_embedding = torch.cat((text_embedding, model.query.repeat(B, 1, 1)), dim=1)
+
+                    img_mask = torch.ones((B, config.query.num_query), dtype=torch.bool, device=accelerator.device)
+                    attention_mask = torch.cat([attention_mask, img_mask], dim=1)
+
+                hidden_states = internvl.language_model(
+                    inputs_embeds        = joint_embedding,
+                    attention_mask       = attention_mask,
+                    output_hidden_states = True,
+                ).hidden_states[-1][:, -config.query.num_query:, :]
+
+                accelerator.print(hidden_states.shape)
+
                 timesteps = torch.randint(0, 1000, (B,), device=accelerator.device, dtype=torch.int64)
                 noise = torch.randn_like(x_clip, device=accelerator.device, dtype=dtype)
                 noisy_latents = train_scheduler.add_noise(x_clip, noise, timesteps)
                 target = train_scheduler.get_velocity(x_clip, noise, timesteps)
 
+                pred = model(noisy_latents, timesteps, hidden_states)
+                loss = torch.nn.functional.mse_loss(pred, target)
+
+                accelerator.backward(loss)
+
+                accelerator.backward(loss)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        clip_loss = accelerator.gather(loss.detach()).mean().item(), 
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/clip_dit/lumina_dit.yaml")
+    args = parser.parse_args()
+    main(args)

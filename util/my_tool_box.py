@@ -140,7 +140,7 @@ def get_t2i_dataloader(config, accelerator):
     def preprocess_image(image):
         width, height = image.size
         max_size = max(width, height)
-        if max_size < config.img_size * 0.25:
+        if max_size < config.img_size * 0.75:
             return None
         pixel_values = pre_transform(image)
 
