@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from timm.models.vision_transformer import Mlp
-from torch.nn.attention import sdpa_kernel
+from torch.nn.attention import sdpa_kernel, SDPBackend
 
 
 class Attention(nn.Module):
@@ -37,7 +37,7 @@ class Attention(nn.Module):
         q, k, v = qkv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
 
-        with sdpa_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
             x = torch.nn.functional.scaled_dot_product_attention(
                 q, k, v,
                 dropout_p=self.attn_drop.p if self.training else 0.,
@@ -169,7 +169,7 @@ class DiTBlock(nn.Module):
     def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, **block_kwargs):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.attn = Attention(hidden_size, num_heads=num_heads, qkv_bias=True, **block_kwargs)
+        self.attn = Attention(hidden_size, num_heads=num_heads, qkv_bias=False, **block_kwargs)
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         mlp_hidden_dim = int(hidden_size * mlp_ratio)
         approx_gelu = lambda: nn.GELU(approximate="tanh")
