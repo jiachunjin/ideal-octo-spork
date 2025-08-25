@@ -113,7 +113,7 @@ def main(args):
                 x = (x - imagenet_mean) / imagenet_std
                 with torch.no_grad():
                     x_clip = extract_feature_pre_shuffle_adapter(internvl.vision_model, x)
-                    x_clip = rearrange(x_clip, "b (h w) d -> b h w d", h=32, w=32)
+                    x_clip = rearrange(x_clip, "b (h w) d -> b d h w", h=32, w=32)
 
                     B = x_clip.shape[0]
 
