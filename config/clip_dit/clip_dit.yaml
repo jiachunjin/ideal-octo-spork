@@ -16,8 +16,8 @@ dit:
 
 train:
   root: null
-  resume_path: "/data/phd/jinjiachun/experiment/clip_1024/0823_imagenet_holistic_diffusion_32_32_2048_repa_4/dit-clip_1024-190000"
-  global_step: 190000
+  resume_path: "/data/phd/jinjiachun/experiment/clip_1024/0823_imagenet_holistic_diffusion_32_32_2048_repa_4/dit-clip_1024-200000"
+  global_step: 200000
 
   exp_name: &exp_name clip_1024
   wandb_proj: *exp_name
