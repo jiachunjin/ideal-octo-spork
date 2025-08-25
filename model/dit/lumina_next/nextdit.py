@@ -27,7 +27,7 @@ class NextDiTCrossAttnConfig(PretrainedConfig):
         latent_embedding_size: int = 3584,
         learn_sigma: bool = False,
         qk_norm: bool = True,
-        _gradient_checkpointing: bool = True,
+        _gradient_checkpointing: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)

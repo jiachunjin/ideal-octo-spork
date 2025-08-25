@@ -14,7 +14,7 @@ from runner.mmdit.train_basic_sd3 import sample_sd3_5
 
 @torch.no_grad()
 def sample_imagenet():
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:2")
     dtype = torch.float16
 
     # load dit
@@ -22,15 +22,17 @@ def sample_imagenet():
     # exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_256_8_norm"
     # exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_2048"
     # exp_dir = "/data/phd/jinjiachun/experiment/clip_dit/dit_1024_1024_12_validation"
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0822_imagenet_holistic_diffusion"
+    # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0822_imagenet_holistic_diffusion"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0823_imagenet_holistic_diffusion_32_32_2048_repa_4"
     exp_name = exp_dir.split("/")[-1]
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    step = 20000
+    step = 185000
 
     dit_model = DiT(config.dit)
     # dit_model.load_state_dict(torch.load(os.path.join(exp_dir, f"dit-clip_dit-{step}"), map_location="cpu", weights_only=True))
     dit_model.load_state_dict(torch.load(os.path.join(exp_dir, f"dit-clip_1024-{step}"), map_location="cpu", weights_only=True))
     dit_model = dit_model.to(device, dtype).eval()
+    dit_model.repa = False
 
     # load diffusion decoder
     # mmdit_step = 35000
@@ -71,10 +73,10 @@ def sample_imagenet():
 
     scheduler.set_timesteps(50)
 
-    B = 32
+    B = 16
     cfg_scale = 2.  # 支持CFG，设置为1.0即为无CFG
     x = torch.randn((B, config.dit.num_tokens, config.dit.in_channels), device=device, dtype=dtype)
-    label = 980
+    label = 437
     y = torch.as_tensor([label]*B, device=device).long()
     x *= scheduler.init_noise_sigma
 

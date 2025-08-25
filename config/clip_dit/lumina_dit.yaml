@@ -1,0 +1,8 @@
+machine: ks
+
+dit:
+  dim: 2048
+  n_layers: 32
+  n_heads: 32
+  n_kv_heads: 32
+  latent_embedding_size: 3584
