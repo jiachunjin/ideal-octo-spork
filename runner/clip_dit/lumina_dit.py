@@ -140,8 +140,6 @@ def main(args):
                 loss = torch.nn.functional.mse_loss(pred, target)
 
                 accelerator.backward(loss)
-
-                accelerator.backward(loss)
                 if accelerator.sync_gradients:
                     accelerator.clip_grad_norm_(params_to_learn, 1.0)
                     optimizer.step()
