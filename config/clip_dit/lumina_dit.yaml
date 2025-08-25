@@ -2,7 +2,7 @@ machine: ks
 
 query:
   dim: 3584
-  num_query: 256
+  num_query: &num_query 256
 
 dit:
   dim: 2048
@@ -37,3 +37,5 @@ data:
   batch_size: 5
   num_workers: 8
   cfg_drop_rate: 0.1
+  num_img_token: *num_query
+  max_seq_length: 512
