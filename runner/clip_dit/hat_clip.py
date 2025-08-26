@@ -102,14 +102,14 @@ def main(args):
 
                 print(hidden_states.shape) # (B, 256, 3584)
 
-                x_clip = rearrange(clip_1024, "B (J K) D -> (B J) K D", H=256, W=4) # (Bx256, 4, 1024)
+                x_clip = rearrange(clip_1024, "B (J K) D -> (B J) K D", J=256, K=4) # (Bx256, 4, 1024)
                 condition = rearrange(hidden_states, "B L D -> (B L) D") # (Bx256, 3584)
                 timesteps = torch.randint(0, 1000, (x_clip.shape[0],), device=accelerator.device, dtype=torch.int64) # (Bx256,)
                 noise = torch.randn_like(x_clip, device=accelerator.device, dtype=dtype)
                 x_noisy = train_scheduler.add_noise(x_clip, noise, timesteps)
                 target = train_scheduler.get_velocity(x_clip, noise, timesteps)
 
-                pred = internvl.diff_head(x_noisy, timesteps, hidden_states)
+                pred = internvl.diff_head(x_noisy, timesteps, condition)
                 print(pred.shape, target.shape)
                 loss = torch.nn.functional.mse_loss(pred, target)
 
