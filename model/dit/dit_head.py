@@ -1,6 +1,58 @@
 import torch
 import torch.nn as nn
+
+from diffusers import DDPMScheduler
+from transformers import Qwen2Model
+from transformers.models.qwen2.modeling_qwen2 import Qwen2DecoderLayer
 from model.dit.standard_dit import TimestepEmbedder, DiTBlock, FinalLayer, get_2d_sincos_pos_embed
+
+def equip_internvl(internvl, config):
+    # ----- add additional trainable LLM layers -----
+    internvl.language_model.model = add_hat_to_intern(internvl.language_model.model, config.num_hat)
+    
+    current_num_layers = len(internvl.language_model.model.layers)
+    new_layer_indices = range(current_num_layers - config.num_hat, current_num_layers)
+    internvl.requires_grad_(False)
+    for idx in new_layer_indices:
+        layer = internvl.language_model.model.layers[idx]
+        layer.requires_grad_(True)
+
+    # ----- add diffusion head and scheduler -----
+    train_scheduler = DDPMScheduler(
+        beta_schedule          = "scaled_linear",
+        beta_start             = 0.00085,
+        beta_end               = 0.012,
+        num_train_timesteps    = 1000,
+        clip_sample            = False,
+        prediction_type        = "v_prediction",
+        steps_offset           = 1,
+        trained_betas          = None,
+        timestep_spacing       = "trailing",
+        rescale_betas_zero_snr = True
+    )
+
+    internvl.diff_head = DiT_Head(config.dit_head)
+    num_params = sum(p.numel() for p in internvl.diff_head.parameters())
+    print(f"Head parameters: {num_params / 1e6:.2f}M")
+    internvl.diff_head.requires_grad_(True)
+
+    return internvl, train_scheduler
+
+def add_hat_to_intern(model: Qwen2Model, num_hat: int):
+    new_layers = []
+    config = model.config
+    current_num_layers = len(model.layers)
+
+    for i in range(num_hat):
+        layer_idx = current_num_layers + i
+        new_layer = Qwen2DecoderLayer(config, layer_idx)
+        new_layers.append(new_layer)
+
+    model.layers.extend(new_layers)
+    model.config.num_hidden_layers = len(model.layers)
+    # model.config.layer_types.extend(["full_attention"] * num_hat)
+
+    return model
 
 class DiT_Head(nn.Module):
     def __init__(self, config):

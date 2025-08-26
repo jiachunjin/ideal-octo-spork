@@ -1,5 +1,5 @@
 model:
-  num_hat: 8
+  num_hat: 1
   dit_head:
     in_channels: 1024
     out_channels: 1024

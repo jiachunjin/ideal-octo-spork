@@ -39,3 +39,20 @@ def extract_feature_pre_shuffle_adapter(vision_model, pixel_values):
     vit_embeds = vit_embeds[:, 1:, :]
 
     return vit_embeds
+
+def extract_both_clip(vision_model, pixel_values):
+    vit_embeds = vision_model(
+        pixel_values         = pixel_values,
+        output_hidden_states = False,
+        return_dict          = True
+    ).last_hidden_state
+
+    clip_1024 = vit_embeds[:, 1:, :].clone()
+
+    h = w = int(vit_embeds.shape[1] ** 0.5)
+    vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
+    vit_embeds = pixel_shuffle(vit_embeds, scale_factor=0.5)
+    clip_256 = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1]).clone()
+
+
+    return clip_1024, clip_256
