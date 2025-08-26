@@ -14,7 +14,7 @@ from runner.mmdit.train_basic_sd3 import sample_sd3_5
 
 @torch.no_grad()
 def sample_imagenet():
-    device = torch.device("cuda:2")
+    device = torch.device("cuda:7")
     dtype = torch.float16
 
     # load dit
@@ -26,7 +26,7 @@ def sample_imagenet():
     exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0823_imagenet_holistic_diffusion_32_32_2048_repa_4"
     exp_name = exp_dir.split("/")[-1]
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    step = 185000
+    step = 275000
 
     dit_model = DiT(config.dit)
     # dit_model.load_state_dict(torch.load(os.path.join(exp_dir, f"dit-clip_dit-{step}"), map_location="cpu", weights_only=True))
@@ -74,10 +74,10 @@ def sample_imagenet():
     scheduler.set_timesteps(50)
 
     B = 16
-    cfg_scale = 2.  # 支持CFG，设置为1.0即为无CFG
+    cfg_scale = 3.  # 支持CFG，设置为1.0即为无CFG
     x = torch.randn((B, config.dit.num_tokens, config.dit.in_channels), device=device, dtype=dtype)
-    label = 437
-    y = torch.as_tensor([label]*B, device=device).long()
+    # label = 
+    y = torch.as_tensor([437]*4 + [981]*4 + [22]*4 + [181]*4, device=device).long()
     x *= scheduler.init_noise_sigma
 
     if cfg_scale > 1.0:
@@ -124,7 +124,7 @@ def sample_imagenet():
     print(samples.shape)
 
     import torchvision.utils as vutils
-    sample_path = f"asset/clip_dit/{exp_name}_{step}_{label}_{cfg_scale}.png"
+    sample_path = f"asset/clip_dit/{exp_name}_{step}_{cfg_scale}.png"
     vutils.save_image(samples, sample_path, nrow=4, normalize=False)
     print(f"Samples saved to {sample_path}")    
 if __name__ == "__main__":

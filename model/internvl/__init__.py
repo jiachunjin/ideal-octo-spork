@@ -49,6 +49,7 @@ def extract_both_clip(vision_model, pixel_values):
 
     clip_1024 = vit_embeds[:, 1:, :].clone()
 
+    vit_embeds = vit_embeds[:, 1:, :]
     h = w = int(vit_embeds.shape[1] ** 0.5)
     vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
     vit_embeds = pixel_shuffle(vit_embeds, scale_factor=0.5)

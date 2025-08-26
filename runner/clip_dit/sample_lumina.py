@@ -3,6 +3,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 import torch
+from einops import rearrange
 
 @torch.no_grad()
 def sample_t2i():
@@ -24,7 +25,7 @@ def sample_t2i():
 
     # ----- load dit -----
     exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0825_metaquery_lumina_dit"
-    step = 5000
+    step = 140000
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     dit_config = NextDiTCrossAttnConfig(**config.dit)
     model = NextDiTCrossAttn(dit_config)
@@ -35,7 +36,7 @@ def sample_t2i():
     model = model.to(device, dtype).eval()
 
     # ----- load internvl -----
-    internvl = InternVLChatModel.from_pretrained(config.internvl.model_name)
+    internvl = InternVLChatModel.from_pretrained(config.intern_vl_8b_path)
     internvl = internvl.to(device, dtype).eval()
     tokenizer = AutoTokenizer.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True, use_fast=False)
 
@@ -59,11 +60,20 @@ def sample_t2i():
     IMG_START_TOKEN = "<img>"
     prompts = [
         "A stunning princess from kabul in red, white traditional clothing, blue eyes, brown hair",
+        "A soft, natural portrait photograph captures a young woman with fair skin and long, ash-blonde hair cascading gently over her shoulders. At the very bottom of the frame, in simple, elegant lettering, appears the phrase 'BE KIND'",
+        "The image depicts a modern, multi-story building with a white facade and numerous balconies. The structure is partially covered in purple scaffolding on the right side, indicating ongoing construction or renovation. The building is situated in an urban area with clear blue skies above. In front of the building, there is a paved plaza with some greenery and a few palm trees. A street lamp stands prominently on the left side of the plaza. To the right, part of another building with a beige exterior is visible. The scene suggests a sunny day in a developed cityscape.",
+        "A photo of 4 TVs in a row, with a white background",
+        "The image depicts the American Red Cross building, characterized by its neoclassical architectural style. The structure features tall, white columns supporting a pediment and a balustrade at the top. The facade is adorned with large windows, some of which have red crosses, symbolizing the organization's humanitarian mission. The building is set against a clear blue sky, with a tree partially obscuring the right side of the image. The overall appearance suggests a sense of stability and dedication to service, reflecting the Red Cross's commitment to aid and support.",
+        "A photo of a red dog",
+        "Scientist at Sunway University conducts research in a laboratory setting.",
+        "A serious Santa Claus in a rustic setting.",
+        "Muscular man in workout attire, standing confidently by a railing.",
+        "Confident man in leather jacket leaning against a wall.",
     ]
 
-    for prompt in prompts:
+    for prompt_txt in prompts:
         template = get_conv_template("internvl2_5")
-        prompt = f"Generate an image: {prompt}"
+        prompt = f"Generate an image: {prompt_txt}"
         template.append_message(template.roles[0], prompt)
         template.append_message(template.roles[1], None)
         prompt = template.get_prompt() + IMG_START_TOKEN
@@ -85,9 +95,9 @@ def sample_t2i():
         )
         input_ids = torch.LongTensor(tokenizer_output["input_ids"]).to(device)
         attention_mask = tokenizer_output["attention_mask"].to(device)
-        print(attention_mask)
+        # print(attention_mask)
         text_embedding = internvl.language_model.get_input_embeddings()(input_ids).to(device)
-        print(text_embedding.shape)
+        # print(text_embedding.shape)
 
         joint_embedding = torch.cat((text_embedding, model.query.repeat(2, 1, 1)), dim=1)
         img_mask = torch.ones((2, config.query.num_query), dtype=torch.bool, device=device)
@@ -119,12 +129,15 @@ def sample_t2i():
         scheduler.set_timesteps(50)
 
         B = 16
-        cfg_scale = 2.
-        x = torch.randn((B, config.dit.num_tokens, config.dit.in_channels), device=device, dtype=dtype)
+        cfg_scale = 3.5
+        x = torch.randn((B, 1024, 32, 32), device=device, dtype=dtype)
         x *= scheduler.init_noise_sigma
 
         if cfg_scale > 1.0:
-            x = x.repeat(2, 1, 1)
+            x = x.repeat(2, 1, 1, 1)
+            print(x.shape)
+            hidden_states = hidden_states.repeat_interleave(B, dim=0)
+            print(hidden_states.shape)
 
         for t in tqdm(scheduler.timesteps):
             x_in = scheduler.scale_model_input(x, t)
@@ -144,7 +157,7 @@ def sample_t2i():
         if cfg_scale > 1.0:
             x = x[:B]
 
-        context = x
+        context = rearrange(x, "B D H W -> B (H W) D")
         print(context.shape)
 
         samples = sample_sd3_5(
@@ -164,7 +177,7 @@ def sample_t2i():
         print(samples.shape)
 
         import torchvision.utils as vutils
-        sample_path = f"asset/clip_dit/t2i_lumina_{prompt}.png"
+        sample_path = f"asset/clip_dit/t2i_lumina_{prompt_txt[:10]}_{step}.png"
         vutils.save_image(samples, sample_path, nrow=4, normalize=False)
         print(f"Samples saved to {sample_path}")    
 

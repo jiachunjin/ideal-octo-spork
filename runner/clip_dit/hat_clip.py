@@ -87,6 +87,7 @@ def main(args):
                     clip_1024, clip_256 = extract_both_clip(internvl.vision_model, x)
 
                     text_embedding = internvl.language_model.get_input_embeddings()(input_ids)
+                    print(clip_256.shape)
                     visual_embedding = internvl.mlp1(clip_256)
                     joint_embedding = torch.cat((text_embedding, visual_embedding), dim=1)
 
