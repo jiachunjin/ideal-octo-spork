@@ -95,7 +95,7 @@ class DiT_Head(nn.Module):
 
     def forward(self, x, t, y):
         x = self.x_embedder(x)
-        t = self.t_embedder(t)
+        t = self.t_embedder(t, x.dtype)
         y = self.y_embedder(y)
         c = t + y
 

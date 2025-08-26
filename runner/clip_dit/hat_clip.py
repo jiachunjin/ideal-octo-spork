@@ -87,7 +87,7 @@ def main(args):
                     clip_1024, clip_256 = extract_both_clip(internvl.vision_model, x)
 
                     text_embedding = internvl.language_model.get_input_embeddings()(input_ids)
-                    print(clip_256.shape)
+                    # print(clip_256.shape)
                     visual_embedding = internvl.mlp1(clip_256)
                     joint_embedding = torch.cat((text_embedding, visual_embedding), dim=1)
 
@@ -100,10 +100,33 @@ def main(args):
                     output_hidden_states = True,
                 ).hidden_states[-1][:, -256:, :]
 
-                print(hidden_states.shape)
+                print(hidden_states.shape) # (B, 256, 3584)
 
-                
+                x_clip = rearrange(clip_1024, "B (J K) D -> (B J) K D", H=256, W=4) # (Bx256, 4, 1024)
+                condition = rearrange(hidden_states, "B L D -> (B L) D") # (Bx256, 3584)
+                timesteps = torch.randint(0, 1000, (x_clip.shape[0],), device=accelerator.device, dtype=torch.int64) # (Bx256,)
+                noise = torch.randn_like(x_clip, device=accelerator.device, dtype=dtype)
+                x_noisy = train_scheduler.add_noise(x_clip, noise, timesteps)
+                target = train_scheduler.get_velocity(x_clip, noise, timesteps)
 
+                pred = internvl.diff_head(x_noisy, timesteps, hidden_states)
+                print(pred.shape, target.shape)
+                loss = torch.nn.functional.mse_loss(pred, target)
+
+                accelerator.backward(loss)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        clip_loss = accelerator.gather(loss.detach()).mean().item(), 
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
 
 # @torch.no_grad()
 # def dev():
