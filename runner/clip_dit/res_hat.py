@@ -29,7 +29,6 @@ def main(args):
 
     accelerator, output_dir = get_accelerator(config)
     internvl = InternVLChatModel.from_pretrained(config.intern_vl_8b_path)
-    internvl, train_scheduler = equip_internvl(internvl, config.model)
 
     equip_internvl_res_hat(internvl, config.model)
 
@@ -50,3 +49,10 @@ def main(args):
         output_hidden_states = True,
     )
     print(outputs.hidden_states.shape)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/clip_dit/res_hat.yaml")
+    args = parser.parse_args()
+    main(args)

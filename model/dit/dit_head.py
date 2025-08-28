@@ -152,6 +152,8 @@ def equip_internvl_res_hat(internvl, config):
     # 使用types.MethodType来正确绑定方法
     internvl.language_model.model.forward = types.MethodType(forward, internvl.language_model.model)
 
+    print("InternVL modified!")
+
     
 
 def equip_internvl(internvl, config):
