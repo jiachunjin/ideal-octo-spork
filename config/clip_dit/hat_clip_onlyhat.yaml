@@ -1,8 +1,8 @@
 machine: ks
 
 model:
-  full_tune: true
-  num_hat: 0
+  full_tune: false
+  num_hat: 8
   dit_head:
     in_channels: 1024
     out_channels: 1024
@@ -20,7 +20,7 @@ train:
 
   exp_name: &exp_name clip_1024
   wandb_proj: *exp_name
-  output_dir: 0828_hat_clip_fullpara
+  output_dir: 0827_hat_clip_hat8
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1

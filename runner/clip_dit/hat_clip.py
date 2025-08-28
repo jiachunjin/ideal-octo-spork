@@ -60,6 +60,9 @@ def main(args):
 
     internvl = InternVLChatModel.from_pretrained(config.intern_vl_8b_path)
     internvl, train_scheduler = equip_internvl(internvl, config.model)
+    if config.model.full_tune:
+        internvl.language_model.requires_grad_(True)
+        internvl.mlp1.requires_grad_(True)
 
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
@@ -153,8 +156,14 @@ def main(args):
                     inputs_embeds        = joint_embedding,
                     attention_mask       = attention_mask,
                     output_hidden_states = True,
-                ).hidden_states[-1][:, -256:, :]
+                ).hidden_states[-1][:, -256 - 1: -1, :]
 
+                # h_28 = hidden_states[-1][:, -256:, :] # (B, 256, 3584)
+                # h_24 = hidden_states[-5][:, -256:, :] # (B, 256, 3584)
+                # h_16 = hidden_states[-13][:, -256:, :] # (B, 256, 3584)
+                # h_8 = hidden_states[-21][:, -256:, :] # (B, 256, 3584)
+                # hidden_states = torch.cat([h_28, h_24, h_16, h_8], dim=-1) # (B, 256, 14336)
+                                
                 x_clip = rearrange(clip_1024, "B (J K) D -> (B J) K D", J=256, K=4) # (Bx256, 4, 1024)
                 condition = rearrange(hidden_states, "B L D -> (B L) D") # (Bx256, 3584)
                 timesteps = torch.randint(0, 1000, (x_clip.shape[0],), device=accelerator.device, dtype=torch.int64) # (Bx256,)
@@ -183,13 +192,17 @@ def main(args):
                     if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
                         internvl.eval()
                         model = accelerator.unwrap_model(internvl)
-                        
-                        # 只保存新增的可训练layers和diff_head
-                        selective_state_dict = get_selective_state_dict(model, config.model.num_hat)
-                        
-                        save_path = os.path.join(output_dir, f"internvl-{config.train.exp_name}-{global_step}")
-                        torch.save(selective_state_dict, save_path)
-                        print(f"Selective state dict saved to {save_path} with {len(selective_state_dict)} parameters")
+                        if config.model.full_tune:
+                            save_path = os.path.join(output_dir, f"internvl_full-{config.train.exp_name}-{global_step}")
+                            torch.save(model.state_dict(), save_path)
+                            print(f"Full state dict saved to {save_path} with {len(model.state_dict())} parameters")
+                        else:
+                            # 只保存新增的可训练layers和diff_head
+                            selective_state_dict = get_selective_state_dict(model, config.model.num_hat)
+                                
+                            save_path = os.path.join(output_dir, f"internvl-{config.train.exp_name}-{global_step}")
+                            torch.save(selective_state_dict, save_path)
+                            print(f"Selective state dict saved to {save_path} with {len(selective_state_dict)} parameters")
 
                     accelerator.wait_for_everyone()
 

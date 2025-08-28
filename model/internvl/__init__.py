@@ -1,3 +1,5 @@
+from einops import rearrange
+
 def pixel_shuffle(x, scale_factor=0.5):
     n, w, h, c = x.size()
     # N, W, H, C --> N, W, H * scale, C // scale
@@ -47,7 +49,7 @@ def extract_both_clip(vision_model, pixel_values):
         return_dict          = True
     ).last_hidden_state
 
-    clip_1024 = vit_embeds[:, 1:, :].clone()
+    # clip_1024 = vit_embeds[:, 1:, :].clone()
 
     vit_embeds = vit_embeds[:, 1:, :]
     h = w = int(vit_embeds.shape[1] ** 0.5)
@@ -55,5 +57,6 @@ def extract_both_clip(vision_model, pixel_values):
     vit_embeds = pixel_shuffle(vit_embeds, scale_factor=0.5)
     clip_256 = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1]).clone()
 
+    clip_1024 = rearrange(clip_256.clone(), "b t (s d) -> b (t s) d", s=4, d=1024) # (B, 1024, 1024)
 
     return clip_1024, clip_256

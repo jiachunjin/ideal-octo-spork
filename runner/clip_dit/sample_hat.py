@@ -4,41 +4,97 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 import torch
 from einops import rearrange
+from diffusers import DDIMScheduler
+
+sample_scheduler = DDIMScheduler(
+    beta_schedule          = "scaled_linear",
+    beta_start             = 0.00085,
+    beta_end               = 0.012,
+    num_train_timesteps    = 1000,
+    clip_sample            = False,
+    prediction_type        = "v_prediction",
+    set_alpha_to_one       = True,
+    steps_offset           = 1,
+    trained_betas          = None,
+    timestep_spacing       = "trailing",
+    rescale_betas_zero_snr = True
+)
+
+def diffusion_generate(feature, diff_head):
+    sample_scheduler.set_timesteps(50)
+    B = feature.shape[0]
+
+    pred_latents = torch.randn((B, 4, 1024), device=feature.device, dtype=feature.dtype)
+    pred_latents *= sample_scheduler.init_noise_sigma
+
+    for t in sample_scheduler.timesteps:
+        pred_latents = sample_scheduler.scale_model_input(pred_latents, t)
+        t_sample = torch.as_tensor([t], device=feature.device)
+        noise_pred = diff_head(pred_latents, t_sample.repeat(B), feature)
+        pred_latents = sample_scheduler.step(noise_pred, t, pred_latents).prev_sample
+
+    return pred_latents
 
 @torch.no_grad()
 def sample_t2i():
     from omegaconf import OmegaConf
-    from diffusers import DDIMScheduler, AutoencoderKL, FlowMatchEulerDiscreteScheduler
     from transformers import AutoTokenizer
-    from tqdm import tqdm
+    from tqdm import trange
 
-    from model.internvl.modeling_internvl_chat import InternVLChatModel
-    from model.dit.lumina_next.nextdit import NextDiTCrossAttn, NextDiTCrossAttnConfig
+    
     from model.internvl.conversation import get_conv_template
-    from runner.clip_dit.lumina_dit import add_query
-
-    from model.mmdit import load_mmdit
-    from runner.mmdit.train_basic_sd3 import sample_sd3_5
+    from model.internvl.modeling_internvl_chat import InternVLChatModel
+    from model.dit.dit_head import equip_internvl
+    from runner.overfit_1024.sample_class import block_sequence_to_row_major_tensor
 
     device = torch.device("cuda:6")
     dtype = torch.float16
 
-    # ----- load dit -----
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0825_metaquery_lumina_dit"
-    step = 255000
+    # ----- load modified internvl -----
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0827_hat_clip_fullpara"
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
-    dit_config = NextDiTCrossAttnConfig(**config.dit)
-    model = NextDiTCrossAttn(dit_config)
-    model = add_query(model, config.query)
-
-    ckpt = torch.load(os.path.join(exp_dir, f"dit-{config.train.exp_name}-{step}"), map_location="cpu", weights_only=True)
-    model.load_state_dict(ckpt, strict=True)
-    model = model.to(device, dtype).eval()
-
-    # ----- load internvl -----
-    internvl = InternVLChatModel.from_pretrained(config.intern_vl_8b_path)
-    internvl = internvl.to(device, dtype).eval()
     tokenizer = AutoTokenizer.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True, use_fast=False)
+    step = 80000
+    
+    internvl = InternVLChatModel.from_pretrained(config.intern_vl_8b_path)
+    internvl, _ = equip_internvl(internvl, config.model)
+    if config.model.full_tune:
+        ckpt_path = os.path.join(exp_dir, f"internvl_full-clip_1024-{step}")
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+        m, u = internvl.load_state_dict(ckpt, strict=False)
+        print(f"missing: {m}")
+        print(f"unmatched: {u}")
+    else:
+        ckpt_path = os.path.join(exp_dir, f"internvl-clip_1024-{step}")
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+
+        diff_head_loaded = 0
+        hat_layer_loaded = 0
+        missing_keys = []
+        
+        model_state_dict = internvl.state_dict()
+        
+        for name, param in ckpt.items():
+            if name in model_state_dict:
+                model_state_dict[name].copy_(param)
+                if name.startswith('diff_head.'):
+                    diff_head_loaded += 1
+                elif 'language_model.model.layers.' in name:
+                    hat_layer_loaded += 1
+            else:
+                missing_keys.append(name)
+        
+        internvl.load_state_dict(model_state_dict, strict=False)
+    internvl = internvl.to(device, dtype).eval()
+    
+    print(f"Resume training: loaded {diff_head_loaded} diff_head parameters and {hat_layer_loaded} HAT layer parameters")
+    if missing_keys:
+        print(f"Warning: some keys in checkpoint not found in model: {missing_keys[:5]}...")
+    
+    # ----- load decoder -----
+    from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
+    from model.mmdit import load_mmdit
+    from runner.mmdit.train_basic_sd3 import sample_sd3_5
 
     mmdit_step = 140000
     exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024"
@@ -50,13 +106,11 @@ def sample_t2i():
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     mmdit.load_state_dict(ckpt, strict=False)
     mmdit = mmdit.to(device, dtype).eval()
-
-    # load vae
     vae = AutoencoderKL.from_pretrained(config_decoder.sd3_5_path, subfolder="vae")
     vae.requires_grad_(False)
     vae = vae.to(device, dtype).eval()
 
-    # ----- prepare llm hidden state as condition -----
+    # ----- sampling -----
     IMG_START_TOKEN = "<img>"
     prompts = [
         "A stunning princess from kabul in red, white traditional clothing, blue eyes, brown hair",
@@ -70,8 +124,9 @@ def sample_t2i():
         "Muscular man in workout attire, standing confidently by a railing.",
         "Confident man in leather jacket leaning against a wall.",
     ]
+    cfg_scale = 3
 
-    for prompt_txt in prompts:
+    for idx, prompt_txt in enumerate(prompts):
         template = get_conv_template("internvl2_5")
         prompt = f"Generate an image: {prompt_txt}"
         template.append_message(template.roles[0], prompt)
@@ -95,70 +150,33 @@ def sample_t2i():
         )
         input_ids = torch.LongTensor(tokenizer_output["input_ids"]).to(device)
         attention_mask = tokenizer_output["attention_mask"].to(device)
-        # print(attention_mask)
         text_embedding = internvl.language_model.get_input_embeddings()(input_ids).to(device)
-        # print(text_embedding.shape)
 
-        joint_embedding = torch.cat((text_embedding, model.query.repeat(2, 1, 1)), dim=1)
-        img_mask = torch.ones((2, config.query.num_query), dtype=torch.bool, device=device)
-        attention_mask = torch.cat([attention_mask, img_mask], dim=1)
+        generated_tokens = torch.zeros((1, 256, 4096)).to(device, dtype)
+        for i in trange(256):
+            outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
+            hidden_states = outputs.last_hidden_state
 
-        hidden_states = internvl.language_model(
-            inputs_embeds        = joint_embedding,
-            attention_mask       = attention_mask,
-            output_hidden_states = True,
-        ).hidden_states[-1][:, -config.query.num_query:, :]
-
-        print(hidden_states.shape)
-
-        # ----- do diffusion sampling -----
-        scheduler = DDIMScheduler(
-            beta_schedule          = "scaled_linear",
-            beta_start             = 0.00085,
-            beta_end               = 0.012,
-            num_train_timesteps    = 1000,
-            clip_sample            = False,
-            prediction_type        = "v_prediction",
-            set_alpha_to_one       = True,
-            steps_offset           = 1,
-            trained_betas          = None,
-            timestep_spacing       = "trailing",
-            rescale_betas_zero_snr = True
-        )
-
-        scheduler.set_timesteps(50)
-
-        B = 16
-        cfg_scale = 3.5
-        x = torch.randn((B, 1024, 32, 32), device=device, dtype=dtype)
-        x *= scheduler.init_noise_sigma
-
-        if cfg_scale > 1.0:
-            x = x.repeat(2, 1, 1, 1)
-            print(x.shape)
-            hidden_states = hidden_states.repeat_interleave(B, dim=0)
-            print(hidden_states.shape)
-
-        for t in tqdm(scheduler.timesteps):
-            x_in = scheduler.scale_model_input(x, t)
-            t_sample = torch.as_tensor([t], device=device)
-            if cfg_scale > 1.0:
-                noise_pred = model(x_in, t_sample, hidden_states)
-                noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2, dim=0)
-                noise_pred = noise_pred_uncond + cfg_scale * (noise_pred_cond - noise_pred_uncond)
-                x_out = x[:B]  # 只保留cond部分
-                x_out = scheduler.step(noise_pred, t, x_out).prev_sample
-                # 更新x的前B个为新值，uncond部分保持不变
-                x = torch.cat([x_out, x_out], dim=0)
+            if cfg_scale > 1:
+                cond_z = hidden_states[0, -1, :]
+                uncond_z = hidden_states[1, -1, :]
+                z = uncond_z + cfg_scale * (cond_z - uncond_z)
+                z = z.unsqueeze(0)
             else:
-                noise_pred = model(x_in, t_sample, hidden_states)
-                x = scheduler.step(noise_pred, t, x).prev_sample                
+                z = hidden_states[:, -1, :]
+            
+            next_token = diffusion_generate(z, internvl.diff_head)
+            next_token = rearrange(next_token, "B L D -> B (L D)")
+            generated_tokens[:, i] = next_token.squeeze()
+            img_embeds = internvl.mlp1(next_token.unsqueeze(0))
+            if cfg_scale > 1:
+                text_embedding = img_embeds.repeat(2, 1, 1)
+            else:
+                text_embedding = img_embeds
+        print(generated_tokens.shape)
 
-        if cfg_scale > 1.0:
-            x = x[:B]
-
-        context = rearrange(x, "B D H W -> B (H W) D")
-        print(context.shape)
+        context = rearrange(generated_tokens, "b t (s d) -> b (t s) d", s=4, d=1024)
+        context = block_sequence_to_row_major_tensor(context, 32)
 
         samples = sample_sd3_5(
             transformer         = mmdit,
@@ -177,10 +195,9 @@ def sample_t2i():
         print(samples.shape)
 
         import torchvision.utils as vutils
-        sample_path = f"asset/clip_dit/t2i_lumina_{prompt_txt[:20]}_{step}.png"
+        sample_path = f"asset/clip_dit/t2i_hat_{prompt_txt[:20]}_{step}.png"
         vutils.save_image(samples, sample_path, nrow=4, normalize=False)
         print(f"Samples saved to {sample_path}")    
-
 
 if __name__ == "__main__":
     sample_t2i()
