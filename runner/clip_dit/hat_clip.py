@@ -152,17 +152,22 @@ def main(args):
                     img_mask = torch.ones((clip_256.shape[0], 256), dtype=torch.bool, device=accelerator.device)
                     attention_mask = torch.cat([attention_mask, img_mask], dim=1)
 
-                hidden_states = internvl.language_model(
-                    inputs_embeds        = joint_embedding,
-                    attention_mask       = attention_mask,
-                    output_hidden_states = True,
-                ).hidden_states[-1][:, -256 - 1: -1, :]
-
-                if config.model.dit_head.condition_channels == 14336:
-                    h_28 = hidden_states[-1][:, -256:, :] # (B, 256, 3584)
-                    h_24 = hidden_states[-5][:, -256:, :] # (B, 256, 3584)
-                    h_16 = hidden_states[-13][:, -256:, :] # (B, 256, 3584)
-                    h_8 = hidden_states[-21][:, -256:, :] # (B, 256, 3584)
+                if config.model.dit_head.condition_channels == 3584:
+                    hidden_states = internvl.language_model(
+                        inputs_embeds        = joint_embedding,
+                        attention_mask       = attention_mask,
+                        output_hidden_states = True,
+                    ).hidden_states[-1][:, -256 - 1: -1, :]
+                elif config.model.dit_head.condition_channels == 14336:
+                    hidden_states = internvl.language_model(
+                        inputs_embeds        = joint_embedding,
+                        attention_mask       = attention_mask,
+                        output_hidden_states = True,
+                    ).hidden_states
+                    h_28 = hidden_states[-1][:, -256 - 1: -1, :] # (B, 256, 3584)
+                    h_24 = hidden_states[-5][:, -256 - 1: -1, :] # (B, 256, 3584)
+                    h_16 = hidden_states[-13][:, -256 - 1: -1, :] # (B, 256, 3584)
+                    h_8 = hidden_states[-21][:, -256 - 1: -1, :] # (B, 256, 3584)
                     hidden_states = torch.cat([h_28, h_24, h_16, h_8], dim=-1) # (B, 256, 14336)
                                 
                 x_clip = rearrange(clip_1024, "B (J K) D -> (B J) K D", J=256, K=4) # (Bx256, 4, 1024)
