@@ -24,8 +24,17 @@ def replace_qwen2_attention(model):
             # 递归处理子模块
             replace_qwen2_attention(module)
 
-# 执行替换
-print("Starting to replace Qwen2Attention with Qwen2Attention_Dual...")
+
+dtype = torch.bfloat16
+device = torch.device("cuda:0")
+
+internvl.requires_grad_(False)
 replace_qwen2_attention(internvl)
-print("Replacement completed!")
-print(internvl)
+
+num_para = sum(p.numel() for p in internvl.parameters() if p.requires_grad)
+print(f"trainable num_para: {num_para}")
+
+x = torch.randn(1, 3, 224, 224).to(device).to(dtype)
+
+
+
