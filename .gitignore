@@ -17,3 +17,4 @@ test.py
 unified.sh
 grid_token_converter.py
 doma.sh
+wandb.sh

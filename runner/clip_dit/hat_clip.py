@@ -158,7 +158,7 @@ def main(args):
                     output_hidden_states = True,
                 ).hidden_states[-1][:, -256 - 1: -1, :]
 
-                if config.model.condition_channels == 14336:
+                if config.model.dit_head.condition_channels == 14336:
                     h_28 = hidden_states[-1][:, -256:, :] # (B, 256, 3584)
                     h_24 = hidden_states[-5][:, -256:, :] # (B, 256, 3584)
                     h_16 = hidden_states[-13][:, -256:, :] # (B, 256, 3584)
