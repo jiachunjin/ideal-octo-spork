@@ -201,6 +201,12 @@ def equip_internvl_res_hat(internvl, config):
     # 使用types.MethodType来正确绑定方法
     internvl.language_model.model.forward = types.MethodType(forward, internvl.language_model.model)
 
+    # add diffusion head to internvl.language_model.model: Qwen2Model
+    internvl.diff_head = DiT_Head(config.dit_head)
+    num_params = sum(p.numel() for p in internvl.diff_head.parameters())
+    print(f"Head parameters: {num_params / 1e6:.2f}M")
+    internvl.diff_head.requires_grad_(True)
+
     print("InternVL modified!")
 
     
