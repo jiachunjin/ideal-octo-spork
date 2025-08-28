@@ -23,3 +23,19 @@ model:
 #   hidden_size: 1024
 #   num_heads: 16
 #   depth: 16
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name clip_1024
+  wandb_proj: *exp_name
+  output_dir: 0828_reshat
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: wandb
+
+  lr: 1e-4
+  num_iter: 500000
+  save_every: 10000
