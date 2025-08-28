@@ -38,6 +38,8 @@ def equip_internvl_res_hat(internvl, config):
     )
     additional_layers.requires_grad_(True)
     internvl.language_model.model.additional_layers = additional_layers
+    internvl.language_model.model.norm2 = nn.LayerNorm(hidden_size)
+    internvl.language_model.model.norm2.requires_grad_(True)
     internvl.language_model.model.stages = config.stages
 
     # modify the forward function of internvl.language_model.model: Qwen2Model
@@ -140,10 +142,12 @@ def equip_internvl_res_hat(internvl, config):
         # add hidden states from the last decoder layer
         if output_hidden_states:
             all_hidden_states += (hidden_states,)
-        
+
+        # #########################################
+        # -------------- newly added --------------
+        # #########################################
         print(f"len(all_hidden_states)", len(all_hidden_states))
 
-        
         collected_hidden_states = []
         for stage in self.stages:
             collected_hidden_states.append(all_hidden_states[stage])
@@ -153,13 +157,49 @@ def equip_internvl_res_hat(internvl, config):
         hat_input = self.mlp2(collected_hidden_states)
         print(hat_input.shape)
 
+        hidden_states = hat_input
+
+        for decoder_layer in self.additional_layers:
+            if self.gradient_checkpointing and self.training:
+                layer_outputs = self._gradient_checkpointing_func(
+                    partial(decoder_layer.__call__, **flash_attn_kwargs),
+                    hidden_states,
+                    causal_mask,
+                    position_ids,
+                    past_key_values,
+                    output_attentions,
+                    use_cache,
+                    cache_position,
+                    position_embeddings,
+                )
+            else:
+                layer_outputs = decoder_layer(
+                    hidden_states,
+                    attention_mask=causal_mask,
+                    position_ids=position_ids,
+                    past_key_value=past_key_values,
+                    output_attentions=output_attentions,
+                    use_cache=use_cache,
+                    cache_position=cache_position,
+                    position_embeddings=position_embeddings,
+                    **flash_attn_kwargs,
+                )
+
+            hidden_states = layer_outputs[0]
+
+            if output_attentions:
+                all_self_attns += (layer_outputs[1],)
+
+        hidden_states = self.norm2(hidden_states)
+
+
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=past_key_values if use_cache else None,
             hidden_states=all_hidden_states,
             attentions=all_self_attns,
         )
-    
+
     # 使用types.MethodType来正确绑定方法
     internvl.language_model.model.forward = types.MethodType(forward, internvl.language_model.model)
 
