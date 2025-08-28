@@ -51,10 +51,12 @@ def sample_t2i():
     dtype = torch.float16
 
     # ----- load modified internvl -----
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0827_hat_clip_fullpara"
+    # exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0828_hat_clip_fullpara"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0827_hat_clip_hat8"
+    exp_name = exp_dir.split("/")[-1]
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     tokenizer = AutoTokenizer.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True, use_fast=False)
-    step = 80000
+    step = 10000
     
     internvl = InternVLChatModel.from_pretrained(config.intern_vl_8b_path)
     internvl, _ = equip_internvl(internvl, config.model)
@@ -83,13 +85,12 @@ def sample_t2i():
                     hat_layer_loaded += 1
             else:
                 missing_keys.append(name)
-        
         internvl.load_state_dict(model_state_dict, strict=False)
+        print(f"Resume training: loaded {diff_head_loaded} diff_head parameters and {hat_layer_loaded} HAT layer parameters")
+        if missing_keys:
+            print(f"Warning: some keys in checkpoint not found in model: {missing_keys[:5]}...")
+
     internvl = internvl.to(device, dtype).eval()
-    
-    print(f"Resume training: loaded {diff_head_loaded} diff_head parameters and {hat_layer_loaded} HAT layer parameters")
-    if missing_keys:
-        print(f"Warning: some keys in checkpoint not found in model: {missing_keys[:5]}...")
     
     # ----- load decoder -----
     from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
@@ -195,7 +196,7 @@ def sample_t2i():
         print(samples.shape)
 
         import torchvision.utils as vutils
-        sample_path = f"asset/clip_dit/t2i_hat_{prompt_txt[:20]}_{step}.png"
+        sample_path = f"asset/clip_dit/{exp_name}_{prompt_txt[:20]}_{step}.png"
         vutils.save_image(samples, sample_path, nrow=4, normalize=False)
         print(f"Samples saved to {sample_path}")    
 
