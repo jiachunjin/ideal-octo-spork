@@ -48,7 +48,7 @@ def main(args):
         attention_mask = attention_mask,
         output_hidden_states = True,
     )
-    print(outputs.hidden_states.shape)
+    print(outputs.hidden_states[-1].shape)
 
 
 if __name__ == "__main__":
