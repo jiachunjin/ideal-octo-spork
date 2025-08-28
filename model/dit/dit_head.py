@@ -146,21 +146,21 @@ def equip_internvl_res_hat(internvl, config):
         # #########################################
         # -------------- newly added --------------
         # #########################################
-        print(f"len(all_hidden_states)", len(all_hidden_states))
+        # print(f"len(all_hidden_states)", len(all_hidden_states))
 
         collected_hidden_states = []
         for stage in self.stages:
             collected_hidden_states.append(all_hidden_states[stage])
         collected_hidden_states = torch.cat(collected_hidden_states, dim=-1)
-        print(collected_hidden_states.shape)
+        # print(collected_hidden_states.shape)
 
         hat_input = self.mlp2(collected_hidden_states)
-        print(hat_input.shape)
+        # print(hat_input.shape)
 
         hidden_states = hat_input
 
         for decoder_layer in self.additional_layers:
-            print(decoder_layer.self_attn.layer_idx)
+            # print(decoder_layer.self_attn.layer_idx)
             if self.gradient_checkpointing and self.training:
                 layer_outputs = self._gradient_checkpointing_func(
                     partial(decoder_layer.__call__, **flash_attn_kwargs),
