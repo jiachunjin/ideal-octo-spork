@@ -160,6 +160,7 @@ def equip_internvl_res_hat(internvl, config):
         hidden_states = hat_input
 
         for decoder_layer in self.additional_layers:
+            print(decoder_layer.self_attn.layer_idx)
             if self.gradient_checkpointing and self.training:
                 layer_outputs = self._gradient_checkpointing_func(
                     partial(decoder_layer.__call__, **flash_attn_kwargs),
@@ -186,9 +187,6 @@ def equip_internvl_res_hat(internvl, config):
                 )
 
             hidden_states = layer_outputs[0]
-
-            if output_attentions:
-                all_self_attns += (layer_outputs[1],)
 
         hidden_states = self.norm2(hidden_states)
 

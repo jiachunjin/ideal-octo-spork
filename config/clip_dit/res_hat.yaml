@@ -1,7 +1,7 @@
 machine: ks
 
 model:
-  num_hat: 8
+  num_hat: 4
   stages: [0, 9, 18, 27]
 
   dit_head:
@@ -10,8 +10,8 @@ model:
     condition_channels: 3584
     num_tokens: 4
 
-    hidden_size: 2048
-    num_heads: 32
+    hidden_size: 3584
+    num_heads: 28
     depth: 4
 
 # dit_head:
