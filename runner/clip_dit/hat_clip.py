@@ -63,6 +63,9 @@ def main(args):
     if config.model.full_tune:
         internvl.language_model.requires_grad_(True)
         internvl.mlp1.requires_grad_(True)
+    
+    if getattr(config.model, "tune_mlp1", False):
+        internvl.mlp1.requires_grad_(True)
 
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
@@ -209,6 +212,12 @@ def main(args):
                             save_path = os.path.join(output_dir, f"internvl-{config.train.exp_name}-{global_step}")
                             torch.save(selective_state_dict, save_path)
                             print(f"Selective state dict saved to {save_path} with {len(selective_state_dict)} parameters")
+
+                            if getattr(config.model, "tune_mlp1", False):
+                                mlp1_state_dict = model.mlp1.state_dict()
+                                save_path = os.path.join(output_dir, f"mlp1-{config.train.exp_name}-{global_step}")
+                                torch.save(mlp1_state_dict, save_path)
+                                print(f"MLP1 state dict saved to {save_path} with {len(mlp1_state_dict)} parameters")
 
                     accelerator.wait_for_everyone()
 
