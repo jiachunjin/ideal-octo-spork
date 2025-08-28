@@ -38,6 +38,7 @@ def equip_internvl_res_hat(internvl, config):
     )
     additional_layers.requires_grad_(True)
     internvl.language_model.model.additional_layers = additional_layers
+    internvl.language_model.model.stages = config.stages
 
     # modify the forward function of internvl.language_model.model: Qwen2Model
     def forward(
@@ -141,6 +142,16 @@ def equip_internvl_res_hat(internvl, config):
             all_hidden_states += (hidden_states,)
         
         print(f"len(all_hidden_states)", len(all_hidden_states))
+
+        
+        collected_hidden_states = []
+        for stage in self.stages:
+            collected_hidden_states.append(all_hidden_states[stage])
+        collected_hidden_states = torch.cat(collected_hidden_states, dim=-1)
+        print(collected_hidden_states.shape)
+
+        hat_input = self.mlp2(collected_hidden_states)
+        print(hat_input.shape)
 
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
