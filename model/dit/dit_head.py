@@ -32,7 +32,7 @@ def equip_internvl_res_hat(internvl, config):
 
     # add new decoder layers to internvl.language_model.model: Qwen2Model
     qwen2_config = internvl.language_model.model.config
-    layer_idx_curr = len(qwen2_config.num_hidden_layers)
+    layer_idx_curr = qwen2_config.num_hidden_layers
     additional_layers = nn.ModuleList(
         [Qwen2DecoderLayer(qwen2_config, layer_idx_curr + layer_idx) for layer_idx in range(config.num_hat)]
     )

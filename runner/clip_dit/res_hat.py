@@ -27,7 +27,7 @@ def main(args):
     config = OmegaConf.load(args.config)
     config = process_pretrained_model_path(config)
 
-    accelerator, output_dir = get_accelerator(config)
+    # accelerator, output_dir = get_accelerator(config)
     internvl = InternVLChatModel.from_pretrained(config.intern_vl_8b_path)
 
     equip_internvl_res_hat(internvl, config.model)
