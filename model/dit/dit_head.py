@@ -53,8 +53,6 @@ def equip_internvl_res_hat(internvl, config):
         cache_position = None,
         **flash_attn_kwargs,
     ):
-        print(f"Hello, world!")
-        exit(0)
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -141,6 +139,8 @@ def equip_internvl_res_hat(internvl, config):
         # add hidden states from the last decoder layer
         if output_hidden_states:
             all_hidden_states += (hidden_states,)
+        
+        print(f"len(all_hidden_states)", len(all_hidden_states))
 
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,

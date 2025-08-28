@@ -33,7 +33,7 @@ def main(args):
     equip_internvl_res_hat(internvl, config.model)
 
     num_para = sum(p.numel() for p in internvl.parameters() if p.requires_grad)
-    print(f"trainable num_para: {num_para}")
+    print(f"trainable num_para: {num_para / 1e6} M")
 
     device = torch.device("cuda:0")
     dtype = torch.bfloat16
