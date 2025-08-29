@@ -31,7 +31,7 @@ data:
   num_train_examples: 35000000
   img_size: 448
   buffer_size: 50
-  batch_size: 6
+  batch_size: 16
   num_workers: 8
   cfg_drop_rate: 0.1
   num_img_token: 1024

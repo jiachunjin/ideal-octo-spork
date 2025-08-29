@@ -136,6 +136,21 @@ def main(args):
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
 
+                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                        internvl.eval()
+                        model = accelerator.unwrap_model(internvl)
+                        save_path = os.path.join(output_dir, f"internvl-{config.train.exp_name}-{global_step}")
+                        torch.save(model.state_dict(), save_path)
+                        print(f"Full state dict saved to {save_path} with {len(model.state_dict())} parameters")
+
+                    accelerator.wait_for_everyone()
+
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
