@@ -71,6 +71,25 @@ def sample_t2i():
 
     internvl.to(device, dtype).eval()
 
+    # ----- load decoder -----
+    from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
+    from model.mmdit import load_mmdit
+    from runner.mmdit.train_basic_sd3 import sample_sd3_5
+
+    mmdit_step = 95000
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256"
+    config_path = os.path.join(exp_dir, "config.yaml")
+    config_decoder = OmegaConf.load(config_path)
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config_decoder.sd3_5_path, subfolder="scheduler")
+    mmdit = load_mmdit(config_decoder)
+    ckpt_path = os.path.join(exp_dir, f"mmdit-mmdit-{mmdit_step}")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    mmdit.load_state_dict(ckpt, strict=False)
+    mmdit = mmdit.to(device, dtype).eval()
+    vae = AutoencoderKL.from_pretrained(config_decoder.sd3_5_path, subfolder="vae")
+    vae.requires_grad_(False)
+    vae = vae.to(device, dtype).eval()
+
     # ----- sampling -----
     IMG_START_TOKEN = "<img>"
     prompts = [
@@ -127,14 +146,36 @@ def sample_t2i():
                 z = hidden_states[:, -1, :]
             
             next_token = diff_generate(z, internvl.diff_head)
-            next_token = rearrange(next_token, "B L D -> B (L D)")
+            img_embeds = internvl.clip_projector(next_token)
+
             generated_tokens[:, i] = next_token.squeeze()
-            img_embeds = internvl.mlp1(next_token.unsqueeze(0))
+            
             if cfg_scale > 1:
                 text_embedding = img_embeds.repeat(2, 1, 1)
             else:
                 text_embedding = img_embeds
         print(generated_tokens.shape)
+
+        samples = sample_sd3_5(
+            transformer         = mmdit,
+            vae                 = vae,
+            noise_scheduler     = noise_scheduler,
+            device              = device,
+            dtype               = dtype,
+            context             = generated_tokens,
+            batch_size          = generated_tokens.shape[0],
+            height              = 448,
+            width               = 448,
+            num_inference_steps = 25,
+            guidance_scale      = 1.0,
+            seed                = 42
+        )
+        print(samples.shape)
+
+        import torchvision.utils as vutils
+        sample_path = f"asset/clip_dit/{exp_name}_{prompt_txt[:20]}_{step}.png"
+        vutils.save_image(samples, sample_path, nrow=4, normalize=False)
+        print(f"Samples saved to {sample_path}")   
 
 
 if __name__ == "__main__":
