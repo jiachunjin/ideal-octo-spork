@@ -131,7 +131,7 @@ def main(args):
                     progress_bar.update(1)
 
                     logs = dict(
-                        loss_diff_head = accelerator.gather(loss.detach()).mean().item(),
+                        clip_loss = accelerator.gather(loss.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)

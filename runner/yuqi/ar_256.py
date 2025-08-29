@@ -100,9 +100,60 @@ def main(args):
                     x_clip = extract_feature_pre_adapter(vision_model, pixel_values)
                     visual_gen_feature = feature_down_projector(x_clip) # (B, 256, d)
 
-                print(visual_gen_feature.shape)
+                B, L = input_ids.shape
+                text_embedding = internvl.language_model.get_input_embeddings()(input_ids).clone()
+                img_embedding = internvl.clip_projector(visual_gen_feature)
+                joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+                img_mask = torch.ones((B, config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
+                attention_mask = torch.cat([attention_mask, img_mask], dim=1)
 
-                exit()
+                hidden_states = internvl.language_model(
+                    inputs_embeds        = joint_embedding,
+                    attention_mask       = attention_mask,
+                    output_hidden_states = True,
+                ).hidden_states[-1]
+                hidden_state = hidden_states[:, -config.data.num_img_token-1:-1, :]
+
+                z = rearrange(hidden_state, "B L D -> (B L) D")
+                gt_feature = rearrange(visual_gen_feature, "B L D -> (B L) D")
+                timesteps = torch.randint(0, 1000, (z.shape[0],), dtype=torch.int64, device=z.device)
+                noise = torch.randn_like(gt_feature, device=z.device, dtype=z.dtype)
+                noisy_latents = train_scheduler.add_noise(gt_feature, noise, timesteps)
+                target = train_scheduler.get_velocity(gt_feature, noise, timesteps)
+                pred = internvl.diff_head(noisy_latents, timesteps, z)
+
+                loss = torch.nn.functional.mse_loss(pred.to(dtype), target)
+                accelerator.backward(loss)
+
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        clip_loss = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+
+                    if global_step > 0 and global_step % config.train.save_every == 0 and accelerator.is_main_process:
+                        internvl.eval()
+                        model = accelerator.unwrap_model(internvl)
+                        save_path = os.path.join(output_dir, f"internvl-{config.train.exp_name}-{global_step}")
+                        torch.save(model.state_dict(), save_path)
+                        print(f"Full state dict saved to {save_path} with {len(model.state_dict())} parameters")
+
+                    accelerator.wait_for_everyone()
+
+        epoch += 1
+        accelerator.print(f"epoch {epoch}: finished")
+        accelerator.log({"epoch": epoch}, step=global_step)
+
+    accelerator.end_training()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
