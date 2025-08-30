@@ -11,7 +11,7 @@ from einops import rearrange
 from model.dit.diff_mlp import add_diffhead_dit_to_ar_model
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.vae_aligner.vit_vae_aligner import get_feature_down_proj
-from model.internvl import extract_feature_pre_adapter
+from model.internvl import extract_dual_clip
 
 from util.misc import process_pretrained_model_path, flatten_dict
 from util.my_tool_box import get_accelerator, get_t2i_dataloader
@@ -102,8 +102,8 @@ def main(args):
                 pixel_values = (pixel_values - imagenet_mean) / imagenet_std
 
                 with torch.no_grad():
-                    x_clip = extract_feature_pre_adapter(vision_model, pixel_values)
-                    visual_gen_feature = feature_down_projector(x_clip) # (B, 256, d)
+                    clip_1024, clip_256 = extract_dual_clip(vision_model, pixel_values)
+                    visual_gen_feature = feature_down_projector(clip_256) # (B, 256, d)
 
                 # ----- compute AR loss -----
                 B, L = input_ids.shape
@@ -131,6 +131,7 @@ def main(args):
                 loss_ar = torch.nn.functional.mse_loss(pred.to(dtype), target)
 
                 # ----- compute DiT loss -----
+                x_clip = rearrange(clip_1024, "b (h w) d -> b d h w", h=32, w=32)
                 timesteps = torch.randint(0, 1000, (B,), device=accelerator.device, dtype=torch.int64)
                 noise = torch.randn_like(x_clip, device=accelerator.device, dtype=dtype)
                 noisy_latents = train_scheduler.add_noise(x_clip, noise, timesteps)

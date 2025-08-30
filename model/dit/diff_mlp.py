@@ -302,6 +302,8 @@ def add_diffhead_dit_to_ar_model(ar_model, config):
         z_channels     = config.diffhead.z_dim,
         num_res_blocks = config.diffhead.depth,
     )
+    num_parameters = sum(p.numel() for p in diff_head.parameters())
+    print(f"diff_head has {num_parameters / 1e6} M parameters")
 
     clip_projector = nn.Sequential(
         nn.Linear(config.diffhead.x_dim, config.diffhead.z_dim),
@@ -321,6 +323,8 @@ def add_diffhead_dit_to_ar_model(ar_model, config):
 
     dit_config = NextDiTCrossAttnConfig(**config.dit)
     dit = NextDiTCrossAttn(dit_config)
+    num_parameters = sum(p.numel() for p in dit.parameters())
+    print(f"dit has {num_parameters / 1e6} M parameters")
 
     ar_model.dit = dit
     ar_model.dit.requires_grad_(True)

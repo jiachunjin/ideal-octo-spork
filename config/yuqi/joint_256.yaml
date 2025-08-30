@@ -1,6 +1,13 @@
 machine: ks
 
 model:
+  dit:
+    dim: 1024
+    n_layers: 16
+    n_heads: 16
+    n_kv_heads: 16
+    latent_embedding_size: 1536
+
   diffhead:
     hidden_size: 1536
     depth: 2
