@@ -56,7 +56,7 @@ def sample_t2i():
     exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0829_ar_256x8"
 
     exp_name = exp_dir.split("/")[-1]
-    step = 5000
+    step = 120000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     tokenizer = AutoTokenizer.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True, use_fast=False)
@@ -104,7 +104,7 @@ def sample_t2i():
         "Muscular man in workout attire, standing confidently by a railing.",
         "Confident man in leather jacket leaning against a wall.",
     ]
-    cfg_scale = 3
+    cfg_scale = 4
 
     for idx, prompt_txt in enumerate(prompts):
         template = get_conv_template("internvl2_5")
