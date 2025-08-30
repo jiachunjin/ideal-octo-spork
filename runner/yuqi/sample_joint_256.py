@@ -56,7 +56,7 @@ def sample_t2i():
     exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0829_joint_256x8"
 
     exp_name = exp_dir.split("/")[-1]
-    step = 10000
+    step = 20000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     tokenizer = AutoTokenizer.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True, use_fast=False)
@@ -76,19 +76,33 @@ def sample_t2i():
     from model.mmdit import load_mmdit
     from runner.mmdit.train_basic_sd3 import sample_sd3_5
 
-    # mmdit_step = 95000
-    # exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256"
-    # config_path = os.path.join(exp_dir, "config.yaml")
-    # config_decoder = OmegaConf.load(config_path)
-    # noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config_decoder.sd3_5_path, subfolder="scheduler")
-    # mmdit = load_mmdit(config_decoder)
-    # ckpt_path = os.path.join(exp_dir, f"mmdit-mmdit-{mmdit_step}")
-    # ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-    # mmdit.load_state_dict(ckpt, strict=False)
-    # mmdit = mmdit.to(device, dtype).eval()
-    # vae = AutoencoderKL.from_pretrained(config_decoder.sd3_5_path, subfolder="vae")
-    # vae.requires_grad_(False)
-    # vae = vae.to(device, dtype).eval()
+    mmdit_step = 140000
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0813_sd3_1024"
+    config_path = os.path.join(exp_dir, "config.yaml")
+    config_decoder = OmegaConf.load(config_path)
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config_decoder.sd3_5_path, subfolder="scheduler")
+    mmdit = load_mmdit(config_decoder)
+    ckpt_path = os.path.join(exp_dir, f"mmdit-mmdit-{mmdit_step}")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    mmdit.load_state_dict(ckpt, strict=False)
+    mmdit = mmdit.to(device, dtype).eval()
+
+
+    mmdit_step = 95000
+    exp_dir = "/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256"
+    config_path = os.path.join(exp_dir, "config.yaml")
+    config_decoder = OmegaConf.load(config_path)
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config_decoder.sd3_5_path, subfolder="scheduler")
+    mmdit_256x8 = load_mmdit(config_decoder)
+    ckpt_path = os.path.join(exp_dir, f"mmdit-mmdit-{mmdit_step}")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    mmdit_256x8.load_state_dict(ckpt, strict=False)
+    mmdit_256x8 = mmdit_256x8.to(device, dtype).eval()
+
+    # load vae
+    vae = AutoencoderKL.from_pretrained(config_decoder.sd3_5_path, subfolder="vae")
+    vae.requires_grad_(False)
+    vae = vae.to(device, dtype).eval()
 
     # ----- sampling -----
     IMG_START_TOKEN = "<img>"
@@ -133,7 +147,7 @@ def sample_t2i():
         text_embedding = internvl.language_model.get_input_embeddings()(input_ids).to(device)
 
         generated_tokens = torch.zeros((1, 256, 8)).to(device, dtype)
-        hidden_states = torch.zeros((1, 256, config.model.dit.latent_embedding_size)).to(device, dtype)
+        hidden_states_store = torch.zeros((1, 256, config.model.dit.latent_embedding_size)).to(device, dtype)
         for i in trange(256):
             outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
@@ -148,7 +162,8 @@ def sample_t2i():
             
             next_token = diff_generate(z, internvl.diff_head)
             img_embeds = internvl.clip_projector(next_token)
-            hidden_states[:, i] = z
+            # print(z.shape, hidden_states_store[:, i].shape)
+            hidden_states_store[:, i] = z.squeeze()
 
             generated_tokens[:, i] = next_token.squeeze()
             
@@ -157,11 +172,10 @@ def sample_t2i():
             else:
                 text_embedding = img_embeds
         print(generated_tokens.shape)
-        print(hidden_states.shape)
-        exit(0)
+        print(hidden_states_store.shape) # (1, 256, 1536)
 
         samples = sample_sd3_5(
-            transformer         = mmdit,
+            transformer         = mmdit_256x8,
             vae                 = vae,
             noise_scheduler     = noise_scheduler,
             device              = device,
@@ -177,9 +191,57 @@ def sample_t2i():
         print(samples.shape)
 
         import torchvision.utils as vutils
-        sample_path = f"asset/clip_dit/{exp_name}_{prompt_txt[:20]}_{step}.png"
+        sample_path = f"asset/clip_dit/{exp_name}_256x8_{prompt_txt[:20]}_{step}.png"
         vutils.save_image(samples, sample_path, nrow=4, normalize=False)
         print(f"Samples saved to {sample_path}")   
+
+        sample_scheduler.set_timesteps(50)
+
+        B = 16
+        x = torch.randn((B, 1024, 32, 32), device=device, dtype=dtype)
+        x *= sample_scheduler.init_noise_sigma
+
+        for t in tqdm(sample_scheduler.timesteps):
+            x_in = sample_scheduler.scale_model_input(x, t)
+            t_sample = torch.as_tensor([t], device=device)
+            # if cfg_scale > 1.0:
+            #     noise_pred = internvl.dit(x_in, t_sample, hidden_states_store)
+            #     noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2, dim=0)
+            #     noise_pred = noise_pred_uncond + cfg_scale * (noise_pred_cond - noise_pred_uncond)
+            #     x_out = x[:B]  # 只保留cond部分
+            #     x_out = sample_scheduler.step(noise_pred, t, x_out).prev_sample
+            #     # 更新x的前B个为新值，uncond部分保持不变
+            #     x = torch.cat([x_out, x_out], dim=0)
+            # else:
+            noise_pred = internvl.dit(x_in, t_sample, hidden_states_store.repeat(B, 1, 1))
+            x = sample_scheduler.step(noise_pred, t, x).prev_sample    
+
+
+        print(x.shape)
+
+        context = rearrange(x, "B D H W -> B (H W) D")
+        print(context.shape)
+
+        samples = sample_sd3_5(
+            transformer         = mmdit,
+            vae                 = vae,
+            noise_scheduler     = noise_scheduler,
+            device              = device,
+            dtype               = dtype,
+            context             = context,
+            batch_size          = context.shape[0],
+            height              = 448,
+            width               = 448,
+            num_inference_steps = 25,
+            guidance_scale      = 1.0,
+            seed                = 42
+        )
+        print(samples.shape)
+
+        import torchvision.utils as vutils
+        sample_path = f"asset/clip_dit/t2i_joint_{prompt_txt[:20]}_{step}.png"
+        vutils.save_image(samples, sample_path, nrow=4, normalize=False)
+        print(f"Samples saved to {sample_path}")
 
 
 if __name__ == "__main__":

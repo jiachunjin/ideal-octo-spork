@@ -137,7 +137,7 @@ def main(args):
                 noisy_latents = train_scheduler.add_noise(x_clip, noise, timesteps)
                 target = train_scheduler.get_velocity(x_clip, noise, timesteps)
 
-                pred = internvl.dit(noisy_latents, timesteps, hidden_states)
+                pred = internvl.dit(noisy_latents, timesteps, hidden_state)
                 loss_dit = torch.nn.functional.mse_loss(pred, target)
 
                 loss = loss_ar + loss_dit
