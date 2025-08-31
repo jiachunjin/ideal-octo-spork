@@ -28,7 +28,7 @@ def main(args):
     config = process_pretrained_model_path(config)
     accelerator, output_dir = get_accelerator(config)
 
-    internvl = InternVLChatModel.from_pretrained(config.intern_vl_2b_path)
+    internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
     internvl, train_scheduler = add_diffhead_dit_to_ar_model(internvl, config.model)
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
