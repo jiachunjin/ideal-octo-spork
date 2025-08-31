@@ -112,7 +112,36 @@ def main(args):
                     output_hidden_states = True,
                 ).hidden_states[-1]
                 hidden_state = hidden_states[:, -config.data.num_img_token-1:-1, :]
-                print(hidden_state.shape)
+
+                z = rearrange(hidden_state, "B L D -> (B L) D")
+                gt_feature = rearrange(visual_gen_feature, "B L D -> (B L) D")
+                timesteps = torch.randint(0, 1000, (z.shape[0],), dtype=torch.int64, device=z.device)
+                noise = torch.randn_like(gt_feature, device=z.device, dtype=z.dtype)
+                noisy_latents = train_scheduler.add_noise(gt_feature, noise, timesteps)
+                target = train_scheduler.get_velocity(gt_feature, noise, timesteps)
+                pred = internvl.diff_head(noisy_latents, timesteps, z)
+
+                loss_ar = torch.nn.functional.mse_loss(pred.to(dtype), target)
+
+
+                loss = loss_ar + 0
+
+                accelerator.backward(loss)
+
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+
+                    logs = dict(
+                        ar_loss = accelerator.gather(loss_ar.detach()).mean().item(), 
+                        # clip_loss = accelerator.gather(loss_dit.detach()).mean().item(), 
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
 
 
 if __name__ == "__main__":
