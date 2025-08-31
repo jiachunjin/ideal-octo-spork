@@ -18,6 +18,11 @@ model:
 
   tune_backbone: false
 # --------------------
+feature_down_projector:
+  clip_feature_dim: 4096
+  feature_dim_output: 8
+  ckpt: "/data/phd/jinjiachun/experiment/mmdit/0817_sd3_256/mmdit-mmdit-95000"
+# --------------------
 train:
   root: null
   resume_path: null
@@ -43,5 +48,5 @@ data:
   batch_size: 5
   num_workers: 8
   cfg_drop_rate: 0.1
-  num_img_token: *num_query
+  num_img_token: 256
   max_seq_length: 512

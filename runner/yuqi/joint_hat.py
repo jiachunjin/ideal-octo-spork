@@ -80,6 +80,40 @@ def main(args):
     accelerator.print(f"Learnable parameters: {sum(p.numel() for p in params_to_learn if p.requires_grad) / 1e6} M")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
 
+    imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
+    imagenet_std = torch.tensor(IMAGENET_STD, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
+
+    while not training_done:
+        for batch in dataloader:
+            with accelerator.accumulate([internvl]):
+                internvl.train()
+                pixel_values = batch["pixel_values"].to(accelerator.device, dtype)
+                input_ids = batch["input_ids"].to(accelerator.device)
+                attention_mask = batch["attention_mask"].to(accelerator.device)
+
+                pixel_values = (pixel_values - imagenet_mean) / imagenet_std
+
+                with torch.no_grad():
+                    clip_1024, clip_256 = extract_dual_clip(internvl.vision_model, pixel_values)
+                    visual_gen_feature = feature_down_projector(clip_256) # (B, 256, d)
+
+                # ----- compute AR loss -----
+                B, L = input_ids.shape
+                text_embedding = internvl.language_model.get_input_embeddings()(input_ids).clone()
+                img_embedding = internvl.clip_projector(visual_gen_feature)
+                print(text_embedding.shape, img_embedding.shape)
+                joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+                img_mask = torch.ones((B, config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
+                attention_mask = torch.cat([attention_mask, img_mask], dim=1)
+
+                hidden_states = internvl.language_model(
+                    inputs_embeds        = joint_embedding,
+                    attention_mask       = attention_mask,
+                    output_hidden_states = True,
+                ).hidden_states[-1]
+                hidden_state = hidden_states[:, -config.data.num_img_token-1:-1, :]
+                print(hidden_state.shape)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
