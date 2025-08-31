@@ -329,6 +329,22 @@ def add_diffhead_dit_to_ar_model(ar_model, config):
     ar_model.dit = dit
     ar_model.dit.requires_grad_(True)
 
+    if hasattr(config, "num_hat"):
+        from model.dit.dit_head import add_hat_to_intern
+        ar_model.language_model.model = add_hat_to_intern(ar_model.language_model.model, config.num_hat)
+
+        current_num_layers = len(ar_model.language_model.model.layers)
+        new_layer_indices = range(current_num_layers - config.num_hat, current_num_layers)
+        ar_model.requires_grad_(False)
+        for idx in new_layer_indices:
+            layer = ar_model.language_model.model.layers[idx]
+            layer.requires_grad_(True)
+        
+        # number of trainable parameters in hat layers
+        num_parameters = sum(p.numel() for p in ar_model.language_model.model.parameters() if p.requires_grad)
+        print(f"number of trainable parameters in hat layers: {num_parameters / 1e6} M")
+
+
     train_scheduler = DDPMScheduler(
         beta_schedule          = "scaled_linear",
         beta_start             = 0.00085,
