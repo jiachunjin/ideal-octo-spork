@@ -13,6 +13,7 @@ vae_aligner:
 train:
   root: null
   resume_path: /data/phd/jinjiachun/experiment/intern_clip/0901_intern_8b_aligner/vae_aligner-intern_clip-6000
+  skipped_keys: null
   global_step: 6000
 
   exp_name: &exp_name intern_clip
