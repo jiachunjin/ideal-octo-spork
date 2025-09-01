@@ -12,8 +12,8 @@ vae_aligner:
 
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: /data/phd/jinjiachun/experiment/intern_clip/0901_intern_8b_aligner/vae_aligner-intern_clip-6000
+  global_step: 6000
 
   exp_name: &exp_name intern_clip
   wandb_proj: *exp_name

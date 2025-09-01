@@ -28,6 +28,14 @@ def main(args):
     accelerator, output_dir = get_accelerator(config)
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
+    if config.train.resume_path is not None:
+        ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
+        if config.train.skipped_keys:
+            ckpt = {k: v for k, v in ckpt.items() if k not in config.train.skipped_keys}
+        m, u = vae_aligner.load_state_dict(ckpt, strict=False)
+        accelerator.print(f"Missing modules: {m}, unmatched modules: {u}")
+
+    
     vae = AutoencoderKL.from_pretrained(config.vae_path)
 
     vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
