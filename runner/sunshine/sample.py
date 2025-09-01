@@ -4,11 +4,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 import os
 import torch
+import torchvision
 from diffusers import AutoencoderKL, DDIMScheduler
 from tqdm import tqdm, trange
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.dit.diff_mlp import intern_add_diffhead_mmdit
 from model.internvl.conversation import get_conv_template
+from model.vae_aligner import get_vae_aligner
 
 sample_scheduler = DDIMScheduler(
     beta_schedule          = "scaled_linear",
@@ -65,6 +67,11 @@ def sample_t2i():
     print(f"unmatched: {u}")
 
     internvl.to(device, dtype).eval()
+
+    vae_aligner = get_vae_aligner(config.vae_aligner)
+    ckpt = torch.load(config.vae_aligner.ckpt_path, map_location="cpu", weights_only=True)
+    vae_aligner.load_state_dict(ckpt, strict=True)
+    vae_aligner = vae_aligner.to(device, dtype).eval()
 
     vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
     vae.requires_grad_(False)
@@ -136,6 +143,15 @@ def sample_t2i():
             else:
                 text_embedding = img_embeds
         print(generated_tokens.shape)
+        rec = vae_aligner.forward_with_low_dim(generated_tokens)
+        print(rec.shape)
+
+        reconstructed = vae.decode(rec).sample
+        reconstructed = (reconstructed + 1) / 2
+        reconstructed = torch.clamp(reconstructed, 0, 1)
+        grid = torchvision.utils.make_grid(reconstructed, nrow=4)
+        os.makedirs("asset/sunshine", exist_ok=True)
+        torchvision.utils.save_image(grid, f"asset/sunshine/coarse_{idx:02d}.png")
 
 
 if __name__ == "__main__":
