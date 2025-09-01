@@ -136,3 +136,7 @@ def sample_t2i():
             else:
                 text_embedding = img_embeds
         print(generated_tokens.shape)
+
+
+if __name__ == "__main__":
+    sample_t2i()
