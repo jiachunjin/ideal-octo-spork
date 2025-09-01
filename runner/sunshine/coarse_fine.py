@@ -119,7 +119,7 @@ def main(args):
                 with torch.no_grad():
                     x_clip = extract_feature_pre_adapter(vision_model, x_intern)
                     visual_gen_feature = feature_down_projector(x_clip)
-                    # vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
+                    vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
 
                 # ----- compute AR loss -----
                 B, L = input_ids.shape
@@ -147,7 +147,7 @@ def main(args):
                 loss_ar = torch.nn.functional.mse_loss(pred.to(dtype), target)
 
                 # ----- compute DiT loss -----
-                model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
+                model_input = (vae_latent - vae.config.shift_factor) * vae.config.scaling_factor
                 noise = torch.randn_like(model_input, device=model_input.device, dtype=model_input.dtype)
                 u = compute_density_for_timestep_sampling(
                     weighting_scheme = "logit_normal",
