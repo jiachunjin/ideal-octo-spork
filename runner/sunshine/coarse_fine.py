@@ -4,13 +4,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 import torch
 import argparse
+import copy
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from einops import rearrange
 
 from model.dit.diff_mlp import intern_add_diffhead_mmdit
 from model.internvl.modeling_internvl_chat import InternVLChatModel
-from model.vae_aligner.vit_vae_aligner import get_feature_down_proj
+from diffusers import FlowMatchEulerDiscreteScheduler, AutoencoderKL
+from diffusers.training_utils import compute_density_for_timestep_sampling, compute_loss_weighting_for_sd3
 from model.vae_aligner import get_vae_aligner
 from model.internvl import extract_feature_pre_adapter
 
@@ -38,6 +40,9 @@ def main(args):
 
     vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
 
+    vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
+    vae.requires_grad_(False)
+
     global_step = config.train.global_step if config.train.global_step is not None else 0
     params_to_learn = list(p for p in internvl.parameters() if p.requires_grad)
 
@@ -62,6 +67,10 @@ def main(args):
     feature_down_projector = feature_down_projector.to(accelerator.device, dtype).eval()
     vision_model.requires_grad_(False)
     vision_model = vision_model.to(accelerator.device, dtype).eval()
+    vae = vae.to(accelerator.device, dtype).eval()
+
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+    noise_scheduler_copy = copy.deepcopy(noise_scheduler)
 
     training_done = False
     epoch = 0
@@ -80,6 +89,18 @@ def main(args):
 
     accelerator.print(f"Learnable parameters: {sum(p.numel() for p in params_to_learn if p.requires_grad) / 1e6} M")
     accelerator.print(f"Accelerator mixed precision: {accelerator.mixed_precision}")
+
+
+    def get_sigmas(timesteps, n_dim=4, dtype=torch.float32):
+        sigmas = noise_scheduler_copy.sigmas.to(device=accelerator.device, dtype=dtype)
+        schedule_timesteps = noise_scheduler_copy.timesteps.to(accelerator.device)
+        timesteps = timesteps.to(accelerator.device)
+        step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
+
+        sigma = sigmas[step_indices].flatten()
+        while len(sigma.shape) < n_dim:
+            sigma = sigma.unsqueeze(-1)
+        return sigma
 
     imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
     imagenet_std = torch.tensor(IMAGENET_STD, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
@@ -125,7 +146,38 @@ def main(args):
 
                 loss_ar = torch.nn.functional.mse_loss(pred.to(dtype), target)
 
-                loss = loss_ar + 0
+                # ----- compute DiT loss -----
+                model_input = (x_vae - vae.config.shift_factor) * vae.config.scaling_factor
+                noise = torch.randn_like(model_input, device=model_input.device, dtype=model_input.dtype)
+                u = compute_density_for_timestep_sampling(
+                    weighting_scheme = "logit_normal",
+                    batch_size       = model_input.shape[0],
+                    logit_mean       = 0.0,
+                    logit_std        = 1.0,
+                    mode_scale       = 1.29,
+                )
+                indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                timesteps = noise_scheduler_copy.timesteps[indices].to(device=model_input.device)
+                sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
+                noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise        
+
+                print(hidden_states.shape)
+                model_pred = internvl.mmdit(
+                    x           = noisy_model_input,
+                    t           = timesteps,
+                    context     = hidden_states,
+                    y           = None,
+                )
+                model_pred = model_pred * (-sigmas) + noisy_model_input
+                weighting = compute_loss_weighting_for_sd3(weighting_scheme="logit_normal", sigmas=sigmas)
+                target = model_input
+
+                loss_dit = torch.mean(
+                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                    1,
+                ).mean()
+
+                loss = loss_ar + loss_dit
 
                 accelerator.backward(loss)
 
@@ -139,7 +191,7 @@ def main(args):
 
                     logs = dict(
                         ar_loss = accelerator.gather(loss_ar.detach()).mean().item(), 
-                        # clip_loss = accelerator.gather(loss_dit.detach()).mean().item(), 
+                        dit_loss = accelerator.gather(loss_dit.detach()).mean().item(), 
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
