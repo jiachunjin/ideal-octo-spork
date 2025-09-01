@@ -1,4 +1,8 @@
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+import os
 import torch
 from diffusers import AutoencoderKL, DDIMScheduler
 from tqdm import tqdm, trange
@@ -24,7 +28,7 @@ def diff_generate(feature, diff_head):
     sample_scheduler.set_timesteps(50)
     B = feature.shape[0]
 
-    pred_latents = torch.randn((B, 8), device=feature.device, dtype=feature.dtype)
+    pred_latents = torch.randn((B, 4), device=feature.device, dtype=feature.dtype)
     pred_latents *= sample_scheduler.init_noise_sigma
 
     for t in sample_scheduler.timesteps:
@@ -109,7 +113,7 @@ def sample_t2i():
         attention_mask = tokenizer_output["attention_mask"].to(device)
         text_embedding = internvl.language_model.get_input_embeddings()(input_ids).to(device)
 
-        generated_tokens = torch.zeros((1, 256, 8)).to(device, dtype)
+        generated_tokens = torch.zeros((1, 256, 4)).to(device, dtype)
         for i in trange(256):
             outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
