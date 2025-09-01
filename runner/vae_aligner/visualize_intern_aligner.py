@@ -50,6 +50,8 @@ dtype = torch.float16
 vision_model = vision_model.to(device, dtype).eval()
 vae_aligner = vae_aligner.to(device, dtype).eval()
 vae = vae.to(device, dtype).eval()
+imagenet_mean = imagenet_mean.to(device, dtype)
+imagenet_std = imagenet_std.to(device, dtype)
 
 for idx, path in enumerate(img_list):
     img = Image.open(path).convert("RGB")
