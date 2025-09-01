@@ -50,18 +50,18 @@ def sample_t2i():
     from omegaconf import OmegaConf
     from transformers import AutoTokenizer
 
-    device = "cuda:0"
+    device = "cuda:6"
     dtype = torch.float16
 
-    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0829_joint_256x8"
+    exp_dir = "/data/phd/jinjiachun/experiment/clip_1024/0831_joint_256x8"
 
     exp_name = exp_dir.split("/")[-1]
-    step = 20000
+    step = 110000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     tokenizer = AutoTokenizer.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True, use_fast=False)
 
-    internvl = InternVLChatModel.from_pretrained(config.intern_vl_2b_path)
+    internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
     internvl, train_scheduler = add_diffhead_dit_to_ar_model(internvl, config.model)
     ckpt_path = os.path.join(exp_dir, f"internvl-clip_1024-{step}")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
@@ -191,7 +191,7 @@ def sample_t2i():
         print(samples.shape)
 
         import torchvision.utils as vutils
-        sample_path = f"asset/clip_dit/{exp_name}_256x8_{prompt_txt[:20]}_{step}.png"
+        sample_path = f"asset/joint/{exp_name}_256x8_{prompt_txt[:20]}_{step}.png"
         vutils.save_image(samples, sample_path, nrow=4, normalize=False)
         print(f"Samples saved to {sample_path}")   
 
@@ -239,7 +239,7 @@ def sample_t2i():
         print(samples.shape)
 
         import torchvision.utils as vutils
-        sample_path = f"asset/clip_dit/t2i_joint_{prompt_txt[:20]}_{step}.png"
+        sample_path = f"asset/joint/t2i_joint_{prompt_txt[:20]}_{step}.png"
         vutils.save_image(samples, sample_path, nrow=4, normalize=False)
         print(f"Samples saved to {sample_path}")
 
