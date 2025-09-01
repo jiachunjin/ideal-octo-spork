@@ -1,0 +1,38 @@
+machine: ks
+
+vae_aligner:
+  hidden_size: 1024
+  depth: 16
+  num_heads: 16
+  grid_size: 16
+  scale_factor: 1.75
+
+  siglip_feature_dim: 4096
+  siglip_feature_dim_down: 4
+
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name intern_clip
+  wandb_proj: *exp_name
+  output_dir: 0901_intern_8b_aligner
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 200000
+  save_every: 5000
+
+data:
+  wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
+  num_train_examples: 35000000
+  img_size: 448
+  buffer_size: 50
+  batch_size: 16
+  num_workers: 8
+  cfg_drop_rate: 0.1
+  num_img_token: 256
+  max_seq_length: 512
