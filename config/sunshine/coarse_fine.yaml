@@ -1,9 +1,16 @@
 machine: ks
 # --------------------------------------------------
-clip_down_projector:
+vae_aligner:
+  hidden_size: 1024
+  depth: 16
+  num_heads: 16
+  grid_size: 16
+  scale_factor: 1.75
+
+  siglip_feature_dim: 4096
+  siglip_feature_dim_down: 4
+
   ckpt_path: /data/phd/jinjiachun/experiment/intern_clip/0901_intern_8b_aligner/vae_aligner-intern_clip-2000
-  clip_feature_dim: 4096
-  feature_dim_output: 4
 # --------------------------------------------------
 model:
   internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-1B

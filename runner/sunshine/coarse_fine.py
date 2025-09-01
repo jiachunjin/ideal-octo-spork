@@ -11,6 +11,7 @@ from einops import rearrange
 from model.dit.diff_mlp import intern_add_diffhead_mmdit
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.vae_aligner.vit_vae_aligner import get_feature_down_proj
+from model.vae_aligner import get_vae_aligner
 from model.internvl import extract_feature_pre_adapter
 
 from util.misc import process_pretrained_model_path, flatten_dict
@@ -30,10 +31,10 @@ def main(args):
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
     internvl, train_scheduler = intern_add_diffhead_mmdit(internvl, config.model)
 
-    feature_down_projector = get_feature_down_proj(config.clip_down_projector)
-    ckpt = torch.load(config.clip_down_projector.ckpt_path, map_location="cpu", weights_only=True)
-    ckpt = {k.replace("feature_down_projector.", ""): v for k, v in ckpt.items() if "feature_down_projector" in k}
-    feature_down_projector.load_state_dict(ckpt, strict=True)
+    vae_aligner = get_vae_aligner(config.vae_aligner)
+    ckpt = torch.load(config.vae_aligner.ckpt_path, map_location="cpu", weights_only=True)
+    vae_aligner.load_state_dict(ckpt, strict=True)
+    feature_down_projector = vae_aligner.siglip_feature_proj
 
     vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
 
