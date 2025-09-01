@@ -15,6 +15,7 @@ model:
   tune_backbone: true
   mmdit:
     context_dim: 896
+  sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
 # --------------------------------------------------
 train:
   root: null
