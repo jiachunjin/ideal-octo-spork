@@ -45,6 +45,12 @@ img_list = [
     "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/trump.jpg",
 ]
 
+device = torch.device("cuda:0")
+dtype = torch.float16
+vision_model = vision_model.to(device, dtype).eval()
+vae_aligner = vae_aligner.to(device, dtype).eval()
+vae = vae.to(device, dtype).eval()
+
 for idx, path in enumerate(img_list):
     img = Image.open(path).convert("RGB")
     vae_transform = pth_transforms.Compose([
@@ -52,17 +58,18 @@ for idx, path in enumerate(img_list):
         pth_transforms.CenterCrop(448),
         pth_transforms.ToTensor(),
     ])
-    x = vae_transform(img).unsqueeze(0)
+    x = vae_transform(img).unsqueeze(0).to(device, dtype)
 
     x_intern = (x - imagenet_mean) / imagenet_std
+    x_intern = x_intern.to(device, dtype)
 
     with torch.no_grad():
         # x_clip = intern_vl_1b.extract_feature(x_intern)
         x_clip = extract_feature_pre_adapter(vision_model, x_intern)
-        rec_latent = vae_aligner(x_clip)
-        reconstructed = vae.decode(rec_latent).sample
-        z = vae.encode(x * 2 - 1).latent_dist.sample()
-        rec = vae.decode(z).sample
+        rec_latent = vae_aligner(x_clip).to(device, dtype)
+        reconstructed = vae.decode(rec_latent).sample.to("cpu")
+        z = vae.encode(x * 2 - 1).latent_dist.sample().to(device, dtype)
+        rec = vae.decode(z).sample.to("cpu")
 
     print(f"MSE loss: {torch.nn.functional.mse_loss(z, rec_latent)}")
 
