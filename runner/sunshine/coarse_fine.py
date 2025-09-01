@@ -161,12 +161,12 @@ def main(args):
                 sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise        
 
-                print(hidden_states.shape)
                 model_pred = internvl.mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
                     context     = hidden_states,
                     y           = None,
+                    multi_modal_context = True,
                 )
                 model_pred = model_pred * (-sigmas) + noisy_model_input
                 weighting = compute_loss_weighting_for_sd3(weighting_scheme="logit_normal", sigmas=sigmas)

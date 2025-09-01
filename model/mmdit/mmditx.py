@@ -891,6 +891,7 @@ class MMDiTX(nn.Module):
         t: torch.Tensor,
         y: Optional[torch.Tensor] = None,
         context: Optional[torch.Tensor] = None,
+        multi_modal_context: bool = False,
         controlnet_hidden_states: Optional[torch.Tensor] = None,
         skip_layers: Optional[List] = [],
     ) -> torch.Tensor:
@@ -909,8 +910,12 @@ class MMDiTX(nn.Module):
 
         context = self.context_embedder(context)
         patchsize = self.x_embedder.patch_size[0]
-        context_pe = self.cropped_pos_embed((patchsize * int(context.shape[1] ** (0.5)), patchsize * int(context.shape[1] ** (0.5))))
-        context = context + context_pe
+        if multi_modal_context:
+            context_pe = self.cropped_pos_embed((patchsize * int(256 ** (0.5)), patchsize * int(256 ** (0.5))))
+            context[:, -256:, :] = context[:, -256:, :] + context_pe
+        else:
+            context_pe = self.cropped_pos_embed((patchsize * int(context.shape[1] ** (0.5)), patchsize * int(context.shape[1] ** (0.5))))
+            context = context + context_pe
 
         x = self.forward_core_with_concat(x, c, context, skip_layers, controlnet_hidden_states)
 
