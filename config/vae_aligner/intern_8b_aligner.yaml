@@ -10,6 +10,7 @@ vae_aligner:
   siglip_feature_dim: 4096
   siglip_feature_dim_down: 4
 
+train:
   root: null
   resume_path: null
   global_step: 0
