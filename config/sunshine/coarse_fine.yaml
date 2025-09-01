@@ -1,0 +1,45 @@
+machine: ks
+# --------------------------------------------------
+clip_down_projector:
+  ckpt_path:
+  clip_feature_dim: 4096
+  feature_dim_output: 4
+# --------------------------------------------------
+model:
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-1B
+  diffhead:
+    hidden_size: 896
+    depth: 2
+    x_dim: 4
+    z_dim: 896
+  tune_backbone: true
+  mmdit:
+    context_dim: 896
+# --------------------------------------------------
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name sunshine
+  wandb_proj: *exp_name
+  output_dir: 0901_coarse_fine
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 500000
+  save_every: 10000
+# --------------------------------------------------
+data:
+  wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
+  num_train_examples: 35000000
+  img_size: 448
+  buffer_size: 50
+  batch_size: 16
+  num_workers: 8
+  cfg_drop_rate: 0.1
+  num_img_token: 256
+  max_seq_length: 512

@@ -439,3 +439,57 @@ def add_layers_with_initialization(
                 layer.load_state_dict(last_layer_state)
     
     return model, new_layer_indices
+
+def intern_add_diffhead_mmdit(internvl, config):
+    from model.mmdit import load_mmdit
+
+    # ----- add diffusion head and input projector -----
+    diff_head = SimpleMLPAdaLN(
+        in_channels    = config.diffhead.x_dim,
+        model_channels = config.diffhead.hidden_size,
+        out_channels   = config.diffhead.x_dim,
+        z_channels     = config.diffhead.z_dim,
+        num_res_blocks = config.diffhead.depth,
+    )
+    num_parameters = sum(p.numel() for p in diff_head.parameters())
+    print(f"diff_head has {num_parameters / 1e6} M parameters")
+
+    clip_projector = nn.Sequential(
+        nn.Linear(config.diffhead.x_dim, config.diffhead.z_dim),
+        nn.GELU(),
+        nn.Linear(config.diffhead.z_dim, config.diffhead.z_dim),
+    )
+
+    internvl.requires_grad_(False)
+    if config.tune_backbone:
+        internvl.language_model.model.requires_grad_(True)
+
+    internvl.diff_head = diff_head
+    internvl.diff_head.requires_grad_(True)
+
+    internvl.clip_projector = clip_projector
+    internvl.clip_projector.requires_grad_(True)
+
+    # ----- add mmdit -----
+    mmdit = load_mmdit(config)
+    num_parameters = sum(p.numel() for p in mmdit.parameters())
+    print(f"mmdit has {num_parameters / 1e6} M parameters")
+
+    internvl.mmdit = mmdit
+    internvl.mmdit.requires_grad_(True)
+
+    # ----- define diffusion training scheduler -----
+    train_scheduler = DDPMScheduler(
+        beta_schedule          = "scaled_linear",
+        beta_start             = 0.00085,
+        beta_end               = 0.012,
+        num_train_timesteps    = 1000,
+        clip_sample            = False,
+        prediction_type        = "v_prediction",
+        steps_offset           = 1,
+        trained_betas          = None,
+        timestep_spacing       = "trailing",
+        rescale_betas_zero_snr = True
+    )
+
+    return internvl, train_scheduler

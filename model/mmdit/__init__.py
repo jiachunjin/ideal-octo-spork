@@ -83,8 +83,12 @@ def load_mmdit(config):
             in_features = config.feature_down_projector.feature_dim_output
     elif hasattr(config, "vae_aligner"):
         in_features = config.vae_aligner.siglip_feature_dim_down
+    elif hasattr(config, "mmdit"):
+        in_features = config.mmdit.context_dim
     else:
         in_features = 1024
+
+    print(f"using mmdit with context dim: {in_features}")
 
     context_embedder_config = {
         "target": "torch.nn.Linear",

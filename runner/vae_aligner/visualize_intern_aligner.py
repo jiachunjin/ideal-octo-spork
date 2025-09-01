@@ -6,6 +6,8 @@ import torch
 from omegaconf import OmegaConf
 from transformers import AutoModel
 from model.vae_aligner import get_vae_aligner
+from model.internvl import extract_feature_pre_adapter
+from model.internvl.modeling_internvl_chat import InternVLChatModel
 
 from PIL import Image
 from diffusers import AutoencoderKL
@@ -16,15 +18,18 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 imagenet_mean = torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1)
 imagenet_std = torch.tensor(IMAGENET_STD).view(1, 3, 1, 1)
 
-exp_dir = "/data/phd/jinjiachun/experiment/intern_clip/0805_intern_aligner"
+exp_dir = "/data/phd/jinjiachun/experiment/intern_clip/0901_intern_8b_aligner"
 
 config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
 config.vae_path = "/data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium/vae"
 vae_aligner = get_vae_aligner(config.vae_aligner)
-intern_vl_1b = AutoModel.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True)
+# intern_vl_1b = AutoModel.from_pretrained(config.intern_vl_1b_path, trust_remote_code=True)
 vae = AutoencoderKL.from_pretrained(config.vae_path)
 
-ckpt_path = os.path.join(exp_dir, "vae_aligner-intern_clip-8000")
+vision_model = InternVLChatModel.from_pretrained(config.intern_vl_8b_path).vision_model
+vision_model.requires_grad_(False)
+
+ckpt_path = os.path.join(exp_dir, "vae_aligner-intern_clip-2000")
 print("current ckpt: ", ckpt_path)
 ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
 vae_aligner.load_state_dict(ckpt, strict=True)
@@ -52,7 +57,8 @@ for idx, path in enumerate(img_list):
     x_intern = (x - imagenet_mean) / imagenet_std
 
     with torch.no_grad():
-        x_clip = intern_vl_1b.extract_feature(x_intern)
+        # x_clip = intern_vl_1b.extract_feature(x_intern)
+        x_clip = extract_feature_pre_adapter(vision_model, x_intern)
         rec_latent = vae_aligner(x_clip)
         reconstructed = vae.decode(rec_latent).sample
         z = vae.encode(x * 2 - 1).latent_dist.sample()
