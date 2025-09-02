@@ -56,7 +56,7 @@ def sample_t2i():
     exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0901_coarse_fine"
 
     exp_name = exp_dir.split("/")[-1]
-    step = 64000
+    step = 70000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
@@ -94,8 +94,14 @@ def sample_t2i():
         "A serious Santa Claus in a rustic setting.",
         "Muscular man in workout attire, standing confidently by a railing.",
         "Confident man in leather jacket leaning against a wall.",
+        "a small office made out of car parts",
+        "an old rusted robot wearing pants and a jacket riding skis in a supermarket.",
+        "a white paper with black text, 'Hello SJTU ' on it.",
+        "Organized and stylish walk-in closet with vibrant clothing and accessories.",
+        "Little girl and her huskies share a cozy moment indoors.",
+        "A woman with a scarf, holding her head and chest, appears unwell while checking her temperature.",
     ]
-    cfg_scale = 4
+    cfg_scale = 5
 
     for idx, prompt_txt in enumerate(prompts):
         template = get_conv_template("internvl2_5")
