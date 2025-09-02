@@ -32,6 +32,12 @@ def main(args):
 
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
     internvl, train_scheduler = intern_add_diffhead_mmdit(internvl, config.model)
+    if config.train.resume_path is not None:
+        ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
+        if hasattr(config.train, "skipped_keys"):
+            ckpt = {k: v for k, v in ckpt.items() if k not in config.train.skipped_keys}
+        m, u = internvl.load_state_dict(ckpt, strict=False)
+        accelerator.print(f"Missing modules: {m}, unmatched modules: {u}")
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
     ckpt = torch.load(config.vae_aligner.ckpt_path, map_location="cpu", weights_only=True)
@@ -164,7 +170,7 @@ def main(args):
                 model_pred = internvl.mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
-                    context     = hidden_states,
+                    context     = hidden_states[:, :-1, :],
                     y           = None,
                     multi_modal_context = True,
                 )
@@ -190,8 +196,8 @@ def main(args):
                     progress_bar.update(1)
 
                     logs = dict(
-                        ar_loss = accelerator.gather(loss_ar.detach()).mean().item(), 
-                        dit_loss = accelerator.gather(loss_dit.detach()).mean().item(), 
+                        ar_loss = accelerator.gather(loss_ar.detach()).mean().item(),
+                        dit_loss = accelerator.gather(loss_dit.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)

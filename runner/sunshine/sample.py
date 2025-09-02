@@ -53,7 +53,7 @@ def sample_t2i():
     exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0901_coarse_fine"
 
     exp_name = exp_dir.split("/")[-1]
-    step = 2000
+    step = 50000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
@@ -124,6 +124,7 @@ def sample_t2i():
         for i in trange(256):
             outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
+            print(hidden_states.shape)
 
             if cfg_scale > 1:
                 cond_z = hidden_states[0, -1, :]
@@ -151,7 +152,7 @@ def sample_t2i():
         reconstructed = torch.clamp(reconstructed, 0, 1)
         grid = torchvision.utils.make_grid(reconstructed, nrow=4)
         os.makedirs("asset/sunshine", exist_ok=True)
-        torchvision.utils.save_image(grid, f"asset/sunshine/coarse_{idx:02d}.png")
+        torchvision.utils.save_image(grid, f"asset/sunshine/{exp_name}_{prompt_txt[:20]}_{step}.png")
 
 
 if __name__ == "__main__":
