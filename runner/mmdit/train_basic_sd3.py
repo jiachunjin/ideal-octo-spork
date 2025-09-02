@@ -49,7 +49,8 @@ def sample_sd3_5(
     width               = 192,
     num_inference_steps = 20,
     guidance_scale      = 1.0,
-    seed                = None
+    seed                = None,
+    multi_modal_context = False,
 ):
     if seed is not None:
         torch.manual_seed(seed)
@@ -87,6 +88,7 @@ def sample_sd3_5(
             t           = t,
             context     = context_,
             y           = None,
+            multi_modal_context = multi_modal_context,
         )
 
         if guidance_scale > 1.0:

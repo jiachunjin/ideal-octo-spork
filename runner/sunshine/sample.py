@@ -11,6 +11,8 @@ from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.dit.diff_mlp import intern_add_diffhead_mmdit
 from model.internvl.conversation import get_conv_template
 from model.vae_aligner import get_vae_aligner
+from runner.mmdit.train_basic_sd3 import sample_sd3_5
+from diffusers import FlowMatchEulerDiscreteScheduler
 
 sample_scheduler = DDIMScheduler(
     beta_schedule          = "scaled_linear",
@@ -46,6 +48,7 @@ def diff_generate(feature, diff_head):
 def sample_t2i():
     from omegaconf import OmegaConf
     from transformers import AutoTokenizer
+    from diffusers import AutoencoderKL
 
     device = "cuda:0"
     dtype = torch.float16
@@ -119,20 +122,21 @@ def sample_t2i():
         input_ids = torch.LongTensor(tokenizer_output["input_ids"]).to(device)
         attention_mask = tokenizer_output["attention_mask"].to(device)
         text_embedding = internvl.language_model.get_input_embeddings()(input_ids).to(device)
+        print(text_embedding.shape)
 
         generated_tokens = torch.zeros((1, 256, 4)).to(device, dtype)
         hidden_states_store = []
         for i in trange(256):
             outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
-            # print(hidden_states.shape)
+            hidden_states_store.append(hidden_states[0].unsqueeze(0))
 
             if cfg_scale > 1:
                 cond_z = hidden_states[0, -1, :]
                 uncond_z = hidden_states[1, -1, :]
                 z = uncond_z + cfg_scale * (cond_z - uncond_z)
                 z = z.unsqueeze(0)
-                hidden_states_store.append(cond_z)
+                # hidden_states_store.append(cond_z)
             else:
                 z = hidden_states[:, -1, :]
             
@@ -156,9 +160,32 @@ def sample_t2i():
         os.makedirs("asset/sunshine", exist_ok=True)
         torchvision.utils.save_image(grid, f"asset/sunshine/{exp_name}_{prompt_txt[:20]}_{step}.png")
 
-        hidden_states_store = torch.stack(hidden_states_store, dim=1)
+        hidden_states_store = torch.cat(hidden_states_store, dim=1)
         print(hidden_states_store.shape)
 
+        noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+
+        samples = sample_sd3_5(
+            transformer         = internvl.mmdit,
+            vae                 = vae,
+            noise_scheduler     = noise_scheduler,
+            device              = device,
+            dtype               = dtype,
+            context             = hidden_states_store,
+            batch_size          = hidden_states_store.shape[0],
+            multi_modal_context = True,
+            height              = 448,
+            width               = 448,
+            num_inference_steps = 25,
+            guidance_scale      = 1.0,
+            seed                = 42
+        )
+        print(samples.shape)
+
+        import torchvision.utils as vutils
+        sample_path = f"asset/sunshine/{exp_name}_{prompt_txt[:20]}_sd3_{step}.png"
+        vutils.save_image(samples, sample_path, nrow=2, normalize=False)
+        print(f"Samples saved to {sample_path}")   
 
 if __name__ == "__main__":
     sample_t2i()
