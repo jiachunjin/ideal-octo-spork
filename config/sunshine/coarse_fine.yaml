@@ -10,7 +10,7 @@ vae_aligner:
   siglip_feature_dim: 4096
   siglip_feature_dim_down: 4
 
-  ckpt_path: /data/phd/jinjiachun/experiment/intern_clip/0901_intern_8b_aligner/vae_aligner-intern_clip-25000
+  ckpt_path: /data/phd/jinjiachun/experiment/intern_clip/0901_intern_8b_aligner/vae_aligner-intern_clip-30000
 # --------------------------------------------------
 model:
   internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-1B
@@ -22,12 +22,13 @@ model:
   tune_backbone: true
   mmdit:
     context_dim: 896
+    train_it: false
   sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
 # --------------------------------------------------
 train:
   root: null
-  resume_path: /data/phd/jinjiachun/experiment/sunshine/0901_coarse_fine/internvl-sunshine-52000
-  global_step: 52000
+  resume_path: /data/phd/jinjiachun/experiment/sunshine/0901_coarse_fine/internvl-sunshine-64000
+  global_step: 64000
 
   exp_name: &exp_name sunshine
   wandb_proj: *exp_name
@@ -39,14 +40,14 @@ train:
 
   lr: 1e-4
   num_iter: 500000
-  save_every: 2000
+  save_every: 5000
 # --------------------------------------------------
 data:
   wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
   num_train_examples: 35000000
   img_size: 448
   buffer_size: 50000
-  batch_size: 16
+  batch_size: 32
   num_workers: 8
   cfg_drop_rate: 0.1
   num_img_token: 256

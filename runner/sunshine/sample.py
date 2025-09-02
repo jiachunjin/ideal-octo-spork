@@ -56,7 +56,7 @@ def sample_t2i():
     exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0901_coarse_fine"
 
     exp_name = exp_dir.split("/")[-1]
-    step = 60000
+    step = 64000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
