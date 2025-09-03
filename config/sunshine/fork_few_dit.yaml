@@ -45,11 +45,12 @@ train:
 # --------------------------------------------------
 data:
   wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
+  use_template: false
   num_train_examples: 35000000
   img_size: 448
   buffer_size: 50000
-  batch_size: 16
+  batch_size: 32
   num_workers: 8
   cfg_drop_rate: 0.1
   num_img_token: 256
-  max_seq_length: 512
+  max_seq_length: 384

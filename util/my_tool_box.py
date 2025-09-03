@@ -149,13 +149,16 @@ def get_t2i_dataloader(config, accelerator):
     def preprocess_text(text):
         if random.random() < config.cfg_drop_rate:
             text = ""
+        
+        if config.use_template:
+            template = get_conv_template("internvl2_5")
+            prompt = f"Generate an image: {text}"
 
-        template = get_conv_template("internvl2_5")
-        prompt = f"Generate an image: {text}"
-
-        template.append_message(template.roles[0], prompt)
-        template.append_message(template.roles[1], None)
-        prompt = template.get_prompt() + IMG_START_TOKEN
+            template.append_message(template.roles[0], prompt)
+            template.append_message(template.roles[1], None)
+            prompt = template.get_prompt() + IMG_START_TOKEN
+        else:
+            prompt = text
 
         tokenizer_output = tokenizer(
             prompt,
