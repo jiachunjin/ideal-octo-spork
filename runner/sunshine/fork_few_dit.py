@@ -33,6 +33,12 @@ def main(args):
 
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
     internvl, train_scheduler = intern_to_fork(internvl, config.model)
+    if config.train.resume_path is not None:
+        ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
+        m, u = internvl.load_state_dict(ckpt, strict=False)
+        accelerator.print(f"missing keys: {m}")
+        accelerator.print(f"unexpected keys: {u}")
+        accelerator.print(f"internvl loaded from {config.train.resume_path}")
 
     vae_aligner = get_vae_aligner(config.vae_aligner)
     ckpt = torch.load(config.vae_aligner.ckpt_path, map_location="cpu", weights_only=True)

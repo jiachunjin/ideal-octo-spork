@@ -54,7 +54,8 @@ def sample_t2i():
     dtype = torch.float16
 
     # exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0901_coarse_fine"
-    exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0903_fork_few_dit"
+    # exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0903_fork_few_dit"
+    exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0903_fork_few_dit_aba"
 
     exp_name = exp_dir.split("/")[-1]
     step = 10000

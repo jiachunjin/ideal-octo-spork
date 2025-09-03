@@ -20,16 +20,16 @@ model:
     x_dim: 4
     z_dim: 3584
   num_reuse_layer: 0
-  num_new_layer: 8
+  num_new_layer: 12
 # --------------------------------------------------
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: /data/phd/jinjiachun/experiment/sunshine/0903_fork_few_dit_aba/internvl-sunshine-10000
+  global_step: 10000
 
   exp_name: &exp_name sunshine
   wandb_proj: *exp_name
-  output_dir: 0903_fork_few_dit_aba
+  output_dir: 0903_fork_few_dit_aba_0-12
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
