@@ -106,17 +106,22 @@ def sample_t2i():
     cfg_scale = 5
 
     for idx, prompt_txt in enumerate(prompts):
-        template = get_conv_template("internvl2_5")
-        prompt = f"Generate an image: {prompt_txt}"
-        template.append_message(template.roles[0], prompt)
-        template.append_message(template.roles[1], None)
-        prompt = template.get_prompt() + IMG_START_TOKEN
+        if config.data.use_template:
+            template = get_conv_template("internvl2_5")
+            prompt = f"Generate an image: {prompt_txt}"
+            template.append_message(template.roles[0], prompt)
+            template.append_message(template.roles[1], None)
+            prompt = template.get_prompt() + IMG_START_TOKEN
 
-        template = get_conv_template("internvl2_5")
-        prompt_null = f"Generate an image: "
-        template.append_message(template.roles[0], prompt_null)
-        template.append_message(template.roles[1], None)
-        prompt_null = template.get_prompt() + IMG_START_TOKEN
+            template = get_conv_template("internvl2_5")
+            prompt_null = f"Generate an image: "
+            template.append_message(template.roles[0], prompt_null)
+            template.append_message(template.roles[1], None)
+            prompt_null = template.get_prompt() + IMG_START_TOKEN
+        else:
+            prompt = f"Generate an image: {prompt_txt}"
+            prompt_null = f"Generate an image: "
+
         print(prompt)
         print(prompt_null)
 
