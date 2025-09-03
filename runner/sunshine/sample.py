@@ -8,7 +8,7 @@ import torchvision
 from diffusers import AutoencoderKL, DDIMScheduler
 from tqdm import tqdm, trange
 from model.internvl.modeling_internvl_chat import InternVLChatModel
-from model.dit.diff_mlp import intern_add_diffhead_mmdit
+from model.dit.diff_mlp import intern_add_diffhead_mmdit, intern_to_fork
 from model.internvl.conversation import get_conv_template
 from model.vae_aligner import get_vae_aligner
 from runner.mmdit.train_basic_sd3 import sample_sd3_5
@@ -53,16 +53,18 @@ def sample_t2i():
     device = "cuda:0"
     dtype = torch.float16
 
-    exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0901_coarse_fine"
+    # exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0901_coarse_fine"
+    exp_dir = "/data/phd/jinjiachun/experiment/sunshine/0903_fork_few_dit"
 
     exp_name = exp_dir.split("/")[-1]
-    step = 70000
+    step = 10000
 
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
 
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
-    internvl, _ = intern_add_diffhead_mmdit(internvl, config.model)    
+    # internvl, _ = intern_add_diffhead_mmdit(internvl, config.model)    
+    internvl, _ = intern_to_fork(internvl, config.model)
     ckpt_path = os.path.join(exp_dir, f"internvl-sunshine-{step}")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     m, u = internvl.load_state_dict(ckpt, strict=False)
@@ -169,29 +171,29 @@ def sample_t2i():
         hidden_states_store = torch.cat(hidden_states_store, dim=1)
         print(hidden_states_store.shape)
 
-        noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+        # noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
 
-        samples = sample_sd3_5(
-            transformer         = internvl.mmdit,
-            vae                 = vae,
-            noise_scheduler     = noise_scheduler,
-            device              = device,
-            dtype               = dtype,
-            context             = hidden_states_store,
-            batch_size          = hidden_states_store.shape[0],
-            multi_modal_context = True,
-            height              = 448,
-            width               = 448,
-            num_inference_steps = 25,
-            guidance_scale      = 1.0,
-            seed                = 42
-        )
-        print(samples.shape)
+        # samples = sample_sd3_5(
+        #     transformer         = internvl.mmdit,
+        #     vae                 = vae,
+        #     noise_scheduler     = noise_scheduler,
+        #     device              = device,
+        #     dtype               = dtype,
+        #     context             = hidden_states_store,
+        #     batch_size          = hidden_states_store.shape[0],
+        #     multi_modal_context = True,
+        #     height              = 448,
+        #     width               = 448,
+        #     num_inference_steps = 25,
+        #     guidance_scale      = 1.0,
+        #     seed                = 42
+        # )
+        # print(samples.shape)
 
-        import torchvision.utils as vutils
-        sample_path = f"asset/sunshine/{exp_name}_{prompt_txt[:20]}_sd3_{step}.png"
-        vutils.save_image(samples, sample_path, nrow=2, normalize=False)
-        print(f"Samples saved to {sample_path}")   
+        # import torchvision.utils as vutils
+        # sample_path = f"asset/sunshine/{exp_name}_{prompt_txt[:20]}_sd3_{step}.png"
+        # vutils.save_image(samples, sample_path, nrow=2, normalize=False)
+        # print(f"Samples saved to {sample_path}")   
 
 if __name__ == "__main__":
     sample_t2i()
