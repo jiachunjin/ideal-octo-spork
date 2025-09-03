@@ -19,7 +19,7 @@ model:
     depth: 2
     x_dim: 4
     z_dim: 3584
-  num_reuse_layer: 8
+  num_reuse_layer: 0
   num_new_layer: 8
 # --------------------------------------------------
 train:
@@ -29,7 +29,7 @@ train:
 
   exp_name: &exp_name sunshine
   wandb_proj: *exp_name
-  output_dir: 0903_fork_few_dit
+  output_dir: 0903_fork_few_dit_aba
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
