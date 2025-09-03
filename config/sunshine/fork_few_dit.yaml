@@ -1,0 +1,55 @@
+machine: ks
+# --------------------------------------------------
+vae_aligner:
+  hidden_size: 1024
+  depth: 16
+  num_heads: 16
+  grid_size: 16
+  scale_factor: 1.75
+
+  siglip_feature_dim: 4096
+  siglip_feature_dim_down: 4
+
+  ckpt_path: /data/phd/jinjiachun/experiment/intern_clip/0901_intern_8b_aligner/vae_aligner-intern_clip-65000
+# --------------------------------------------------
+model:
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-8B
+  diffhead:
+    hidden_size: 3584
+    depth: 2
+    x_dim: 4
+    z_dim: 3584
+  num_reuse_layer: 8
+  num_new_layer: 8
+  mmdit:
+    context_dim: 896
+    train_it: true
+  sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
+# --------------------------------------------------
+train:
+  root: null
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name sunshine
+  wandb_proj: *exp_name
+  output_dir: 0903_fork_few_dit
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 500000
+  save_every: 5000
+# --------------------------------------------------
+data:
+  wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
+  num_train_examples: 35000000
+  img_size: 448
+  buffer_size: 50000
+  batch_size: 16
+  num_workers: 8
+  cfg_drop_rate: 0.1
+  num_img_token: 256
+  max_seq_length: 512

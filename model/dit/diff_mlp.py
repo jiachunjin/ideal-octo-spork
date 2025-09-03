@@ -493,3 +493,65 @@ def intern_add_diffhead_mmdit(internvl, config):
     )
 
     return internvl, train_scheduler
+
+def intern_to_fork(internvl, config):
+    from transformers.models.qwen2.modeling_qwen2 import Qwen2DecoderLayer
+
+    internvl.requires_grad_(False)
+
+    # ----- add diffusion head and input projector -----
+    diff_head = SimpleMLPAdaLN(
+        in_channels    = config.diffhead.x_dim,
+        model_channels = config.diffhead.hidden_size,
+        out_channels   = config.diffhead.x_dim,
+        z_channels     = config.diffhead.z_dim,
+        num_res_blocks = config.diffhead.depth,
+    )
+    num_parameters = sum(p.numel() for p in diff_head.parameters())
+    print(f"diff_head has {num_parameters / 1e6} M parameters")
+    diff_head.requires_grad_(True)
+    internvl.diff_head = diff_head
+
+    clip_projector = nn.Sequential(
+        nn.Linear(config.diffhead.x_dim, config.diffhead.z_dim),
+        nn.GELU(),
+        nn.Linear(config.diffhead.z_dim, config.diffhead.z_dim),
+    )
+    num_parameters = sum(p.numel() for p in clip_projector.parameters())
+    print(f"clip_projector has {num_parameters / 1e6} M parameters")
+    clip_projector.requires_grad_(True)
+    internvl.clip_projector = clip_projector
+
+    gen_layers = []
+    for i in range(config.num_reuse_layer):
+        gen_layers.append(internvl.language_model.model.layers[i])
+    for i in range(config.num_new_layer):
+        gen_layers.append(Qwen2DecoderLayer(internvl.language_model.model.config, i + config.num_reuse_layer))
+    
+    internvl.language_model.model.layers = nn.ModuleList(gen_layers)
+    internvl.language_model.model.config.num_hidden_layers = len(gen_layers)
+
+    for i in range(config.num_reuse_layer):
+        layer = internvl.language_model.model.layers[i]
+        layer.requires_grad_(False)
+    for i in range(config.num_new_layer):
+        layer = internvl.language_model.model.layers[i + config.num_reuse_layer]
+        layer.requires_grad_(True)
+    
+    num_parameters = sum(p.numel() for p in internvl.language_model.model.parameters() if p.requires_grad)
+    print(f"number of trainable parameters in hat layers: {num_parameters / 1e6} M")
+
+    train_scheduler = DDPMScheduler(
+        beta_schedule          = "scaled_linear",
+        beta_start             = 0.00085,
+        beta_end               = 0.012,
+        num_train_timesteps    = 1000,
+        clip_sample            = False,
+        prediction_type        = "v_prediction",
+        steps_offset           = 1,
+        trained_betas          = None,
+        timestep_spacing       = "trailing",
+        rescale_betas_zero_snr = True
+    )
+
+    return internvl, train_scheduler
