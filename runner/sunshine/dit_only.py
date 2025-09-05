@@ -169,7 +169,7 @@ def main(args):
                 sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise        
 
-                model_pred = internvl.mmdit(
+                model_pred = mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
                     context     = hidden_states[:, :-1, :],
