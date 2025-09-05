@@ -55,7 +55,7 @@ def intern_add_diffhead_projector(internvl, config):
     num_parameters = sum(p.numel() for p in clip_projector.parameters())
     print(f"clip_projector has {num_parameters / 1e6} M parameters")
 
-    mmdit = load_mmdit_new(config.model.mmdit)
+    mmdit = load_mmdit_new(config.mmdit)
     num_parameters = sum(p.numel() for p in mmdit.parameters() if p.requires_grad)
     print(f"mmdit has {num_parameters / 1e6} M learnable parameters")
 
