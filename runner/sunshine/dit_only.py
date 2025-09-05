@@ -20,6 +20,7 @@ from model.internvl.modeling_internvl_chat import InternVLChatModel
 from util.misc import process_pretrained_model_path, flatten_dict
 from util.my_tool_box import get_accelerator, get_t2i_dataloader
 from model.mmdit import load_mmdit_new
+from model.internvl import extract_feature_pre_adapter
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -33,8 +34,6 @@ def main(args):
     config = process_pretrained_model_path(config)
     accelerator, output_dir = get_accelerator(config)
 
-
-
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
     internvl, _ = intern_to_fork(internvl, config.model)
     ckpt = torch.load(config.model.ckpt_path, map_location="cpu", weights_only=True)
@@ -47,8 +46,16 @@ def main(args):
     vae_aligner.load_state_dict(ckpt, strict=True)
     feature_down_projector = vae_aligner.siglip_feature_proj
 
+    vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
+    vae.requires_grad_(False)
+
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+    noise_scheduler_copy = copy.deepcopy(noise_scheduler)
+
+    mmdit = load_mmdit_new(config.model.mmdit)
+
     global_step = config.train.global_step if config.train.global_step is not None else 0
-    params_to_learn = list(p for p in internvl.parameters() if p.requires_grad)
+    params_to_learn = list(p for p in mmdit.parameters() if p.requires_grad)
 
     optimizer = torch.optim.AdamW(
         params_to_learn,
@@ -66,9 +73,13 @@ def main(args):
         dtype = torch.float32
 
     dataloader = get_t2i_dataloader(config.data, accelerator)
-    internvl, optimizer = accelerator.prepare(internvl, optimizer)
+    mmdit, optimizer = accelerator.prepare(mmdit, optimizer)
+    internvl.requires_grad_(False)
+    internvl = internvl.to(accelerator.device, dtype).eval()
     feature_down_projector.requires_grad_(False)
     feature_down_projector = feature_down_projector.to(accelerator.device, dtype).eval()
+    vae.requires_grad_(False)
+    vae = vae.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -91,10 +102,112 @@ def main(args):
     imagenet_mean = torch.tensor(IMAGENET_MEAN, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
     imagenet_std = torch.tensor(IMAGENET_STD, device=accelerator.device, dtype=dtype).view(1, 3, 1, 1)
 
+    def get_sigmas(timesteps, n_dim=4, dtype=torch.float32):
+        sigmas = noise_scheduler_copy.sigmas.to(device=accelerator.device, dtype=dtype)
+        schedule_timesteps = noise_scheduler_copy.timesteps.to(accelerator.device)
+        timesteps = timesteps.to(accelerator.device)
+        step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
+
+        sigma = sigmas[step_indices].flatten()
+        while len(sigma.shape) < n_dim:
+            sigma = sigma.unsqueeze(-1)
+        return sigma
+
+    while not training_done:
+        for batch in dataloader:
+            with accelerator.accumulate([mmdit]):
+                mmdit.train()
+                pixel_values = batch["pixel_values"].to(accelerator.device, dtype)
+                input_ids = batch["input_ids"].to(accelerator.device)
+                attention_mask = batch["attention_mask"].to(accelerator.device)
+
+                x_intern = (pixel_values - imagenet_mean) / imagenet_std
+                x_vae = pixel_values * 2 - 1
+
+                with torch.no_grad():
+                    x_clip = extract_feature_pre_adapter(internvl.vision_model, x_intern)
+                    visual_gen_feature = feature_down_projector(x_clip)
+                    vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
+
+                # ----- compute AR loss -----
+                B, L = input_ids.shape
+                text_embedding = internvl.language_model.get_input_embeddings()(input_ids).clone()
+                img_embedding = internvl.clip_projector(visual_gen_feature)
+                joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+                img_mask = torch.ones((B, config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
+                attention_mask = torch.cat([attention_mask, img_mask], dim=1)
+
+                hidden_states = internvl.language_model(
+                    inputs_embeds        = joint_embedding,
+                    attention_mask       = attention_mask,
+                    output_hidden_states = True,
+                ).hidden_states[-1]
+                # hidden_state = hidden_states[:, -config.data.num_img_token-1:-1, :]
+
+                # z = rearrange(hidden_state, "B L D -> (B L) D")
+                # gt_feature = rearrange(visual_gen_feature, "B L D -> (B L) D")
+                # timesteps = torch.randint(0, 1000, (z.shape[0],), dtype=torch.int64, device=z.device)
+                # noise = torch.randn_like(gt_feature, device=z.device, dtype=z.dtype)
+                # noisy_latents = train_scheduler.add_noise(gt_feature, noise, timesteps)
+                # target = train_scheduler.get_velocity(gt_feature, noise, timesteps)
+                # pred = internvl.diff_head(noisy_latents, timesteps, z)
+
+                # loss_ar = torch.nn.functional.mse_loss(pred.to(dtype), target)
+
+                # ----- compute DiT loss -----
+                if getattr(config.model.mmdit, "train_it", False):
+                    model_input = (vae_latent - vae.config.shift_factor) * vae.config.scaling_factor
+                    noise = torch.randn_like(model_input, device=model_input.device, dtype=model_input.dtype)
+                    u = compute_density_for_timestep_sampling(
+                        weighting_scheme = "logit_normal",
+                        batch_size       = model_input.shape[0],
+                        logit_mean       = 0.0,
+                        logit_std        = 1.0,
+                        mode_scale       = 1.29,
+                    )
+                    indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                    timesteps = noise_scheduler_copy.timesteps[indices].to(device=model_input.device)
+                    sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
+                    noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise        
+
+                    model_pred = internvl.mmdit(
+                        x           = noisy_model_input,
+                        t           = timesteps,
+                        context     = hidden_states[:, :-1, :],
+                        y           = None,
+                        multi_modal_context = True,
+                    )
+                    model_pred = model_pred * (-sigmas) + noisy_model_input
+                    weighting = compute_loss_weighting_for_sd3(weighting_scheme="logit_normal", sigmas=sigmas)
+                    target = model_input
+
+                    loss_dit = torch.mean(
+                        (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                        1,
+                    ).mean()
+                else:
+                    loss_dit = 0.0
+
+                loss = loss_dit
+
+                accelerator.backward(loss)
+
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+                    logs = dict(
+                        dit_loss = accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+
 
 if __name__ == "__main__":
-    from omegaconf import OmegaConf
-    config = OmegaConf.load("config/sunshine/dit_only.yaml")
-    transformer = load_mmdit_new(config.model.mmdit)
-    num_para = sum(p.numel() for p in transformer.parameters())
-    print("total parameters: ", num_para / 1e6)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="config/sunshine/dit_only.yaml")
+    args = parser.parse_args()
+    main(args)

@@ -21,11 +21,11 @@ model:
     z_dim: 3584
   num_reuse_layer: 0
   num_new_layer: 12
-  ckpt_path: /data/phd/jinjiachun/experiment/sunshine/0903_fork_few_dit_aba_0-12/internvl-sunshine-35000
+  ckpt_path: /data/phd/jinjiachun/experiment/sunshine/0903_fork_few_dit_aba_0-12/internvl-sunshine-50000
   mmdit:
     sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
     load_pretrained: false
-    
+
 
 # --------------------------------------------------
 train:
