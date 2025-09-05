@@ -243,7 +243,7 @@ def main(args):
                     global_step += 1
                     progress_bar.update(1)
                     logs = dict(
-                        ar_loss = accelerator.gather(loss.detach()).mean().item(),
+                        ar_loss = accelerator.gather(loss_ar.detach()).mean().item(),
                         dit_loss = accelerator.gather(loss_dit.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
