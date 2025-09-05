@@ -195,6 +195,7 @@ def load_mmdit_new(config):
         print(f"unexpected keys: {u}")
 
     # define trainable parameters
+    transformer.requires_grad_(False)
     transformer.context_embedder.requires_grad_(True)
     num_para = sum(p.numel() for p in transformer.context_embedder.parameters())
     print("context_embedder parameters: ", num_para / 1e6)
