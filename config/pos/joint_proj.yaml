@@ -36,7 +36,7 @@ data:
   use_template: false
   num_train_examples: 35000000
   img_size: 448
-  buffer_size: 50
+  buffer_size: 50000
   batch_size: 20
   num_workers: 8
   cfg_drop_rate: 0.1
