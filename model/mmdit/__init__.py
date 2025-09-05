@@ -203,8 +203,8 @@ def load_mmdit_new(config):
     for name, param in transformer.named_parameters():
         if "context_block" in name:
             param.requires_grad_(True)
-            num_para = sum(p.numel() for p in param.parameters())
-            print(f"{name} parameters: {num_para / 1e6}")
+            # num_para = sum(p.numel() for p in param.parameters())
+            # print(f"{name} parameters: {num_para / 1e6}")
 
     num_para = sum(p.numel() for p in transformer.parameters() if p.requires_grad)
     print("total parameters: ", num_para / 1e6)
