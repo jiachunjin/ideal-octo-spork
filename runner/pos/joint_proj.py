@@ -145,7 +145,7 @@ def main(args):
                 with torch.no_grad():
                     x_clip = extract_feature_pre_adapter(internvl.vision_model, x_intern)
                     x_gen = internvl.down_projector(x_clip)
-                    accelerator.print(x_gen.norm(dim=1))
+                    # accelerator.print(x_gen.norm(dim=-1))
                     # visual_gen_feature = internvl.clip_projector(visual_gen_feature)
 
                 # ----- compute AR loss -----
