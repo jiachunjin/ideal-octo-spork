@@ -158,7 +158,7 @@ def load_mmdit_new(config):
     context_embedder_config = {
         "target": "torch.nn.Linear",
         "params": {
-            "in_features": 3584,
+            "in_features": config.context_dim,
             "out_features": 1536,
         },
     }
