@@ -196,7 +196,19 @@ def load_mmdit_new(config):
 
     # define trainable parameters
     transformer.context_embedder.requires_grad_(True)
-    print(transformer)
+    num_para = sum(p.numel() for p in transformer.context_embedder.parameters())
+    print("context_embedder parameters: ", num_para / 1e6)
+
+    # name contains "context_block" is trainable
+    for name, param in transformer.named_parameters():
+        if "context_block" in name:
+            param.requires_grad_(True)
+            num_para = sum(p.numel() for p in param.parameters())
+            print(f"{name} parameters: {num_para / 1e6}")
+
+    num_para = sum(p.numel() for p in transformer.parameters() if p.requires_grad)
+    print("total parameters: ", num_para / 1e6)
+    
 
     return transformer
 
