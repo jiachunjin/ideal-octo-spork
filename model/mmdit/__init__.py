@@ -143,6 +143,64 @@ def load_mmdit(config):
 
     return transformer
 
+def load_mmdit_new(config):
+    device = torch.device("cpu")
+    dtype = torch.bfloat16
+
+    patch_size = 2
+    depth = 24
+    pos_embed_max_size = 384
+    num_patches = 147456
+    adm_in_channels = 2048
+    qk_norm = "rms"
+    x_block_self_attn_layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+    context_embedder_config = {
+        "target": "torch.nn.Linear",
+        "params": {
+            "in_features": 3584,
+            "out_features": 1536,
+        },
+    }
+
+    transformer = MMDiTX(
+        input_size               = None,
+        pos_embed_scaling_factor = None,
+        pos_embed_offset         = None,
+        pos_embed_max_size       = pos_embed_max_size,
+        patch_size               = patch_size,
+        in_channels              = 16,
+        depth                    = depth,
+        num_patches              = num_patches,
+        adm_in_channels          = adm_in_channels,
+        context_embedder_config  = context_embedder_config,
+        qk_norm                  = qk_norm,
+        x_block_self_attn_layers = x_block_self_attn_layers,
+        device                   = device,
+        dtype                    = dtype,
+        verbose                  = False,
+    )
+
+    if config.load_pretrained:
+        ckpt = load_file(os.path.join(config.sd3_5_path, "sd3.5_medium.safetensors"))
+        new_ckpt = {}
+        prefix = "model.diffusion_model."
+        for k, v in ckpt.items():
+            if k.startswith(prefix):
+                new_key = k[len(prefix):]
+                new_ckpt[new_key] = v
+        del new_ckpt["context_embedder.weight"]
+        m, u = transformer.load_state_dict(new_ckpt, strict=False)
+        print(f"missing keys: {m}")
+        print(f"unexpected keys: {u}")
+
+    # define trainable parameters
+    transformer.context_embedder.requires_grad_(True)
+    print(transformer)
+
+    return transformer
+
+
 from model.vae_aligner.vit_basic import precompute_freqs_cis_2d, Block
 
 class FeatureMixer(nn.Module):
