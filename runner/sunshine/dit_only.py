@@ -155,38 +155,35 @@ def main(args):
                 # loss_ar = torch.nn.functional.mse_loss(pred.to(dtype), target)
 
                 # ----- compute DiT loss -----
-                if getattr(config.model.mmdit, "train_it", False):
-                    model_input = (vae_latent - vae.config.shift_factor) * vae.config.scaling_factor
-                    noise = torch.randn_like(model_input, device=model_input.device, dtype=model_input.dtype)
-                    u = compute_density_for_timestep_sampling(
-                        weighting_scheme = "logit_normal",
-                        batch_size       = model_input.shape[0],
-                        logit_mean       = 0.0,
-                        logit_std        = 1.0,
-                        mode_scale       = 1.29,
-                    )
-                    indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
-                    timesteps = noise_scheduler_copy.timesteps[indices].to(device=model_input.device)
-                    sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
-                    noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise        
+                model_input = (vae_latent - vae.config.shift_factor) * vae.config.scaling_factor
+                noise = torch.randn_like(model_input, device=model_input.device, dtype=model_input.dtype)
+                u = compute_density_for_timestep_sampling(
+                    weighting_scheme = "logit_normal",
+                    batch_size       = model_input.shape[0],
+                    logit_mean       = 0.0,
+                    logit_std        = 1.0,
+                    mode_scale       = 1.29,
+                )
+                indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                timesteps = noise_scheduler_copy.timesteps[indices].to(device=model_input.device)
+                sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
+                noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise        
 
-                    model_pred = internvl.mmdit(
-                        x           = noisy_model_input,
-                        t           = timesteps,
-                        context     = hidden_states[:, :-1, :],
-                        y           = None,
-                        multi_modal_context = True,
-                    )
-                    model_pred = model_pred * (-sigmas) + noisy_model_input
-                    weighting = compute_loss_weighting_for_sd3(weighting_scheme="logit_normal", sigmas=sigmas)
-                    target = model_input
+                model_pred = internvl.mmdit(
+                    x           = noisy_model_input,
+                    t           = timesteps,
+                    context     = hidden_states[:, :-1, :],
+                    y           = None,
+                    multi_modal_context = True,
+                )
+                model_pred = model_pred * (-sigmas) + noisy_model_input
+                weighting = compute_loss_weighting_for_sd3(weighting_scheme="logit_normal", sigmas=sigmas)
+                target = model_input
 
-                    loss_dit = torch.mean(
-                        (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                        1,
-                    ).mean()
-                else:
-                    loss_dit = 0.0
+                loss_dit = torch.mean(
+                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                    1,
+                ).mean()
 
                 loss = loss_dit
 
