@@ -95,4 +95,4 @@ def main(args):
 if __name__ == "__main__":
     from omegaconf import OmegaConf
     config = OmegaConf.load("config/sunshine/dit_only.yaml")
-    load_mmdit_new(config.mmdit)
+    load_mmdit_new(config.model.mmdit)
