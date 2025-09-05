@@ -40,6 +40,7 @@ def intern_add_diffhead_projector(internvl, config):
         nn.Linear(config.clip_feature_dim, 4 * config.clip_feature_dim),
         nn.GELU(),
         nn.Linear(4 * config.clip_feature_dim, config.diffhead.x_dim),
+        nn.LayerNorm(config.diffhead.x_dim, eps=1e-6, elementwise_affine=False),
     ) # 4096 -> 16
     num_parameters = sum(p.numel() for p in down_projector.parameters())
     print(f"down_projector has {num_parameters / 1e6} M parameters")
@@ -144,6 +145,7 @@ def main(args):
                 with torch.no_grad():
                     x_clip = extract_feature_pre_adapter(internvl.vision_model, x_intern)
                     x_gen = internvl.down_projector(x_clip)
+                    accelerator.print(x_gen.norm(dim=1))
                     # visual_gen_feature = internvl.clip_projector(visual_gen_feature)
 
                 # ----- compute AR loss -----
