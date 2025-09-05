@@ -95,4 +95,6 @@ def main(args):
 if __name__ == "__main__":
     from omegaconf import OmegaConf
     config = OmegaConf.load("config/sunshine/dit_only.yaml")
-    load_mmdit_new(config.model.mmdit)
+    transformer = load_mmdit_new(config.model.mmdit)
+    num_para = sum(p.numel() for p in transformer.parameters())
+    print("total parameters: ", num_para / 1e6)
