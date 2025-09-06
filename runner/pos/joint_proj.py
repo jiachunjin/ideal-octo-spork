@@ -259,13 +259,10 @@ def main(args):
                     vf_loss_1 = torch.nn.functional.relu(diff-config.model.distmat_margin).mean()
                     vf_loss_2 = torch.nn.functional.relu(1 - config.model.cos_margin - torch.nn.functional.cosine_similarity(z_prime, x_clip, dim=-1)).mean()
 
-                    accelerator.print(z_prime.shape)
-                    accelerator.print(x_clip.shape)
-                    accelerator.print(vf_loss_1.item(), vf_loss_2.item())
-                    ...
+                    loss_vf = vf_loss_1 + vf_loss_2
 
                 # ----- backward the total loss -----
-                loss = loss_ar + loss_dit
+                loss = loss_ar + loss_dit + loss_vf
 
                 accelerator.backward(loss)
 
@@ -279,6 +276,7 @@ def main(args):
                     logs = dict(
                         ar_loss = accelerator.gather(loss_ar.detach()).mean().item(),
                         dit_loss = accelerator.gather(loss_dit.detach()).mean().item(),
+                        vf_loss = accelerator.gather(loss_vf.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
