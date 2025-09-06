@@ -176,10 +176,10 @@ def main(args):
 
                 with torch.no_grad():
                     x_clip = extract_feature_pre_adapter(internvl.vision_model, x_intern)
-                    x_gen = internvl.down_projector(x_clip) / int(config.model.diffhead.x_dim ** 0.5)
                     vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
                     # accelerator.print(x_gen.norm(dim=-1))
                     # visual_gen_feature = internvl.clip_projector(visual_gen_feature)
+                x_gen = internvl.down_projector(x_clip) / int(config.model.diffhead.x_dim ** 0.5)
 
                 # ----- compute AR loss -----
                 B, L = input_ids.shape
