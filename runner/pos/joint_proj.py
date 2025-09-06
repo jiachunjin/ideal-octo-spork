@@ -233,8 +233,8 @@ def main(args):
                 model_pred = internvl.mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
-                    # context     = hidden_states[:, :-1, :],
-                    context     = x_gen.detach(),
+                    context     = hidden_states[:, :-1, :],
+                    # context     = x_gen.detach(),
                     y           = None,
                     multi_modal_context = True,
                 )
@@ -248,21 +248,21 @@ def main(args):
                 ).mean()
 
                 # ----- compute VF loss -----
-                # if getattr(config.model, "use_vf", False):
-                #     z_prime = internvl.up_projector(x_gen) # (B, 256, 4096)
-                #     z_prime_norm = torch.nn.functional.normalize(z_prime, dim=-1)
-                #     x_clip_norm = torch.nn.functional.normalize(x_clip, dim=-1)
+                if getattr(config.model, "use_vf", False):
+                    z_prime = internvl.up_projector(x_gen) # (B, 256, 4096)
+                    z_prime_norm = torch.nn.functional.normalize(z_prime, dim=-1)
+                    x_clip_norm = torch.nn.functional.normalize(x_clip, dim=-1)
 
-                #     z_cos_sim = torch.einsum('bid,bjd->bij', z_prime_norm, z_prime_norm)
-                #     aux_feature_cos_sim = torch.einsum('bci,bcj->bij', aux_feature_norm, aux_feature_norm)
-                #     diff = torch.abs(z_cos_sim - aux_feature_cos_sim)
-                #     vf_loss_1 = torch.nn.functional.relu(diff-self.distmat_margin).mean()
-                #     vf_loss_2 = torch.nn.functional.relu(1 - self.cos_margin - torch.nn.functional.cosine_similarity(aux_feature, z)).mean()
+                    z_cos_sim = torch.einsum('bid,bjd->bij', z_prime_norm, z_prime_norm)
+                    aux_feature_cos_sim = torch.einsum('bid,bjd->bij', x_clip_norm, x_clip_norm)
+                    diff = torch.abs(z_cos_sim - aux_feature_cos_sim)
+                    vf_loss_1 = torch.nn.functional.relu(diff-config.model.distmat_margin).mean()
+                    vf_loss_2 = torch.nn.functional.relu(1 - config.model.cos_margin - torch.nn.functional.cosine_similarity(z_prime, x_clip, dim=-1)).mean()
 
-                #     accelerator.print(z_prime.shape)
-                #     accelerator.print(x_clip.shape)
-
-                #     ...
+                    accelerator.print(z_prime.shape)
+                    accelerator.print(x_clip.shape)
+                    accelerator.print(vf_loss_1.item(), vf_loss_2.item())
+                    ...
 
                 # ----- backward the total loss -----
                 loss = loss_ar + loss_dit
