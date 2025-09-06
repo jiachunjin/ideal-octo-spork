@@ -98,6 +98,12 @@ def main(args):
 
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
     internvl, train_scheduler, noise_scheduler, noise_scheduler_copy = intern_add_diffhead_projector(internvl, config.model)
+    if config.train.resume_path is not None:
+        ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
+        m, u = internvl.load_state_dict(ckpt, strict=False)
+        print(f"missing keys: {m}")
+        print(f"unexpected keys: {u}")
+        accelerator.print(f"internvl loaded from {config.train.resume_path}")
 
     vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
     vae.requires_grad_(False)
