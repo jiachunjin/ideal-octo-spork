@@ -72,6 +72,15 @@ def intern_add_diffhead_projector(internvl, config):
 
     internvl.mmdit = mmdit
 
+    if getattr(config, "use_vf", False):
+        up_projector = nn.Sequential(
+            nn.Linear(config.diffhead.x_dim, 4 * config.clip_feature_dim),
+            nn.GELU(),
+            nn.Linear(4 * config.clip_feature_dim, config.clip_feature_dim),
+        ) # 16 -> 4096
+        internvl.up_projector = up_projector
+        internvl.up_projector.requires_grad_(True)
+
     train_scheduler = DDPMScheduler(
         beta_schedule          = "scaled_linear",
         beta_start             = 0.00085,
@@ -224,7 +233,8 @@ def main(args):
                 model_pred = internvl.mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
-                    context     = hidden_states[:, :-1, :],
+                    # context     = hidden_states[:, :-1, :],
+                    context     = x_gen.detach(),
                     y           = None,
                     multi_modal_context = True,
                 )
@@ -237,6 +247,24 @@ def main(args):
                     1,
                 ).mean()
 
+                # ----- compute VF loss -----
+                # if getattr(config.model, "use_vf", False):
+                #     z_prime = internvl.up_projector(x_gen) # (B, 256, 4096)
+                #     z_prime_norm = torch.nn.functional.normalize(z_prime, dim=-1)
+                #     x_clip_norm = torch.nn.functional.normalize(x_clip, dim=-1)
+
+                #     z_cos_sim = torch.einsum('bid,bjd->bij', z_prime_norm, z_prime_norm)
+                #     aux_feature_cos_sim = torch.einsum('bci,bcj->bij', aux_feature_norm, aux_feature_norm)
+                #     diff = torch.abs(z_cos_sim - aux_feature_cos_sim)
+                #     vf_loss_1 = torch.nn.functional.relu(diff-self.distmat_margin).mean()
+                #     vf_loss_2 = torch.nn.functional.relu(1 - self.cos_margin - torch.nn.functional.cosine_similarity(aux_feature, z)).mean()
+
+                #     accelerator.print(z_prime.shape)
+                #     accelerator.print(x_clip.shape)
+
+                #     ...
+
+                # ----- backward the total loss -----
                 loss = loss_ar + loss_dit
 
                 accelerator.backward(loss)
