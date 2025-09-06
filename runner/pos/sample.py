@@ -1,6 +1,10 @@
-from model.vae_aligner.vit_vae_aligner import config
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+
 from model.internvl.modeling_internvl_chat import InternVLChatModel
-from model.dit.diff_mlp import intern_add_diffhead_projector
+from runner.pos.joint_proj import intern_add_diffhead_projector
 from omegaconf import OmegaConf
 import os
 import torch
@@ -8,6 +12,8 @@ from diffusers import AutoencoderKL, DDIMScheduler
 from model.internvl.conversation import get_conv_template
 from transformers import AutoTokenizer
 from tqdm import tqdm, trange
+from diffusers import FlowMatchEulerDiscreteScheduler
+from runner.mmdit.train_basic_sd3 import sample_sd3_5
 
 sample_scheduler = DDIMScheduler(
     beta_schedule          = "scaled_linear",
@@ -42,6 +48,7 @@ def diff_generate(feature, diff_head):
 @torch.no_grad()
 def sample():
     exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b"
+    exp_name = exp_dir.split("/")[-1]
     step = 35000
     device = "cuda:0"
     dtype = torch.float16
@@ -149,6 +156,32 @@ def sample():
                 text_embedding = img_embeds
         print(generated_tokens.shape)
 
+        hidden_states_store = torch.cat(hidden_states_store, dim=1)
+        print(hidden_states_store.shape)
+
+        noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+
+        samples = sample_sd3_5(
+            transformer         = internvl.mmdit,
+            vae                 = vae,
+            noise_scheduler     = noise_scheduler,
+            device              = device,
+            dtype               = dtype,
+            context             = hidden_states_store,
+            batch_size          = hidden_states_store.shape[0],
+            multi_modal_context = True,
+            height              = 448,
+            width               = 448,
+            num_inference_steps = 25,
+            guidance_scale      = 1.0,
+            seed                = 42
+        )
+        print(samples.shape)
+
+        import torchvision.utils as vutils
+        sample_path = f"asset/sunshine/{exp_name}_{prompt_txt[:20]}_sd3_{step}.png"
+        vutils.save_image(samples, sample_path, nrow=2, normalize=False)
+        print(f"Samples saved to {sample_path}")
 
 if __name__ == "__main__":
     sample()
