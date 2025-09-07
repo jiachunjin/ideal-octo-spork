@@ -10,7 +10,7 @@ model:
     x_dim: 16
     z_dim: *z_dim
   mmdit:
-    context_dim: *z_dim
+    context_dim: 16
     sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
     load_pretrained: true
   use_vf: true
