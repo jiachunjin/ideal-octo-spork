@@ -47,9 +47,10 @@ def diff_generate(feature, diff_head):
 
 @torch.no_grad()
 def sample():
-    exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b"
+    # exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b"
+    exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b_vf"
     exp_name = exp_dir.split("/")[-1]
-    step = 35000
+    step = 25000
     device = "cuda:0"
     dtype = torch.float16
 
@@ -79,23 +80,23 @@ def sample():
     IMG_START_TOKEN = "<img>"
     prompts = [
         "A stunning princess from kabul in red, white traditional clothing, blue eyes, brown hair",
-        # "A soft, natural portrait photograph captures a young woman with fair skin and long, ash-blonde hair cascading gently over her shoulders. At the very bottom of the frame, in simple, elegant lettering, appears the phrase 'BE KIND'",
-        # "The image depicts a modern, multi-story building with a white facade and numerous balconies. The structure is partially covered in purple scaffolding on the right side, indicating ongoing construction or renovation. The building is situated in an urban area with clear blue skies above. In front of the building, there is a paved plaza with some greenery and a few palm trees. A street lamp stands prominently on the left side of the plaza. To the right, part of another building with a beige exterior is visible. The scene suggests a sunny day in a developed cityscape.",
-        # "A photo of 4 TVs in a row, with a white background",
-        # "The image depicts the American Red Cross building, characterized by its neoclassical architectural style. The structure features tall, white columns supporting a pediment and a balustrade at the top. The facade is adorned with large windows, some of which have red crosses, symbolizing the organization's humanitarian mission. The building is set against a clear blue sky, with a tree partially obscuring the right side of the image. The overall appearance suggests a sense of stability and dedication to service, reflecting the Red Cross's commitment to aid and support.",
-        # "A photo of a red dog",
-        # "Scientist at Sunway University conducts research in a laboratory setting.",
-        # "A serious Santa Claus in a rustic setting.",
-        # "Muscular man in workout attire, standing confidently by a railing.",
-        # "Confident man in leather jacket leaning against a wall.",
-        # "a small office made out of car parts",
-        # "an old rusted robot wearing pants and a jacket riding skis in a supermarket.",
-        # "a white paper with black text, 'Hello SJTU ' on it.",
-        # "Organized and stylish walk-in closet with vibrant clothing and accessories.",
-        # "Little girl and her huskies share a cozy moment indoors.",
-        # "A woman with a scarf, holding her head and chest, appears unwell while checking her temperature.",
+        "A soft, natural portrait photograph captures a young woman with fair skin and long, ash-blonde hair cascading gently over her shoulders. At the very bottom of the frame, in simple, elegant lettering, appears the phrase 'BE KIND'",
+        "The image depicts a modern, multi-story building with a white facade and numerous balconies. The structure is partially covered in purple scaffolding on the right side, indicating ongoing construction or renovation. The building is situated in an urban area with clear blue skies above. In front of the building, there is a paved plaza with some greenery and a few palm trees. A street lamp stands prominently on the left side of the plaza. To the right, part of another building with a beige exterior is visible. The scene suggests a sunny day in a developed cityscape.",
+        "A photo of 4 TVs in a row, with a white background",
+        "The image depicts the American Red Cross building, characterized by its neoclassical architectural style. The structure features tall, white columns supporting a pediment and a balustrade at the top. The facade is adorned with large windows, some of which have red crosses, symbolizing the organization's humanitarian mission. The building is set against a clear blue sky, with a tree partially obscuring the right side of the image. The overall appearance suggests a sense of stability and dedication to service, reflecting the Red Cross's commitment to aid and support.",
+        "A photo of a red dog",
+        "Scientist at Sunway University conducts research in a laboratory setting.",
+        "A serious Santa Claus in a rustic setting.",
+        "Muscular man in workout attire, standing confidently by a railing.",
+        "Confident man in leather jacket leaning against a wall.",
+        "a small office made out of car parts",
+        "an old rusted robot wearing pants and a jacket riding skis in a supermarket.",
+        "a white paper with black text, 'Hello SJTU ' on it.",
+        "Organized and stylish walk-in closet with vibrant clothing and accessories.",
+        "Little girl and her huskies share a cozy moment indoors.",
+        "A woman with a scarf, holding her head and chest, appears unwell while checking her temperature.",
     ]
-    cfg_scale = 2
+    cfg_scale = 4
 
     for idx, prompt_txt in enumerate(prompts):
         if config.data.use_template:
@@ -111,8 +112,8 @@ def sample():
             template.append_message(template.roles[1], None)
             prompt_null = template.get_prompt() + IMG_START_TOKEN
         else:
-            prompt = f"Generate an image: {prompt_txt}"
-            prompt_null = f"Generate an image: "
+            prompt = f"Generate an image: {prompt_txt}" + IMG_START_TOKEN
+            prompt_null = f"Generate an image: " + IMG_START_TOKEN
 
         print(prompt)
         print(prompt_null)
@@ -130,64 +131,64 @@ def sample():
         print(text_embedding.shape)
 
 
-        # generated_tokens = torch.zeros((1, 256, 16)).to(device, dtype)
-        # hidden_states_store = []
-        # for i in trange(256):
-        #     outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
-        #     hidden_states = outputs.last_hidden_state
-        #     hidden_states_store.append(hidden_states[0].unsqueeze(0))
+        generated_tokens = torch.zeros((1, 256, 16)).to(device, dtype)
+        hidden_states_store = []
+        for i in trange(256):
+            outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
+            hidden_states = outputs.last_hidden_state
+            hidden_states_store.append(hidden_states[0].unsqueeze(0))
 
-        #     if cfg_scale > 1:
-        #         cond_z = hidden_states[0, -1, :]
-        #         uncond_z = hidden_states[1, -1, :]
-        #         z = uncond_z + cfg_scale * (cond_z - uncond_z)
-        #         z = z.unsqueeze(0)
-        #         # hidden_states_store.append(cond_z)
-        #     else:
-        #         z = hidden_states[:, -1, :]
+            if cfg_scale > 1:
+                cond_z = hidden_states[0, -1, :]
+                uncond_z = hidden_states[1, -1, :]
+                z = uncond_z + cfg_scale * (cond_z - uncond_z)
+                z = z.unsqueeze(0)
+                # hidden_states_store.append(cond_z)
+            else:
+                z = hidden_states[:, -1, :]
             
-        #     next_token = diff_generate(z, internvl.diff_head)
-        #     img_embeds = internvl.clip_projector(next_token)
+            next_token = diff_generate(z, internvl.diff_head)
+            img_embeds = internvl.clip_projector(next_token)
 
-        #     generated_tokens[:, i] = next_token.squeeze()
+            generated_tokens[:, i] = next_token.squeeze()
             
-        #     if cfg_scale > 1:
-        #         text_embedding = img_embeds.repeat(2, 1, 1)
-        #     else:
-        #         text_embedding = img_embeds
-        # print(generated_tokens.shape)
+            if cfg_scale > 1:
+                text_embedding = img_embeds.repeat(2, 1, 1)
+            else:
+                text_embedding = img_embeds
+        print(generated_tokens.shape)
 
-        # hidden_states_store = torch.cat(hidden_states_store, dim=1)
-        # print(hidden_states_store.shape)
-        img_path = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/joint/princess_tgt.png"
-        from PIL import Image
-        from torchvision import transforms
-        from model.internvl import extract_feature_pre_adapter
-        transform = transforms.Compose([
-            transforms.Resize((448, 448)),
-            transforms.ToTensor(),
-        ])
+        hidden_states_store = torch.cat(hidden_states_store, dim=1)
+        print(hidden_states_store.shape)
+        # img_path = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/joint/princess_tgt.png"
+        # from PIL import Image
+        # from torchvision import transforms
+        # from model.internvl import extract_feature_pre_adapter
+        # transform = transforms.Compose([
+        #     transforms.Resize((448, 448)),
+        #     transforms.ToTensor(),
+        # ])
 
-        IMAGENET_MEAN = (0.485, 0.456, 0.406)
-        IMAGENET_STD = (0.229, 0.224, 0.225)
-        imagenet_mean = torch.tensor(IMAGENET_MEAN, device=device, dtype=dtype).view(1, 3, 1, 1)
-        imagenet_std = torch.tensor(IMAGENET_STD, device=device, dtype=dtype).view(1, 3, 1, 1)
-        img = transform(Image.open(img_path)).unsqueeze(0).to(device, dtype)
-        img = (img - imagenet_mean) / imagenet_std
+        # IMAGENET_MEAN = (0.485, 0.456, 0.406)
+        # IMAGENET_STD = (0.229, 0.224, 0.225)
+        # imagenet_mean = torch.tensor(IMAGENET_MEAN, device=device, dtype=dtype).view(1, 3, 1, 1)
+        # imagenet_std = torch.tensor(IMAGENET_STD, device=device, dtype=dtype).view(1, 3, 1, 1)
+        # img = transform(Image.open(img_path)).unsqueeze(0).to(device, dtype)
+        # img = (img - imagenet_mean) / imagenet_std
 
-        x_clip = extract_feature_pre_adapter(internvl.vision_model, img)
-        x_gen = internvl.down_projector(x_clip) / int(config.model.diffhead.x_dim ** 0.5)
-        img_embedding = internvl.clip_projector(x_gen)
-        joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
-        img_mask = torch.ones((1, config.data.num_img_token), dtype=torch.bool, device=device)
-        attention_mask = torch.cat([attention_mask, img_mask], dim=1)
+        # x_clip = extract_feature_pre_adapter(internvl.vision_model, img)
+        # x_gen = internvl.down_projector(x_clip) / int(config.model.diffhead.x_dim ** 0.5)
+        # img_embedding = internvl.clip_projector(x_gen)
+        # joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+        # img_mask = torch.ones((1, config.data.num_img_token), dtype=torch.bool, device=device)
+        # attention_mask = torch.cat([attention_mask, img_mask], dim=1)
 
-        hidden_states = internvl.language_model(
-            inputs_embeds        = joint_embedding,
-            attention_mask       = attention_mask,
-            output_hidden_states = True,
-        ).hidden_states[-1]
-        hidden_states_store = hidden_states[:, :-1, :]        
+        # hidden_states = internvl.language_model(
+        #     inputs_embeds        = joint_embedding,
+        #     attention_mask       = attention_mask,
+        #     output_hidden_states = True,
+        # ).hidden_states[-1]
+        # hidden_states_store = hidden_states[:, :-1, :]
 
         noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
 

@@ -19,16 +19,16 @@ model:
 # --------------------------------------------------
 train:
   root: null
-  resume_path: /data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b/internvl-pos-35000
-  global_step: 35000
+  resume_path: null
+  global_step: 0
 
   exp_name: &exp_name pos
   wandb_proj: *exp_name
-  output_dir: 0905_joint_proj_2b_vf
+  output_dir: 0907_joint_proj_2b_vf
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: wandb
 
   lr: 1e-4
   num_iter: 500000
@@ -39,7 +39,7 @@ data:
   use_template: false
   num_train_examples: 35000000
   img_size: 448
-  buffer_size: 50
+  buffer_size: 50000
   batch_size: 20
   num_workers: 8
   cfg_drop_rate: 0.1

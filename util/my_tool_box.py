@@ -158,7 +158,7 @@ def get_t2i_dataloader(config, accelerator):
             template.append_message(template.roles[1], None)
             prompt = template.get_prompt() + IMG_START_TOKEN
         else:
-            prompt = f"Generate an image: {text}"
+            prompt = f"Generate an image: {text}" + IMG_START_TOKEN
 
         tokenizer_output = tokenizer(
             prompt,
