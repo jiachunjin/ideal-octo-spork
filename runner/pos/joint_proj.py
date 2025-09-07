@@ -233,8 +233,8 @@ def main(args):
                 model_pred = internvl.mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
-                    context     = hidden_states[:, :-1, :],
-                    # context     = x_gen.detach(),
+                    # context     = hidden_states[:, :-1, :],
+                    context     = x_gen.detach(),
                     y           = None,
                     multi_modal_context = True,
                 )

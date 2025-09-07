@@ -24,12 +24,12 @@ model:
 # --------------------------------------------------
 train:
   root: null
-  resume_path: /data/phd/jinjiachun/experiment/pos/0907_joint_proj_2b_vf/internvl-pos-4000
-  global_step: 4000
+  resume_path: null
+  global_step: 0
 
   exp_name: &exp_name pos
   wandb_proj: *exp_name
-  output_dir: 0907_joint_proj_2b_vf
+  output_dir: 0907_joint_proj_2b_vf_xgen_context
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
