@@ -262,7 +262,7 @@ def main(args):
                     loss_vf = vf_loss_1 + vf_loss_2
 
                 # ----- backward the total loss -----
-                loss = loss_ar + loss_dit + loss_vf
+                loss = config.model.hp_ar * loss_ar + config.model.hp_dit * loss_dit + config.model.hp_vf * loss_vf
 
                 accelerator.backward(loss)
 

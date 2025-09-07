@@ -14,13 +14,18 @@ model:
     sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
     load_pretrained: true
   use_vf: true
-  distmat_margin: 0.25
-  cos_margin: 0.5
+  # distmat_margin: 0.25
+  # cos_margin: 0.5
+  distmat_margin: 0.1
+  cos_margin: 0.1
+  hp_ar: 10
+  hp_dit: 1
+  hp_vf: 1
 # --------------------------------------------------
 train:
   root: null
-  resume_path: null
-  global_step: 0
+  resume_path: /data/phd/jinjiachun/experiment/pos/0907_joint_proj_2b_vf/internvl-pos-4000
+  global_step: 4000
 
   exp_name: &exp_name pos
   wandb_proj: *exp_name
@@ -32,11 +37,11 @@ train:
 
   lr: 1e-4
   num_iter: 500000
-  save_every: 5000
+  save_every: 1000
 # --------------------------------------------------
 data:
   wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
-  use_template: false
+  use_template: true
   num_train_examples: 35000000
   img_size: 448
   buffer_size: 50000
@@ -44,4 +49,4 @@ data:
   num_workers: 8
   cfg_drop_rate: 0.1
   num_img_token: 256
-  max_seq_length: 448
+  max_seq_length: 512
