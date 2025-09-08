@@ -72,6 +72,11 @@ def intern_add_diffhead_projector(internvl, config):
 
     internvl.mmdit = mmdit
 
+    if config.use_query:
+        query = nn.Parameter(torch.randn(config.query.num_queries, config.query.query_dim))
+        internvl.query = query
+        internvl.query.requires_grad_(True)
+
     if getattr(config, "use_vf", False):
         up_projector = nn.Sequential(
             nn.Linear(config.diffhead.x_dim, 4 * config.clip_feature_dim),
@@ -195,6 +200,12 @@ def main(args):
                 text_embedding = internvl.language_model.get_input_embeddings()(input_ids).clone()
                 img_embedding = internvl.clip_projector(x_gen)
                 joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+
+                if config.use_query:
+                    querys = internvl.query.unsqueeze(0).repeat(B, 1, 1)
+                    joint_embedding[:, -256-1:-1, :] += querys
+                    # joint_embedding = torch.cat((text_embedding, querys_embedding), dim=1)
+
                 img_mask = torch.ones((B, config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
                 attention_mask = torch.cat([attention_mask, img_mask], dim=1)
 
@@ -234,7 +245,7 @@ def main(args):
                     x           = noisy_model_input,
                     t           = timesteps,
                     # context     = hidden_states[:, :-1, :],
-                    context     = x_gen.detach(),
+                    context     = x_gen,
                     y           = None,
                     multi_modal_context = True,
                 )

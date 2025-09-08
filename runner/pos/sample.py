@@ -48,9 +48,10 @@ def diff_generate(feature, diff_head):
 @torch.no_grad()
 def sample():
     # exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b"
-    exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b_vf"
+    # exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b_vf"
+    exp_dir = "/data/phd/jinjiachun/experiment/pos/0907_joint_proj_2b_vf_xgen_context"
     exp_name = exp_dir.split("/")[-1]
-    step = 25000
+    step = 33000
     device = "cuda:0"
     dtype = torch.float16
 
@@ -96,7 +97,7 @@ def sample():
         "Little girl and her huskies share a cozy moment indoors.",
         "A woman with a scarf, holding her head and chest, appears unwell while checking her temperature.",
     ]
-    cfg_scale = 4
+    cfg_scale = 3
 
     for idx, prompt_txt in enumerate(prompts):
         if config.data.use_template:
@@ -198,8 +199,10 @@ def sample():
             noise_scheduler     = noise_scheduler,
             device              = device,
             dtype               = dtype,
-            context             = hidden_states_store,
-            batch_size          = hidden_states_store.shape[0],
+            # context             = hidden_states_store,
+            # batch_size          = hidden_states_store.shape[0],
+            context             = generated_tokens,
+            batch_size          = generated_tokens.shape[0],
             multi_modal_context = True,
             height              = 448,
             width               = 448,
@@ -210,7 +213,7 @@ def sample():
         print(samples.shape)
 
         import torchvision.utils as vutils
-        sample_path = f"asset/sunshine/{exp_name}_{prompt_txt[:20]}_sd3_{step}.png"
+        sample_path = f"asset/sunshine/{exp_name}_{prompt_txt[:20]}_sd3_{step}_{cfg_scale}.png"
         vutils.save_image(samples, sample_path, nrow=2, normalize=False)
         print(f"Samples saved to {sample_path}")
 
