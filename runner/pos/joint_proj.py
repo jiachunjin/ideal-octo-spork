@@ -201,7 +201,7 @@ def main(args):
                 img_embedding = internvl.clip_projector(x_gen)
                 joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
 
-                if config.use_query:
+                if config.model.use_query:
                     querys = internvl.query.unsqueeze(0).repeat(B, 1, 1)
                     joint_embedding[:, -256-1:-1, :] += querys
                     # joint_embedding = torch.cat((text_embedding, querys_embedding), dim=1)
