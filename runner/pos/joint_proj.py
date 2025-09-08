@@ -79,7 +79,7 @@ def intern_add_diffhead_projector(internvl, config):
     
     if getattr(config, "add_hat", False):
         from model.dit.dit_head import add_hat_to_intern
-        internvl = add_hat_to_intern(internvl, config.hat.num_hat)
+        internvl = add_hat_to_intern(internvl.language_model.model, config.hat.num_hat)
         current_num_layers = len(internvl.language_model.model.layers)
         new_layer_indices = range(current_num_layers - config.num_hat, current_num_layers)
         for idx in new_layer_indices:
