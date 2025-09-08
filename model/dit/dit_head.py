@@ -254,6 +254,16 @@ def add_hat_to_intern(model: Qwen2Model, num_hat: int):
         new_layers.append(new_layer)
 
     model.layers.extend(new_layers)
+
+    # 在model.layers的前面也加上num_hat个新的layer
+    current_num_layers = len(model.layers)
+    for i in range(num_hat):
+        layer_idx = current_num_layers + i
+        new_layer = Qwen2DecoderLayer(config, layer_idx)
+        new_layers.append(new_layer)
+    
+    model.layers = nn.ModuleList(new_layers + model.layers)
+
     model.config.num_hidden_layers = len(model.layers)
     # model.config.layer_types.extend(["full_attention"] * num_hat)
 
