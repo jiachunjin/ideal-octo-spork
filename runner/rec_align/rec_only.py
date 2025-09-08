@@ -212,8 +212,12 @@ def main(args):
 
                 # mix two tasks
                 p = torch.rand(B, 1, 1).to(accelerator.device)
+                accelerator.print("joint_embedding", joint_embedding_t2i.shape, joint_embedding_recon.shape)
+                accelerator.print("attention_mask",attention_mask_t2i.shape, attention_mask_recon.shape)
                 joint_embedding = torch.where(p > config.model.recon_ratio, joint_embedding_t2i, joint_embedding_recon)
                 attention_mask = torch.where(p > config.model.recon_ratio, attention_mask_t2i, attention_mask_recon)
+                accelerator.print("finally", joint_embedding.shape, attention_mask.shape)
+                exit(0)
 
                 hidden_states = internvl.language_model(
                     inputs_embeds        = joint_embedding,
