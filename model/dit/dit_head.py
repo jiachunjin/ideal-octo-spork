@@ -255,7 +255,7 @@ def add_hat_to_intern(model: Qwen2Model, num_hat: int):
 
     model.layers.extend(new_layers)
     model.config.num_hidden_layers = len(model.layers)
-    model.config.layer_types.extend(["full_attention"] * num_hat)
+    # model.config.layer_types.extend(["full_attention"] * num_hat)
 
     return model
 
