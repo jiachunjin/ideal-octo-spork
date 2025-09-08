@@ -171,8 +171,8 @@ def main(args):
     
     # prepare clip prompts:
     clip_prompt = "Generate an image: "
-    clip_prompt_ids = tokenizer(clip_prompt, return_tensors="pt").input_ids
-    img_token_id = tokenizer("<img>", return_tensors="pt").input_ids
+    clip_prompt_ids = tokenizer(clip_prompt, return_tensors="pt").input_ids.to(accelerator.device)
+    img_token_id = tokenizer("<img>", return_tensors="pt").input_ids.to(accelerator.device)
     print(clip_prompt_ids, img_token_id)
     print(clip_prompt_ids.shape, img_token_id.shape)
 
@@ -212,7 +212,6 @@ def main(args):
                 hidden_state = hidden_states[:, -config.data.num_img_token-1:-1, :]
 
                 accelerator.print(joint_embedding.shape, attention_mask.shape, hidden_states.shape)
-
                 exit(0)
 
                 z = rearrange(hidden_state, "B L D -> (B L) D")
@@ -243,7 +242,6 @@ def main(args):
                 model_pred = internvl.mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
-                    # context     = hidden_states[:, :-1, :],
                     context     = x_gen,
                     y           = None,
                     multi_modal_context = True,
@@ -257,23 +255,8 @@ def main(args):
                     1,
                 ).mean()
 
-                # ----- compute VF loss -----
-                loss_vf = 0
-                if getattr(config.model, "use_vf", False):
-                    z_prime = internvl.up_projector(x_gen) # (B, 256, 4096)
-                    z_prime_norm = torch.nn.functional.normalize(z_prime, dim=-1)
-                    x_clip_norm = torch.nn.functional.normalize(x_clip, dim=-1)
-
-                    z_cos_sim = torch.einsum('bid,bjd->bij', z_prime_norm, z_prime_norm)
-                    aux_feature_cos_sim = torch.einsum('bid,bjd->bij', x_clip_norm, x_clip_norm)
-                    diff = torch.abs(z_cos_sim - aux_feature_cos_sim)
-                    vf_loss_1 = torch.nn.functional.relu(diff-config.model.distmat_margin).mean()
-                    vf_loss_2 = torch.nn.functional.relu(1 - config.model.cos_margin - torch.nn.functional.cosine_similarity(z_prime, x_clip, dim=-1)).mean()
-
-                    loss_vf = vf_loss_1 + vf_loss_2
-
                 # ----- backward the total loss -----
-                loss = config.model.hp_ar * loss_ar + config.model.hp_dit * loss_dit + config.model.hp_vf * loss_vf
+                loss = config.model.hp_ar * loss_ar + config.model.hp_dit * loss_dit
 
                 accelerator.backward(loss)
 
@@ -287,7 +270,6 @@ def main(args):
                     logs = dict(
                         ar_loss = accelerator.gather(loss_ar.detach()).mean().item(),
                         dit_loss = accelerator.gather(loss_dit.detach()).mean().item(),
-                        # vf_loss = accelerator.gather(loss_vf.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
