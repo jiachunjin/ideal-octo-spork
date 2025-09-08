@@ -72,10 +72,23 @@ def intern_add_diffhead_projector(internvl, config):
 
     internvl.mmdit = mmdit
 
-    if config.use_query:
+    if getattr(config, "use_query", False):
         query = nn.Parameter(torch.randn(config.query.num_queries, config.query.query_dim))
         internvl.query = query
         internvl.query.requires_grad_(True)
+    
+    if getattr(config, "add_hat", False):
+        from model.dit.diff_mlp import add_hat_to_intern
+        internvl = add_hat_to_intern(internvl, config.hat.num_hat)
+        current_num_layers = len(internvl.language_model.model.layers)
+        new_layer_indices = range(current_num_layers - config.num_hat, current_num_layers)
+        for idx in new_layer_indices:
+            layer = internvl.language_model.model.layers[idx]
+            layer.requires_grad_(True)
+        
+        num_parameters = sum(p.numel() for p in internvl.language_model.model.parameters() if p.requires_grad)
+        print(f"number of trainable parameters in hat layers: {num_parameters / 1e6} M")
+
 
     if getattr(config, "use_vf", False):
         up_projector = nn.Sequential(
@@ -259,6 +272,7 @@ def main(args):
                 ).mean()
 
                 # ----- compute VF loss -----
+                loss_vf = 0
                 if getattr(config.model, "use_vf", False):
                     z_prime = internvl.up_projector(x_gen) # (B, 256, 4096)
                     z_prime_norm = torch.nn.functional.normalize(z_prime, dim=-1)
@@ -287,7 +301,7 @@ def main(args):
                     logs = dict(
                         ar_loss = accelerator.gather(loss_ar.detach()).mean().item(),
                         dit_loss = accelerator.gather(loss_dit.detach()).mean().item(),
-                        vf_loss = accelerator.gather(loss_vf.detach()).mean().item(),
+                        # vf_loss = accelerator.gather(loss_vf.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)

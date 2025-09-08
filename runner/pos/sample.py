@@ -49,9 +49,9 @@ def diff_generate(feature, diff_head):
 def sample():
     # exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b"
     # exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b_vf"
-    exp_dir = "/data/phd/jinjiachun/experiment/pos/0907_joint_proj_2b_vf_xgen_context"
+    exp_dir = "/data/phd/jinjiachun/experiment/pos/0908_joint_proj_2b_vf_xgen_context_query"
     exp_name = exp_dir.split("/")[-1]
-    step = 33000
+    step = 38000
     device = "cuda:0"
     dtype = torch.float16
 
@@ -97,7 +97,7 @@ def sample():
         "Little girl and her huskies share a cozy moment indoors.",
         "A woman with a scarf, holding her head and chest, appears unwell while checking her temperature.",
     ]
-    cfg_scale = 3
+    cfg_scale = 1.1
 
     for idx, prompt_txt in enumerate(prompts):
         if config.data.use_template:
@@ -135,6 +135,8 @@ def sample():
         generated_tokens = torch.zeros((1, 256, 16)).to(device, dtype)
         hidden_states_store = []
         for i in trange(256):
+            text_embedding[:, -1, :] += internvl.query[i].unsqueeze(0).repeat(2, 1)
+            # print(text_embedding[:, -1, :].shape, internvl.query[i].unsqueeze(0).repeat(2, 1).shape)
             outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
             hidden_states_store.append(hidden_states[0].unsqueeze(0))
@@ -159,8 +161,8 @@ def sample():
                 text_embedding = img_embeds
         print(generated_tokens.shape)
 
-        hidden_states_store = torch.cat(hidden_states_store, dim=1)
-        print(hidden_states_store.shape)
+        # hidden_states_store = torch.cat(hidden_states_store, dim=1)
+        # print(hidden_states_store.shape)
         # img_path = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/joint/princess_tgt.png"
         # from PIL import Image
         # from torchvision import transforms
@@ -178,7 +180,7 @@ def sample():
         # img = (img - imagenet_mean) / imagenet_std
 
         # x_clip = extract_feature_pre_adapter(internvl.vision_model, img)
-        # x_gen = internvl.down_projector(x_clip) / int(config.model.diffhead.x_dim ** 0.5)
+        # generated_tokens = internvl.down_projector(x_clip) / int(config.model.diffhead.x_dim ** 0.5)
         # img_embedding = internvl.clip_projector(x_gen)
         # joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
         # img_mask = torch.ones((1, config.data.num_img_token), dtype=torch.bool, device=device)
