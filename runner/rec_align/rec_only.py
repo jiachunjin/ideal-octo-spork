@@ -181,8 +181,8 @@ def main(args):
             with accelerator.accumulate([internvl]):
                 internvl.train()
                 pixel_values = batch["pixel_values"].to(accelerator.device, dtype)
-                # input_ids = batch["input_ids"].to(accelerator.device)
-                # attention_mask = batch["attention_mask"].to(accelerator.device)
+                input_ids = batch["input_ids"].to(accelerator.device)
+                attention_mask = batch["attention_mask"].to(accelerator.device)
 
                 x_intern = (pixel_values - imagenet_mean) / imagenet_std
                 x_vae = pixel_values * 2 - 1
@@ -196,12 +196,19 @@ def main(args):
 
                 # ----- compute AR loss -----
                 B = x_clip.shape[0]
-                text_embedding = internvl.language_model.get_input_embeddings()(clip_prompt_ids).clone().repeat(B, 1, 1)
-                boi_embedding = internvl.language_model.get_input_embeddings()(img_token_id).clone().repeat(B, 1, 1)
+                # 使用clip prompts做重建任务
+                # text_embedding = internvl.language_model.get_input_embeddings()(clip_prompt_ids).clone().repeat(B, 1, 1)
+                # boi_embedding = internvl.language_model.get_input_embeddings()(img_token_id).clone().repeat(B, 1, 1)
+                # img_embedding = internvl.clip_projector(x_gen)
+                # joint_embedding = torch.cat((text_embedding, clip_embedding, boi_embedding, img_embedding), dim=1)
+                # attention_mask = torch.ones((B, 5 + 256 + 1 + config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
+                
+                # 使用caption, 做T2I任务
+                text_embedding = internvl.language_model.get_input_embeddings()(input_ids).clone()
                 img_embedding = internvl.clip_projector(x_gen)
-                joint_embedding = torch.cat((text_embedding, clip_embedding, boi_embedding, img_embedding), dim=1)
-
-                attention_mask = torch.ones((B, 5 + 256 + 1 + config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
+                joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+                img_mask = torch.ones((B, config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
+                attention_mask = torch.cat([attention_mask, img_mask], dim=1)
 
                 hidden_states = internvl.language_model(
                     inputs_embeds        = joint_embedding,
@@ -236,10 +243,14 @@ def main(args):
                 sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise        
 
+                # 对batch中的每个样本独立采样, 有p的概率使用x_gen作为context, 剩下的1-p的概率，context为全零的tensor
+                p = torch.rand(B)
+                context = torch.where(p > 0.1, x_gen, torch.zeros_like(x_gen))
+
                 model_pred = internvl.mmdit(
                     x           = noisy_model_input,
                     t           = timesteps,
-                    context     = x_gen,
+                    context     = context.to(device=model_input.device),
                     y           = None,
                     multi_modal_context = True,
                 )

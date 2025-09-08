@@ -17,8 +17,8 @@ model:
 # --------------------------------------------------
 train:
   root: null
-  resume_path: /data/phd/jinjiachun/experiment/pos/0908_joint_proj_2b_vf_xgen_context_query_hat/internvl-pos-46000
-  global_step: 46000
+  resume_path: /data/phd/jinjiachun/experiment/pos/0908_joint_proj_2b_vf_xgen_context_query_hat/internvl-pos-48000
+  global_step: 48000
 
   exp_name: &exp_name pos
   wandb_proj: *exp_name
@@ -26,7 +26,7 @@ train:
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: wandb
 
   lr: 1e-4
   num_iter: 500000
@@ -42,4 +42,4 @@ data:
   num_workers: 8
   cfg_drop_rate: 0.0
   num_img_token: 256
-  max_seq_length: 512
+  max_seq_length: 518
