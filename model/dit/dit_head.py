@@ -268,8 +268,8 @@ def add_hat_to_intern(model: Qwen2Model, num_hat: int):
     all_layers = front_layers + original_layers + back_layers
     
     # 更新model.layers - 直接赋值列表，PyTorch会自动处理
-    model.layers.clear()
-    model.layers.extend(all_layers)
+    model.layers = nn.ModuleList(all_layers)
+    # model.layers.extend(all_layers)
     
     # 更新配置中的层数
     model.config.num_hidden_layers = len(model.layers)
