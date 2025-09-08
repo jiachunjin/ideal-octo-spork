@@ -14,6 +14,7 @@ model:
     load_pretrained: false
   hp_ar: 10
   hp_dit: 1
+  recon_ratio: 0.5
 # --------------------------------------------------
 train:
   root: null
@@ -22,7 +23,7 @@ train:
 
   exp_name: &exp_name pos
   wandb_proj: *exp_name
-  output_dir: 0908_rec_only
+  output_dir: 0908_both_task
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
@@ -30,7 +31,7 @@ train:
 
   lr: 1e-4
   num_iter: 500000
-  save_every: 1000
+  save_every: 2000
 # --------------------------------------------------
 data:
   wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
