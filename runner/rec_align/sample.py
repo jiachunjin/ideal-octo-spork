@@ -123,10 +123,24 @@ def sample():
         print(text_embedding.shape)
 
         generated_tokens = torch.zeros((1, 256, 16)).to(device, dtype)
+        
+        # 初始化past_key_values
+        past_key_values = None
 
         for i in trange(256):
-            outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
+            # 第一次迭代使用完整的text_embedding，后续只使用新生成的token
+            if i == 0:
+                current_input = text_embedding
+            else:
+                current_input = img_embeds
+                
+            outputs = internvl.language_model.model(
+                inputs_embeds=current_input, 
+                use_cache=True, 
+                past_key_values=past_key_values
+            )
             hidden_states = outputs.last_hidden_state
+            past_key_values = outputs.past_key_values
 
             z = hidden_states[:, -1, :]
 
@@ -134,8 +148,6 @@ def sample():
             img_embeds = internvl.clip_projector(next_token)
 
             generated_tokens[:, i] = next_token.squeeze()
-            
-            text_embedding = img_embeds
 
         print(generated_tokens.shape)
 
