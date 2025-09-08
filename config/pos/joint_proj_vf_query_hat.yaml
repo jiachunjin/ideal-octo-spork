@@ -12,7 +12,7 @@ model:
   mmdit:
     context_dim: 16
     sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
-    load_pretrained: true
+    load_pretrained: false
   use_query: true
   query:
     num_queries: 256
@@ -21,6 +21,9 @@ model:
   hat:
     num_hat: 4
   use_vf: false
+  hp_ar: 10
+  hp_dit: 1
+  hp_vf: 1
 # --------------------------------------------------
 train:
   root: null
