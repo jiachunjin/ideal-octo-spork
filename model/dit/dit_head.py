@@ -244,29 +244,36 @@ def equip_internvl(internvl, config):
     return internvl, train_scheduler
 
 def add_hat_to_intern(model: Qwen2Model, num_hat: int):
-    new_layers = []
     config = model.config
-    current_num_layers = len(model.layers)
-
-    for i in range(num_hat):
-        layer_idx = current_num_layers + i
-        new_layer = Qwen2DecoderLayer(config, layer_idx)
-        new_layers.append(new_layer)
-
-    model.layers.extend(new_layers)
-
-    # 在model.layers的前面也加上num_hat个新的layer
-    current_num_layers = len(model.layers)
-    for i in range(num_hat):
-        layer_idx = current_num_layers + i
-        new_layer = Qwen2DecoderLayer(config, layer_idx)
-        new_layers.append(new_layer)
+    original_num_layers = len(model.layers)
     
-    model.layers = nn.ModuleList(new_layers + model.layers)
-
+    # 创建要添加到前面的新层
+    front_layers = []
+    for i in range(num_hat):
+        layer_idx = original_num_layers + i  # 用于layer_idx的编号
+        new_layer = Qwen2DecoderLayer(config, layer_idx)
+        front_layers.append(new_layer)
+    
+    # 创建要添加到后面的新层
+    back_layers = []
+    for i in range(num_hat):
+        layer_idx = original_num_layers + num_hat + i  # 继续编号
+        new_layer = Qwen2DecoderLayer(config, layer_idx)
+        back_layers.append(new_layer)
+    
+    # 将原有的layers转换为列表
+    original_layers = list(model.layers)
+    
+    # 重新组合所有层：前面的新层 + 原有层 + 后面的新层
+    all_layers = front_layers + original_layers + back_layers
+    
+    # 更新model.layers - 直接赋值列表，PyTorch会自动处理
+    model.layers.clear()
+    model.layers.extend(all_layers)
+    
+    # 更新配置中的层数
     model.config.num_hidden_layers = len(model.layers)
-    # model.config.layer_types.extend(["full_attention"] * num_hat)
-
+    
     return model
 
 class DiT_Head(nn.Module):
