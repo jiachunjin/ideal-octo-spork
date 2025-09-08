@@ -243,8 +243,8 @@ def main(args):
                 sigmas = get_sigmas(timesteps, n_dim=model_input.ndim, dtype=model_input.dtype)
                 noisy_model_input = (1.0 - sigmas) * model_input + sigmas * noise        
 
-                # 对batch中的每个样本独立采样, 有p的概率使用x_gen作为context, 剩下的1-p的概率，context为全零的tensor
-                p = torch.rand(B)
+                # 对batch中的每个样本独立采样, 有90%的概率使用x_gen作为context, 剩下的10%的概率，context为全零的tensor
+                p = torch.rand(B, 1, 1).to(x_gen.device)  # 形状为 (B, 1, 1) 以便广播到 (B, L, D)
                 context = torch.where(p > 0.1, x_gen, torch.zeros_like(x_gen))
 
                 model_pred = internvl.mmdit(
