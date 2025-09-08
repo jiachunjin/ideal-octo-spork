@@ -49,9 +49,10 @@ def diff_generate(feature, diff_head):
 def sample():
     # exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b"
     # exp_dir = "/data/phd/jinjiachun/experiment/pos/0905_joint_proj_2b_vf"
-    exp_dir = "/data/phd/jinjiachun/experiment/pos/0908_joint_proj_2b_vf_xgen_context_query"
+    # exp_dir = "/data/phd/jinjiachun/experiment/pos/0908_joint_proj_2b_vf_xgen_context_query"
+    exp_dir = "/data/phd/jinjiachun/experiment/pos/0908_joint_proj_2b_vf_xgen_context_query_hat"
     exp_name = exp_dir.split("/")[-1]
-    step = 38000
+    step = 46000
     device = "cuda:0"
     dtype = torch.float16
 
@@ -97,7 +98,7 @@ def sample():
         "Little girl and her huskies share a cozy moment indoors.",
         "A woman with a scarf, holding her head and chest, appears unwell while checking her temperature.",
     ]
-    cfg_scale = 1.1
+    cfg_scale = 2
 
     for idx, prompt_txt in enumerate(prompts):
         if config.data.use_template:
@@ -135,7 +136,8 @@ def sample():
         generated_tokens = torch.zeros((1, 256, 16)).to(device, dtype)
         hidden_states_store = []
         for i in trange(256):
-            text_embedding[:, -1, :] += internvl.query[i].unsqueeze(0).repeat(2, 1)
+            if config.model.use_query:
+                text_embedding[:, -1, :] += internvl.query[i].unsqueeze(0).repeat(2, 1)
             # print(text_embedding[:, -1, :].shape, internvl.query[i].unsqueeze(0).repeat(2, 1).shape)
             outputs = internvl.language_model.model(inputs_embeds=text_embedding, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)
             hidden_states = outputs.last_hidden_state
