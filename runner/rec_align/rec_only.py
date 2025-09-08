@@ -211,9 +211,6 @@ def main(args):
 
                 hidden_state = hidden_states[:, -config.data.num_img_token-1:-1, :]
 
-                accelerator.print(joint_embedding.shape, attention_mask.shape, hidden_states.shape)
-                exit(0)
-
                 z = rearrange(hidden_state, "B L D -> (B L) D")
                 gt_feature = rearrange(x_gen.detach(), "B L D -> (B L) D")
                 timesteps = torch.randint(0, 1000, (z.shape[0],), dtype=torch.int64, device=z.device)
