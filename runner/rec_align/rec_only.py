@@ -175,46 +175,45 @@ def main(args):
     img_token_id = tokenizer("<img>", return_tensors="pt").input_ids
     print(clip_prompt_ids, img_token_id)
     print(clip_prompt_ids.shape, img_token_id.shape)
-    exit()
 
     while not training_done:
         for batch in dataloader:
             with accelerator.accumulate([internvl]):
                 internvl.train()
                 pixel_values = batch["pixel_values"].to(accelerator.device, dtype)
-                input_ids = batch["input_ids"].to(accelerator.device)
-                attention_mask = batch["attention_mask"].to(accelerator.device)
+                # input_ids = batch["input_ids"].to(accelerator.device)
+                # attention_mask = batch["attention_mask"].to(accelerator.device)
 
                 x_intern = (pixel_values - imagenet_mean) / imagenet_std
                 x_vae = pixel_values * 2 - 1
 
                 with torch.no_grad():
-                    x_clip = extract_feature_pre_adapter(internvl.vision_model, x_intern)
+                    x_clip = extract_feature_pre_adapter(internvl.vision_model, x_intern) # (B, 256, 4096)
+                    clip_embedding = internvl.mlp1(x_clip) # (B, 256, hidden_size)
                     vae_latent = vae.encode(x_vae).latent_dist.sample().to(dtype)
-                    # accelerator.print(x_gen.norm(dim=-1))
-                    # visual_gen_feature = internvl.clip_projector(visual_gen_feature)
+
                 x_gen = internvl.down_projector(x_clip) / int(config.model.diffhead.x_dim ** 0.5)
 
                 # ----- compute AR loss -----
-                B, L = input_ids.shape
-                text_embedding = internvl.language_model.get_input_embeddings()(input_ids).clone()
+                B = x_clip.shape[0]
+                text_embedding = internvl.language_model.get_input_embeddings()(clip_prompt_ids).clone().repeat(B, 1, 1)
+                boi_embedding = internvl.language_model.get_input_embeddings()(img_token_id).clone().repeat(B, 1, 1)
                 img_embedding = internvl.clip_projector(x_gen)
-                joint_embedding = torch.cat((text_embedding, img_embedding), dim=1)
+                joint_embedding = torch.cat((text_embedding, clip_embedding, boi_embedding, img_embedding), dim=1)
 
-                if config.model.use_query:
-                    querys = internvl.query.unsqueeze(0).repeat(B, 1, 1)
-                    joint_embedding[:, -256-1:-1, :] += querys
-                    # joint_embedding = torch.cat((text_embedding, querys_embedding), dim=1)
-
-                img_mask = torch.ones((B, config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
-                attention_mask = torch.cat([attention_mask, img_mask], dim=1)
+                attention_mask = torch.ones((B, 5 + 256 + 1 + config.data.num_img_token), dtype=torch.bool, device=accelerator.device)
 
                 hidden_states = internvl.language_model(
                     inputs_embeds        = joint_embedding,
                     attention_mask       = attention_mask,
                     output_hidden_states = True,
                 ).hidden_states[-1]
+
                 hidden_state = hidden_states[:, -config.data.num_img_token-1:-1, :]
+
+                accelerator.print(joint_embedding.shape, attention_mask.shape, hidden_states.shape)
+
+                exit(0)
 
                 z = rearrange(hidden_state, "B L D -> (B L) D")
                 gt_feature = rearrange(x_gen.detach(), "B L D -> (B L) D")
