@@ -107,6 +107,8 @@ def main(args):
 
     if config.train.resume_path is not None:
         ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
+        if config.train.skipped_keys:
+            ckpt = {k: v for k, v in ckpt.items() if k not in config.train.skipped_keys}
         m, u = internvl.load_state_dict(ckpt, strict=False)
         print(f"missing keys: {m}")
         print(f"unexpected keys: {u}")
@@ -250,7 +252,12 @@ def main(args):
 
                 # 对batch中的每个样本独立采样, 有90%的概率使用x_gen作为context, 剩下的10%的概率，context为全零的tensor
                 p = torch.rand(B, 1, 1).to(accelerator.device)  # 形状为 (B, 1, 1) 以便广播到 (B, L, D)
-                context = torch.where(p > 0.1, x_gen, torch.zeros_like(x_gen))
+                if config.model.mmdit.context_dim > config.model.diffhead.x_dim:
+                    # mmidt use hidden state rather output
+                    mmdit_condition = hidden_states[:, :-1, :]
+                    context = torch.where(p > 0.1, mmdit_condition, torch.zeros_like(mmdit_condition))
+                else:
+                    context = torch.where(p > 0.1, x_gen, torch.zeros_like(x_gen))
 
                 model_pred = internvl.mmdit(
                     x           = noisy_model_input,

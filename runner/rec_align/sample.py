@@ -50,8 +50,8 @@ def sample():
     # exp_dir = "/data/phd/jinjiachun/experiment/pos/0908_both_task"
     exp_dir = "/data/phd/jinjiachun/experiment/pos/0908_t2i_only"
     exp_name = exp_dir.split("/")[-1]
-    step = 50000
-    device = "cuda:0"
+    step = 74000
+    device = "cuda:1"
     dtype = torch.float16
 
     config_path = os.path.join(exp_dir, "config.yaml")
@@ -78,6 +78,7 @@ def sample():
     # ----- sampling -----
     IMG_START_TOKEN = "<img>"
     prompts = [
+        "A yellow broccoli."
         "A stunning princess from kabul in red, white traditional clothing, blue eyes, brown hair",
         "A soft, natural portrait photograph captures a young woman with fair skin and long, ash-blonde hair cascading gently over her shoulders. At the very bottom of the frame, in simple, elegant lettering, appears the phrase 'BE KIND'",
         "The image depicts a modern, multi-story building with a white facade and numerous balconies. The structure is partially covered in purple scaffolding on the right side, indicating ongoing construction or renovation. The building is situated in an urban area with clear blue skies above. In front of the building, there is a paved plaza with some greenery and a few palm trees. A street lamp stands prominently on the left side of the plaza. To the right, part of another building with a beige exterior is visible. The scene suggests a sunny day in a developed cityscape.",
@@ -95,7 +96,7 @@ def sample():
         "Little girl and her huskies share a cozy moment indoors.",
         "A woman with a scarf, holding her head and chest, appears unwell while checking her temperature.",
     ]
-    cfg_scale = 2
+    cfg_scale = 3
 
     for idx, prompt_txt in enumerate(prompts):
         if config.data.use_template:
@@ -111,7 +112,7 @@ def sample():
         print(prompt)
 
         tokenizer_output = tokenizer(
-            [prompt],
+            [prompt, prompt],
             padding        = True,
             padding_side   = "left",
             truncation     = True,
@@ -122,7 +123,7 @@ def sample():
         text_embedding = internvl.language_model.get_input_embeddings()(input_ids).to(device)
         print(text_embedding.shape)
 
-        generated_tokens = torch.zeros((1, 256, 16)).to(device, dtype)
+        generated_tokens = torch.zeros((2, 256, 16)).to(device, dtype)
         
         # 初始化past_key_values
         past_key_values = None
@@ -132,10 +133,10 @@ def sample():
             if i == 0:
                 current_input = text_embedding
             else:
-                current_input = img_embeds
-                
+                current_input = img_embeds.unsqueeze(dim=1)
+
             outputs = internvl.language_model.model(
-                inputs_embeds=current_input, 
+                inputs_embeds=current_input,
                 use_cache=True, 
                 past_key_values=past_key_values
             )
@@ -147,7 +148,7 @@ def sample():
             next_token = diff_generate(z, internvl.diff_head)
             img_embeds = internvl.clip_projector(next_token)
 
-            generated_tokens[:, i] = next_token.squeeze()
+            generated_tokens[:, i] = next_token
 
         print(generated_tokens.shape)
 

@@ -1,0 +1,47 @@
+machine: ks
+# --------------------------------------------------
+model:
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3-2B
+  clip_feature_dim: 4096
+  diffhead:
+    hidden_size: &z_dim 1536
+    depth: 2
+    x_dim: 16
+    z_dim: *z_dim
+  mmdit:
+    context_dim: *z_dim
+    sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
+    load_pretrained: false
+  hp_ar: 10
+  hp_dit: 1
+  recon_ratio: 0.25
+# --------------------------------------------------
+train:
+  root: null
+  resume_path: /data/phd/jinjiachun/experiment/pos/0908_both_task/internvl-pos-74000
+  skipped_keys: [mmdit.context_embedder.weight, mmdit.context_embedder.bias]
+  global_step: 0
+
+  exp_name: &exp_name pos
+  wandb_proj: *exp_name
+  output_dir: 0908_both_task_hiddenstate
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 500000
+  save_every: 2000
+# --------------------------------------------------
+data:
+  wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
+  use_template: false
+  num_train_examples: 35000000
+  img_size: 448
+  buffer_size: 500
+  batch_size: 16
+  num_workers: 8
+  cfg_drop_rate: 0.0
+  num_img_token: 256
+  max_seq_length: 518
